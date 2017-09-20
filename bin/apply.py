@@ -2,6 +2,8 @@
 
 import argparse
 
+import sys
+
 from gdm import execute_gdm_configurations
 from k8s import apply_kubernetes_state
 from util.environment import load_environment
@@ -57,6 +59,8 @@ def main():
     except Exception:
         print "Exception encountered - here's the fully merged environment (exception will follow):"
         print open('.merged-environment.json', mode='r').read()
+        sys.stdout.flush()
+        sys.stderr.flush()
         raise
 
 
