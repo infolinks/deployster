@@ -6,6 +6,31 @@ Deployster is an opinionated deployment tool, tying together deployment
 configuration, GCE assets and GKE manifests to a full, reproducible
 deployment.
 
+## Invocation
+
+To run Deployster, simply run the container with the necessary arguments
+like so:
+
+    docker run \
+        -e "GCP_SA_JSON=$(cat service_account.json)" \
+        -v /path/to/your/staging/files:/deploy/staging/" \
+        infolinks/deployster \
+        --org-id "<your orgnization numeric ID>" \
+        --billing-account-id "<your billing account ID>" \
+        --gcr-project "<the project hosting GCR>" \
+        --project "<target GCP project for deployment>" \
+        --env "<logical environment name>" \
+        "/deploy/staging/environments/env.json" \
+        "/deploy/staging/environments/custom.json"
+
+The `service_account.json` file should contain a service account key
+(in JSON format) that Deployster will use to connect to your Google
+Cloud projects.
+
+The `/path/to/your/staging/files` directory should contain your GDM,
+Kubernetes & environment files. See below for what these files are and
+how to structure them.
+
 ## Methodology
 
 Deployster aims to unify and tie together a typical Kubernetes deployment
