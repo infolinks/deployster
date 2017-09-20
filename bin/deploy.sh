@@ -25,4 +25,4 @@ if [[ $? != 0 ]]; then
 fi
 
 # proceed to actual deployment
-exec $(dirname $0)/apply.py $@
+GOOGLE_APPLICATION_CREDENTIALS="${GCP_SA_JSON_FILE}" PYTHONUNBUFFERED=1 exec $(dirname $0)/apply.py $@
