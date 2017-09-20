@@ -11,4 +11,4 @@ RUN apt-get update -qqy && apt-get install -qqy jq && rm -rf /var/lib/apt/lists/
         python-dateutil \
         subprocess32
 WORKDIR /deploy/staging
-ENTRYPOINT ["/deploy/bin/apply.py"]
+ENTRYPOINT ["/deploy/bin/apply.sh"]
