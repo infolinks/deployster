@@ -113,3 +113,18 @@ def wait_for_google_deployment_manager_operation(project_id, op):
         sys.stdout.flush()
         sys.stderr.flush()
         raise Exception("operation failed (see errors above)")
+
+
+def collect_project_static_ips(project_id):
+    print "Fetching all static IP addresses for project '%s'..." % project_id
+
+    result = get_compute().addresses().aggregatedList(project=project_id, maxResults=500).execute()
+
+    project_addresses = {}
+    for region in result['items'].values():
+        if 'addresses' in region:
+            for addr in region['addresses']:
+                addr_name = addr['name']
+                ip_address = addr['address']
+                project_addresses[addr_name] = ip_address
+    return project_addresses
