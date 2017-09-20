@@ -108,16 +108,16 @@ Deployment Manager manifest files, where each `YAML` file is a single
 these files (the _Google Deployment Manager's Deployments_) as GDM
 manifests.
 
-Each such manifest is a `YAML` file, located under the `deployments`
-directory, that describes a set of resources that need to be present in
-the target environment, like VMs, IP addresses, TLS certificates, etc.
-These `YAML` files are submitted to Google Deployment Manager upon
-deployment for processing.
+Each such manifest is a `YAML` file, located under the
+`/deploy/staging/deployments` directory, that describes a set of
+resources that need to be present in the target environment, like VMs,
+IP addresses, TLS certificates, etc. These `YAML` files are submitted to
+Google Deployment Manager upon deployment for processing.
 
-Note that Deployster, however, will not simply deploy all `YAML` files
-in the `deployments` directory - instead it will obtain the list of GDM
-manifests to deploy from the environment context. The way to specify the
-list of GDM manifests in your environment context is like this:
+Note that Deployster, however, will not simply deploy all `YAML` files -
+instead it will obtain the list of GDM manifests to deploy from the
+environment context. The way to specify the list of GDM manifests in
+your environment context is like this:
 
     {
         ...
@@ -210,7 +210,8 @@ it.
 
 The deployment process is applying Kubernetes configuration maps and
 manifests onto the Kubernetes cluster using manifests under the
-`kubernetes` directory. This directory contains the following sections:
+`/deploy/staging/kubernetes` directory. This directory contains the
+following sections:
 
 * The `security` directory contains manifests that apply required
   security bindings necessary for deployment (both for this project and
