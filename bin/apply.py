@@ -40,7 +40,7 @@ def main():
     args = argparser.parse_args()
 
     # build the environment from the list of JSON files provided
-    env = load_environment(args.name, args.files)
+    env = load_environment(args.env, args.files)
     try:
 
         # locate/build the GCP project and store it in the environment dictionary
