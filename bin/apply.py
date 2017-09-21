@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 import argparse
-
+import json
 import sys
 
 from gdm import execute_gdm_configurations
@@ -12,6 +12,9 @@ from util.project import setup_project
 
 def main():
     argparser = argparse.ArgumentParser(description='Apply deployment specification to the target GCP environment.')
+    argparser.add_argument('--print-only',
+                           action='store_true',
+                           help='if specified, will only print the merged environment context and quit (exit code 0)')
     argparser.add_argument('--org-id',
                            metavar='ID',
                            type=int,
@@ -43,6 +46,12 @@ def main():
 
     # build the environment from the list of JSON files provided
     env = load_environment(args.env, args.files)
+
+    # if print-only, print & exit
+    if args.print_only:
+        print json.dumps(env, indent=2)
+        exit(0)
+
     try:
 
         # locate/build the GCP project and store it in the environment dictionary
