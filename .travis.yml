@@ -22,3 +22,9 @@ after_script:
           --repo="${TRAVIS_REPO_SLUG}" \
           --commit="${TRAVIS_COMMIT}"
     fi
+notifications:
+  slack:
+    secure: yrkE3BZ+qiDB6PG35ot6hB/AJHETJPlv/EXRKl4rnfCFx2i5pInkO9LSKkgDTdY2hf1d6eEc2QvZcLh9GBCelTFiqaE4zNKGVoyxuTA3WwOn62JUnOpvbuoF/8xP1G9oMY2C9TtA/ND598nL9yBlq5xkvUW79N8XeboIlQUmdyXZYchHVeZUpGApDgN226Gqaxs+HErkQPioXJdwMSVG6P6V8kblHIVntKlA45Mg95YySuuwSvQ7kONGbVu7q1sa2KiX17Nzmmuk1JSNLJHSphh+gvtwspnjxIWnbDcVle77cWPg3rTlAXRPjT8HQh2TRdIf+xAY+gY4aqJCf6Am69OjXQyScYYVfP5Q7NCKXHdGX8JXzfOQO+sLUkQobMWeRZZBOE9LDWH1KCaaM1qiiKIjSv7OlYfWTOWWav9vUbHUwUZkRBPJyuExcEFrn540fkp2RKmyhNDfFixSje5YAxI743zCUN06VipZ24idUu8tw7hECQogR2LbFKe+zjQYjy8b1hGpFbtIkwJzxZnwZjWTVDp8fJhVgbdjF9RrHaOnrHiflTfI+ek03Zf+VNqJ7u2oZfTsxjsqCJ5mVkaKC8btEMuXBp/QfKA6WLXD3oRH/O2efqR38SGhE/0eaShCrxkxjNUpWxrw+uDCxUK1h/AQxgimrf3/erK9GNiJqAw=
+    on_success: always
+    on_failure: always
+    on_pull_requests: true
