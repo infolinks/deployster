@@ -46,8 +46,8 @@ def execute_deployment(env, deployment_name, strategy):
 
     # if first deployment, just create it and return
     if not deployment_exists(project_id, deployment_name):
-        sys.stdout.write("Creating deployment '%s'..." % deployment_name)
-        sys.stdout.flush()
+        sys.stderr.write("Creating deployment '%s'..." % deployment_name)
+        sys.stderr.flush()
         wait_for_google_deployment_manager_operation(project_id, deployments_service.insert(
             project=project_id, body=body).execute())
         return
@@ -65,36 +65,36 @@ def execute_deployment(env, deployment_name, strategy):
 
     # skip if there's no change, and the strategy is not configured to UPDATE ALWAYS
     if strategy != "update_always" and body['target']['config']['content'] == manifest['config']['content']:
-        sys.stdout.write("Skipping deployment '%s' (no change)\n" % deployment_name)
-        sys.stdout.flush()
+        sys.stderr.write("Skipping deployment '%s' (no change)\n" % deployment_name)
+        sys.stderr.flush()
         return
 
     # if strategy is to recreate the deployment, we first delete it, and then create it
     if strategy == "recreate":
-        sys.stdout.write("Deleting deployment '%s'..." % deployment_name)
-        sys.stdout.flush()
+        sys.stderr.write("Deleting deployment '%s'..." % deployment_name)
+        sys.stderr.flush()
         wait_for_google_deployment_manager_operation(project_id,
                                                      deployments_service.delete(project=project_id,
                                                                                 deployment=deployment_name,
                                                                                 deletePolicy='DELETE').execute())
 
-        sys.stdout.write("Creating deployment '%s'..." % deployment_name)
-        sys.stdout.flush()
+        sys.stderr.write("Creating deployment '%s'..." % deployment_name)
+        sys.stderr.flush()
         wait_for_google_deployment_manager_operation(project_id,
                                                      deployments_service.insert(project=project_id,
                                                                                 body=body).execute())
 
     # otherwise if strategy is to ONLY create (no updates) then just log a warning that the change IS NOT applied
     elif strategy == "create_only" and manifest['config']['content'] != '':
-        sys.stdout.write("\n-------------------------------------------------------------------------------------\n")
-        sys.stdout.write("SKIPPING MODIFIED CREATE-ONLY DEPLOYMENT '%s' (ALREADY EXISTS)\n" % deployment_name)
-        sys.stdout.write("-------------------------------------------------------------------------------------\n\n")
-        sys.stdout.flush()
+        sys.stderr.write("\n-------------------------------------------------------------------------------------\n")
+        sys.stderr.write("SKIPPING MODIFIED CREATE-ONLY DEPLOYMENT '%s' (ALREADY EXISTS)\n" % deployment_name)
+        sys.stderr.write("-------------------------------------------------------------------------------------\n\n")
+        sys.stderr.flush()
         return
 
     else:
-        sys.stdout.write("Updating deployment '%s'..." % deployment_name)
-        sys.stdout.flush()
+        sys.stderr.write("Updating deployment '%s'..." % deployment_name)
+        sys.stderr.flush()
         deployment = deployment
         body['description'] = deployment['description'] if 'description' in deployment else 'Auto-generated'
         body['fingerprint'] = deployment['fingerprint']
@@ -109,7 +109,7 @@ def execute_deployment(env, deployment_name, strategy):
 
 def execute_gdm_configurations(env):
     if 'gdm' not in env or 'configurations' not in env['gdm']:
-        print "No Google Deployment Manager configuration found in environment."
+        sys.stderr.write("No Google Deployment Manager configuration found in environment.\n")
         return
 
     # Deployment strategy can be:
@@ -126,7 +126,7 @@ def execute_gdm_configurations(env):
         strategy_ = deployment['strategy'] if 'strategy' in deployment else default_deployment_strategy
         execute_deployment(env, name_, strategy_)
     end = time.time()
-    print "Executed deployments in %s seconds." % str(end - start)
+    sys.stderr.write("Executed deployments in %s seconds.\n" % str(end - start))
 
     # collect and save all static IP addresses defined in the project; these are referenced in k8s manifests
     env['addresses'] = collect_project_static_ips(env['project']['projectId'])

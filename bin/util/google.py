@@ -89,25 +89,25 @@ def wait_for_google_deployment_manager_operation(project_id, op):
     hours = str(duration_seconds / 60 / 60).rjust(2, '0')
     minutes = str(duration_seconds / 60 % 60).rjust(2, '0')
     seconds = str(duration_seconds % 60).rjust(2, '0')
-    print op['status'] + ' (ran for ' + hours + ':' + minutes + ':' + seconds + ')'
+    sys.stderr.write(op['status'] + ' (ran for ' + hours + ':' + minutes + ':' + seconds + ')\n')
 
     # parse output and fail if the operation failed
     failed = False
     if 'statusMessage' in op:
-        print 'Result: ' + op['statusMessage']
+        sys.stderr.write('Result: ' + op['statusMessage'] + '\n')
     if 'warnings' in op and len(op['warnings']):
-        print 'Warnings: ' + json.dumps(op['warnings'])
+        sys.stderr.write('Warnings: ' + json.dumps(op['warnings']) + '\n')
     if 'httpErrorStatusCode' in op:
         failed = True
         http_error = str(op['httpErrorStatusCode']) + ' (' + op['httpErrorMessage'] + ')'
-        print 'HTTP error: ' + http_error
+        sys.stderr.write('HTTP error: ' + http_error + '\n')
     if 'error' in op and 'errors' in op['error'] and len(op['error']['errors']):
         failed = True
-        print str(len(op['error']['errors'])) + ' errors:'
+        sys.stderr.write(str(len(op['error']['errors'])) + ' errors:\n')
         for error in op['error']['errors']:
             code = error['code'] if 'code' in error else 'UNKNOWN_ERROR'
             message = error['message'] if 'message' in error else 'UNKNOWN ERROR'
-            print '* %s error at %s: %s' % (code, error['location'], message)
+            sys.stderr.write('* %s error at %s: %s\n' % (code, error['location'], message))
     if failed:
         time.sleep(1)
         sys.stdout.flush()
@@ -116,7 +116,7 @@ def wait_for_google_deployment_manager_operation(project_id, op):
 
 
 def collect_project_static_ips(project_id):
-    print "Fetching all static IP addresses for project '%s'..." % project_id
+    sys.stderr.write("Fetching all static IP addresses for project '%s'...\n" % project_id)
 
     result = get_compute().addresses().aggregatedList(project=project_id, maxResults=500).execute()
 

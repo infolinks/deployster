@@ -49,7 +49,7 @@ def main():
 
     # if print-only, print & exit
     if args.print_only:
-        print json.dumps(env, indent=2)
+        sys.stdout.write(json.dumps(env, indent=2))
         exit(0)
 
     try:
@@ -66,8 +66,8 @@ def main():
                 apply_kubernetes_state(env)
 
     except Exception:
-        print "Exception encountered - here's the fully merged environment (exception will follow):"
-        print open('.merged-environment.json', mode='r').read()
+        sys.stderr.write("Exception encountered - here's the fully merged environment (exception will follow):\n")
+        sys.stderr.write(open('.merged-environment.json', mode='r').read() + '\n')
         sys.stdout.flush()
         sys.stderr.flush()
         raise
