@@ -263,14 +263,7 @@ configuration files in the previous section. Therefor a manifest can
 reference configuration values from the environment context, allowing
 the manifest to contain dynamic per-environment values.
 
-## Contributions
-
-Any contribution to the project will be appreciated! Whether it's bug
-reports, feature requests, pull requests - all are welcome, as long as
-you follow our [contribution guidelines for this project](CONTRIBUTING.md)
-and our [code of conduct](CODE_OF_CONDUCT.md).
-
-### Local development
+## Local development
 
 For developers, in order to set up a development environment for this
 project, please follow these instructions:
@@ -334,3 +327,10 @@ project, please follow these instructions:
 
 * Support touching Kubernetes deployments when configmaps change, so they
   are restarted to take the new configuration into effect.
+
+## Contributions
+
+Any contribution to the project will be appreciated! Whether it's bug
+reports, feature requests, pull requests - all are welcome, as long as
+you follow our [contribution guidelines for this project](CONTRIBUTING.md)
+and our [code of conduct](CODE_OF_CONDUCT.md).
