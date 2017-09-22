@@ -49,6 +49,7 @@ def main():
 
     # if print-only, print & exit
     if args.print_only:
+        sys.stderr.write("Printing full environment context to stdout and quitting (ok)\n")
         sys.stdout.write(json.dumps(env, indent=2))
         exit(0)
 
