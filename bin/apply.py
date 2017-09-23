@@ -62,9 +62,8 @@ def main():
         execute_gdm_configurations(env)
 
         # apply Kubernetes resources if the 'cluster' key in the environment is non-null
-        if 'gdm' in env and 'configurations' in env['gdm']:
-            if 'cluster' in [c['name'] for c in env['gdm']['configurations']]:
-                apply_kubernetes_state(env)
+        if 'cluster' in env:
+            apply_kubernetes_state(env)
 
     except Exception:
         sys.stderr.write("Exception encountered - here's the fully merged environment (exception will follow):\n")
