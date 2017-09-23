@@ -2,19 +2,10 @@ language: generic
 sudo: required
 services:
   - docker
-
 before_script:
   - docker login -u "${DOCKERHUB_USERNAME}" -p "${DOCKERHUB_PASSWORD}"
 script:
-  - docker build -t infolinks/deployster:${TRAVIS_COMMIT} .
-after_success:
-  - |
-    if [[ ${TRAVIS_TAG} =~ ^v[0-9]+$ ]]; then
-      docker tag infolinks/deployster:${TRAVIS_COMMIT} infolinks/deployster:${TRAVIS_TAG}
-      docker push infolinks/deployster:${TRAVIS_TAG}
-      docker tag infolinks/deployster:${TRAVIS_COMMIT} infolinks/deployster:latest
-      docker push infolinks/deployster:latest
-    fi
+  - .travis/build.sh
 after_script:
   - |
     if [[ "${TRAVIS_BRANCH}" == "master" ]]; then
