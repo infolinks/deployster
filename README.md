@@ -12,15 +12,15 @@ To run Deployster, simply run the container with the necessary arguments
 like so:
 
     docker run \
-        -e "GCP_SA_JSON=$(cat service_account.json)" \
-        -v /path/to/your/staging/files:/deploy/staging/" \
+        -e "GCP_SA_JSON=$(cat service_account.json)" \      # enables 'gcloud' commands to authenticate to GCP
+        -v /path/to/your/staging/files:/deploy/staging/" \  # mount your deployment files in the container
         infolinks/deployster \
-        --org-id "<your orgnization numeric ID>" \
-        --billing-account-id "<your billing account ID>" \
-        --gcr-project "<the project hosting GCR>" \
-        --project "<target GCP project for deployment>" \
-        --env "<logical environment name>" \
-        "/deploy/staging/environments/env.json" \
+        --org-id "<your orgnization numeric ID>" \          # your GCP organization ID
+        --billing-account-id "<your billing account ID>" \  # your GCP billing account ID
+        --gcr-project "<the project hosting GCR>" \         # your GCP project hosting GCR
+        --project "<target GCP project for deployment>" \   # target GCP project to deploy to
+        --env "<logical environment name>" \                # logical name of the environment (similar to the GCP project usually)
+        "/deploy/staging/environments/env.json" \           # list of environment context files
         "/deploy/staging/environments/custom.json"
 
 The `service_account.json` file should contain a service account key
