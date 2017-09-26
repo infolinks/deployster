@@ -52,7 +52,7 @@ def apply_manifest(env, manifest_file, namespace_name):
 
 def apply_manifests(env, directory, namespace_name):
     if os.path.isdir(directory):
-        for manifest_entry in os.listdir(directory):
+        for manifest_entry in sorted(os.listdir(directory)):
             manifest_file = directory + '/' + manifest_entry
             if os.path.isfile(manifest_file) and manifest_file.endswith('.yaml'):
                 apply_manifest(env, manifest_file, namespace_name)
