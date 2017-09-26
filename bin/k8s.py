@@ -84,7 +84,8 @@ def apply_kubernetes_state(env):
 
     # last, apply the application manifests & configurations
     for ns in [ns for ns in os.listdir(k8s) if isdir(k8s + '/' + ns) and ns != 'system' and ns != 'security']:
-        if not subprocess.check_output("kubectl get namespace %s --ignore-not-found=true" % ns, shell=True):
-            sys.stderr.write("Creating namespace '%s'...\n" % ns)
-            subprocess.check_call("kubectl create namespace %s" % ns, shell=True)
-        apply_directory(env, k8s + '/' + ns, ns)
+        if not ns.endswith('.disabled'):
+            if not subprocess.check_output("kubectl get namespace %s --ignore-not-found=true" % ns, shell=True):
+                sys.stderr.write("Creating namespace '%s'...\n" % ns)
+                subprocess.check_call("kubectl create namespace %s" % ns, shell=True)
+            apply_directory(env, k8s + '/' + ns, ns)
