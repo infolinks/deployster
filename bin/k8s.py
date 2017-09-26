@@ -27,6 +27,8 @@ def apply_configmap(env, config_dir, config_name, namespace_name):
 
 
 def apply_configmaps(env, directory, namespace_name):
+    # TODO: consider removing configmap support from k8s.py, instead specfiying configmaps as YAMLs
+    #       when these configmaps need values from files, just use Jinja2 expressions for that
     if os.path.isdir(directory):
         for config_name in os.listdir(directory):
             config_dir = directory + '/' + config_name
