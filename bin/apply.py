@@ -17,6 +17,9 @@ def main():
     argparser.add_argument('--print-only',
                            action='store_true',
                            help='if specified, will only print the merged environment context and quit (exit code 0)')
+    argparser.add_argument('--print-env-on-error',
+                           action='store_true',
+                           help='if specified, will print the fully merged environment context on errors')
     argparser.add_argument('--org-id',
                            metavar='ID',
                            type=int,
@@ -104,8 +107,13 @@ def main():
             apply_kubernetes_state(env)
 
     except Exception:
-        sys.stderr.write("Exception encountered - here's the fully merged environment (exception will follow):\n")
-        sys.stderr.write(open('.merged-environment.json', mode='r').read() + '\n')
+        sys.stdout.flush()
+        sys.stderr.flush()
+        if args.print_env_on_error:
+            sys.stderr.write("Exception encountered - here's the fully merged environment (exception will follow):\n")
+            sys.stderr.write(open('.merged-environment.json', mode='r').read() + '\n')
+        else:
+            sys.stderr.write("Exception encountered:\n")
         sys.stdout.flush()
         sys.stderr.flush()
         raise
