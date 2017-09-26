@@ -6,7 +6,7 @@ Deployster is an opinionated deployment tool, tying together deployment
 configuration, GCE assets and GKE manifests to a full, reproducible
 deployment.
 
-## Invocation
+## Usage
 
 To run Deployster, simply run the container with the necessary arguments
 like so:
@@ -30,6 +30,36 @@ Cloud projects.
 The `/path/to/your/staging/files` directory should contain your GDM,
 Kubernetes & environment files. See below for what these files are and
 how to structure them.
+
+You can also extend Deployster, creating your own image - prepopulated
+with all the deployment descriptors & manifests. This approach allows
+you to essentially create a self-contained deployment container which
+is reproducible and consistent. Each time the container is run it will
+deploy the specific version inside it.
+
+To create a deployment container, put this in your `Dockerfile`:
+
+    FROM infolinks/deployster
+    MAINTAINER Your Name <you@my-org.com>
+    ADD ./environments /deploy/staging/environments/
+    ADD ./gdm /deploy/staging/gdm/
+    ADD ./kubernetes /deploy/staging/kubernetes/
+
+This assumes you have directories called `environments`, `gdm` &
+`kubernetes` in your project of course. Build it like this:
+
+    docker build -t my-org/my-deployment-container .
+
+Now, whenever you run the `my-org/my-deployment-container` image, it
+will deploy your application! Here's an example:
+
+    docker run \
+        -e "GCP_SA_JSON=$(cat your_service_account_key.json)" \
+        my-org/my-deployment-container \
+        --project my-gcp-project \
+        --env production \
+        "/deploy/staging/environments/default.json" \
+        "/deploy/staging/environments/production.json"
 
 ## Methodology
 
