@@ -56,6 +56,9 @@ will deploy your application! Here's an example:
     docker run \
         -e "GCP_SA_JSON=$(cat your_service_account_key.json)" \
         my-org/my-deployment-container \
+        --org-id "<your orgnization numeric ID>" \
+        --billing-account-id "<your billing account ID>" \
+        --gcr-project "<the project hosting GCR>" \
         --project my-gcp-project \
         --env production \
         "/deploy/staging/environments/default.json" \
