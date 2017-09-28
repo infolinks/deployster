@@ -76,14 +76,11 @@ def apply_kubernetes_state(env):
         "gcloud container clusters get-credentials --project %s -z %s %s" % (project_id, cluster_zone, cluster_name),
         shell=True)
 
-    # first we make sure administrative permissions are [re]applied on the cluster
-    apply_directory(env, '%s/security' % k8s, 'kube-system')
-
     # now apply the system manifests & configurations
-    apply_directory(env, '%s/system' % k8s, 'kube-system')
+    apply_directory(env, '%s/kube-system' % k8s, 'kube-system')
 
     # last, apply the application manifests & configurations
-    for ns in [ns for ns in os.listdir(k8s) if isdir(k8s + '/' + ns) and ns != 'system' and ns != 'security']:
+    for ns in [ns for ns in os.listdir(k8s) if isdir(k8s + '/' + ns) and ns != 'kube-system']:
         if not ns.endswith('.disabled'):
             if not subprocess.check_output("kubectl get namespace %s --ignore-not-found=true" % ns, shell=True):
                 sys.stderr.write("Creating namespace '%s'...\n" % ns)
