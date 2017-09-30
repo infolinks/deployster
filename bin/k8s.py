@@ -1,9 +1,11 @@
 import subprocess
 import sys
 
+import jinja2
 import os
-from jinja2 import Template
 from os.path import isdir
+
+from util.google import collect_project_static_ips
 
 
 def apply_configmap(env, config_dir, config_name, namespace_name):
@@ -27,8 +29,6 @@ def apply_configmap(env, config_dir, config_name, namespace_name):
 
 
 def apply_configmaps(env, directory, namespace_name):
-    # TODO: consider removing configmap support from k8s.py, instead specfiying configmaps as YAMLs
-    #       when these configmaps need values from files, just use Jinja2 expressions for that
     if os.path.isdir(directory):
         for config_name in os.listdir(directory):
             config_dir = directory + '/' + config_name
@@ -39,7 +39,7 @@ def apply_configmaps(env, directory, namespace_name):
 def apply_manifest(env, manifest_file, namespace_name):
     post_processed_manifest_path = manifest_file + '.pp'
     post_processed_manifest_file = open(post_processed_manifest_path, 'w')
-    post_processed_manifest_file.write(Template(open(manifest_file, 'r').read()).render(env))
+    post_processed_manifest_file.write(jinja2.Template(open(manifest_file, 'r').read()).render(env))
     post_processed_manifest_file.close()
     sys.stderr.write("Applying manifest '%s'...\n" % manifest_file)
     cmd = "kubectl apply --namespace=%s --filename=%s" % (namespace_name, post_processed_manifest_path)
@@ -70,6 +70,9 @@ def apply_kubernetes_state(env):
     cluster_name = env['cluster']['name']
     cluster_zone = env['cluster']['zone']
     k8s = '/deploy/staging/kubernetes'
+
+    # collect and save all static IP addresses defined in the project; these are referenced in k8s manifests
+    env['addresses'] = collect_project_static_ips(env['project']['projectId'])
 
     # authenticate kubectl to cluster
     subprocess.check_call(

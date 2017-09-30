@@ -20,6 +20,12 @@ def main():
     argparser.add_argument('--print-env-on-error',
                            action='store_true',
                            help='if specified, will print the fully merged environment context on errors')
+    argparser.add_argument('--skip-gdm',
+                           action='store_true',
+                           help='if specified, will skip Google Deployment Manager deployments')
+    argparser.add_argument('--skip-project-setup',
+                           action='store_true',
+                           help='if specified, will assume target GCP project is properly set up')
     argparser.add_argument('--org-id',
                            metavar='ID',
                            type=int,
@@ -97,10 +103,15 @@ def main():
     try:
 
         # locate/build the GCP project and store it in the environment dictionary
-        env['project'] = setup_project(args.org_id, args.billing_account_id, args.gcr_project_id, args.project_id)
+        env['project'] = setup_project(args.org_id,
+                                       args.billing_account_id,
+                                       args.gcr_project_id,
+                                       args.project_id,
+                                       not args.skip_project_setup)
 
         # apply google-deployment-manager configurations
-        execute_gdm_configurations(env)
+        if not args.skip_gdm:
+            execute_gdm_configurations(env)
 
         # apply Kubernetes resources if the 'cluster' key in the environment is non-null
         if 'cluster' in env:

@@ -6,13 +6,16 @@ from util.google import get_resource_manager, get_billing, get_service_managemen
 from util.google import wait_for_service_manager_operation
 
 
-def setup_project(organization_id, billing_account_id, gcr_project_id, project_id):
+def setup_project(organization_id, billing_account_id, gcr_project_id, project_id, setup=True):
     projects_service = get_resource_manager().projects()
 
     sys.stderr.write("Looking up project '%s'...\n" % project_id)
     result = projects_service.list(pageSize=500, filter="name:%s" % project_id).execute()
     projects = result['projects'] if 'projects' in result else []
     if len(projects) == 0:
+        if not setup:
+            raise Exception('project \'%s\' was not found!' % project_id)
+
         sys.stderr.write("Creating Google Cloud Project '%s'...\n" % project_id)
         result = projects_service.create(body={
             "projectId": project_id,
@@ -29,6 +32,9 @@ def setup_project(organization_id, billing_account_id, gcr_project_id, project_i
     else:
         sys.stderr.write("Project '%s' found\n" % project_id)
         project = projects[0]
+
+    if not setup:
+        return project
 
     # enable billing
     billing_service = get_billing().projects()

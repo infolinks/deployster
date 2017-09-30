@@ -4,7 +4,7 @@ import time
 import os
 from jinja2 import Template
 
-from util.google import get_deployment_manager, wait_for_google_deployment_manager_operation, collect_project_static_ips
+from util.google import get_deployment_manager, wait_for_google_deployment_manager_operation
 
 
 def collect_templates():
@@ -127,6 +127,3 @@ def execute_gdm_configurations(env):
         execute_deployment(env, name_, strategy_)
     end = time.time()
     sys.stderr.write("Executed deployments in %s seconds.\n" % str(end - start))
-
-    # collect and save all static IP addresses defined in the project; these are referenced in k8s manifests
-    env['addresses'] = collect_project_static_ips(env['project']['projectId'])
