@@ -361,6 +361,16 @@ project, please follow these instructions:
 * Support touching Kubernetes deployments when configmaps change, so they
   are restarted to take the new configuration into effect.
 
+* Support & document how to override environment context array values
+  (eg. `default.json` has a `"myKey": ["value1"]` and `custom.json` has
+  `"myKey": ["value2"]` and the desired state is `"myKey": ["value1","value2"]`).
+  It's possible though, that the array contains objects, and the
+  overriding environment just wants to override one of the keys in one
+  of the objects in that array - how should we support that?
+
+* Document literal configuration map support (augment configmaps with
+  values in environment context under `configurations` key)
+
 ## Contributions
 
 Any contribution to the project will be appreciated! Whether it's bug
