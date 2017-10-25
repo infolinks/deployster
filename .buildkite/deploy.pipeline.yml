@@ -1,0 +1,3 @@
+steps:
+  - label: deploy image to DockerHub
+    command: ./.buildkite/deploy.sh
