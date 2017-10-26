@@ -1,6 +1,6 @@
 # deployster
 
-[![Build Status](https://travis-ci.org/infolinks/deployser.svg?branch=master)](https://travis-ci.org/infolinks/deployster)
+[![Build status](https://badge.buildkite.com/b085786cdaac1f36a044eb99de470c4b8815a4ccd92281967c.svg)](https://buildkite.com/infolinks/infolinks-slash-deployster-ci)
 
 Deployster is an opinionated deployment tool, tying together deployment
 configuration, GCE assets and GKE manifests to a full, reproducible
