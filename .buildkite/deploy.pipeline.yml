@@ -4,6 +4,10 @@ steps:
     command:
       - '[[ "${BUILDKITE_GITHUB_DEPLOYMENT_ENVIRONMENT}" != "production" ]] && echo "Only \"production\" environment is currently supported." && exit 1'
       - gcloud docker -- tag gcr.io/infolinks-gcr/deployster:${BUILDKITE_COMMIT} infolinks/deployster:${VERSION}
-      - gcloud docker -- push infolinks/deployster:${VERSION}
       - gcloud docker -- tag infolinks/deployster:${VERSION} infolinks/deployster:latest
-      - gcloud docker -- push infolinks/deployster:latest
+
+      - METADATA="http://metadata.google.internal/computeMetadata/v1/project/attributes"
+      - docker login --username $(curl "${METADATA}/dockerhub-buildkite-username" -H "Metadata-Flavor: Google")
+                     --password $(curl "${METADATA}/dockerhub-buildkite-password" -H "Metadata-Flavor: Google")
+      - docker push infolinks/deployster:${VERSION}
+      - docker push infolinks/deployster:latest
