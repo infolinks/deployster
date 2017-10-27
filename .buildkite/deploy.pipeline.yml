@@ -7,8 +7,10 @@ steps:
       - gcloud docker -- tag infolinks/deployster:${VERSION} infolinks/deployster:latest
 
       - METADATA="http://metadata.google.internal/computeMetadata/v1/project/attributes"
+      - DOCKER_USERNAME=$(curl -sSL "${METADATA}/dockerhub-buildkite-username" -H "Metadata-Flavor: Google")
       - |
-        docker login --username $(curl "${METADATA}/dockerhub-buildkite-username" -H "Metadata-Flavor: Google")
-                     --password $(curl "${METADATA}/dockerhub-buildkite-password" -H "Metadata-Flavor: Google")
+        curl -sSL "${METADATA}/dockerhub-buildkite-password" -H "Metadata-Flavor: Google" |
+            docker login --username "${DOCKER_USERNAME}" --password-stdin
+
       - docker push infolinks/deployster:${VERSION}
       - docker push infolinks/deployster:latest
