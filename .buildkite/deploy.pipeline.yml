@@ -1,0 +1,9 @@
+steps:
+
+  - label: rebuild & push Docker image
+    command:
+      - '[[ "${BUILDKITE_GITHUB_DEPLOYMENT_ENVIRONMENT}" != "production" ]] && echo "Only \"production\" environment is currently supported." && exit 1'
+      - gcloud docker -- tag gcr.io/infolinks-gcr/deployster:${BUILDKITE_COMMIT} infolinks/deployster:${VERSION}
+      - gcloud docker -- tag infolinks/deployster:${VERSION} infolinks/deployster:latest
+      - docker push infolinks/deployster:${VERSION}
+      - docker push infolinks/deployster:latest
