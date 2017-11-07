@@ -2,378 +2,82 @@
 
 [![Build status](https://badge.buildkite.com/b085786cdaac1f36a044eb99de470c4b8815a4ccd92281967c.svg)](https://buildkite.com/infolinks/infolinks-slash-deployster-ci)
 
-Deployster is an opinionated deployment tool, tying together deployment
-configuration, GCE assets and GKE manifests to a full, reproducible
-deployment.
-
-## Usage
-
-To run Deployster, simply run the container with the necessary arguments
-like so:
-
-    docker run \
-        -e "GCP_SA_JSON=$(cat service_account.json)" \
-        -v /path/to/your/staging/files:/deploy/staging/" \
-        infolinks/deployster \
-        --org-id "<your orgnization numeric ID>" \
-        --billing-account-id "<your billing account ID>" \
-        --gcr-project "<the project hosting GCR>" \
-        --project "<target GCP project for deployment>" \
-        --env "<logical environment name>" \
-        "/deploy/staging/environments/env.json" \
-        "/deploy/staging/environments/custom.json"
-
-The `service_account.json` file should contain a service account key
-(in JSON format) that Deployster will use to connect to your Google
-Cloud projects.
-
-The `/path/to/your/staging/files` directory should contain your GDM,
-Kubernetes & environment files. See below for what these files are and
-how to structure them.
-
-You can also extend Deployster, creating your own image - prepopulated
-with all the deployment descriptors & manifests. This approach allows
-you to essentially create a self-contained deployment container which
-is reproducible and consistent. Each time the container is run it will
-deploy the specific version inside it.
-
-To create a deployment container, put this in your `Dockerfile`:
-
-    FROM infolinks/deployster
-    MAINTAINER Your Name <you@my-org.com>
-    ADD ./environments /deploy/staging/environments/
-    ADD ./gdm /deploy/staging/gdm/
-    ADD ./kubernetes /deploy/staging/kubernetes/
-
-This assumes you have directories called `environments`, `gdm` &
-`kubernetes` in your project of course. Build it like this:
-
-    docker build -t my-org/my-deployment-container .
-
-Now, whenever you run the `my-org/my-deployment-container` image, it
-will deploy your application! Here's an example:
-
-    docker run \
-        -e "GCP_SA_JSON=$(cat your_service_account_key.json)" \
-        my-org/my-deployment-container \
-        --org-id "<your orgnization numeric ID>" \
-        --billing-account-id "<your billing account ID>" \
-        --gcr-project "<the project hosting GCR>" \
-        --project my-gcp-project \
-        --env production \
-        "/deploy/staging/environments/default.json" \
-        "/deploy/staging/environments/production.json"
-
-## Methodology
-
-Deployster aims to unify and tie together a typical Kubernetes deployment
-sequence with an opinionated view of how to progress from an actual
-state to the desired state, strictly maintaining an **idempotent** workflow
-that enables reproducible and consistent deployments.
-
-The deployment sequence is composed of the following stages: (see below
-for a description of each stage)
-
-1. Target GCP project setup - generating and configuring a target GCP
-project.
-
-2. Build a unified environment context, out of multiple, ordered, JSON
-files.
-
-3. Apply a sequence of [Google Deployment Manager](https://cloud.google.com/deployment-manager/docs/)
-(GDM) configurations.
-
-4. Apply a sequence of [Kubernetes](https://kubernetes.io) configuration
-maps & manifests onto the Kubernetes cluster (if any).
-
-This sequence is designed to be idempotent, such as executing a
-deployment with the same environment & configuration should always yield
-the same result.
-
-### Target GCP project setup
-
-Resources will eventually have to be deployed into a GCP project.
-Deployster will automatically ensure that:
-
-1. The target project exists, or create it if not - under your GCP
-organization.
-
-2. Ensure that the project is associated with your Google billing
-account.
-
-3. Ensure that Google Deployment Manager API is enabled.
-
-4. Ensure that Google Logging API is enabled (for Stackdriver logging,
-mainly for the Kubernetes cluster).
-
-5. Ensure that Google Monitoring API is enabled (for Stackdriver's
-Kubernetes monitoring mainly).
-
-6. Ensure that the possibly-new GCP project's default compute service
-account has the `Storage Viewer` IAM role in your [Google Container Registry](https://cloud.google.com/container-registry/)
-project.
-
-Having such a process builtin makes Deployster very powerful due to the
-fact that you no longer have to manually set up distinct development or
-QA environments. Moreover, since the logic for creating these
-environments is embedded in Deployster and your configuration files,
-you can have environments that are almost identical to your production
-environment (with slight modifications in your dev/QA-specific JSON
-files, eg. smaller number of nodes in your cluster, use zones that are
-closer to the physical location of your development office, etc).
-
-### The Environment Context
-
-Deployster expects a list of JSON files upon execution. Those files are
-then merged (in the same order you provided them) to generate a unified
-JSON document - called _the environment_, or _the environment context_.
-This environment is used as a context for post-processing all your GDM
-& Kubernetes manifests, using the [Jinja2](http://jinja.pocoo.org/)
-templating engine.
-
-This enables making your GDM configurations & Kubernetes manifests
-dynamic - eg. setting the zone of a VM from a configuration value in the
-environment.
-
-For example, this GDM configuration creates a Google Compute Engine
-static IP address named `my-static-ip-address` in a region specified in
-the environment JSON key `myapp.geo.region`:
-
-    - name: my-static-ip-address
-      type: compute.v1.address
-      properties:
-        region: {{ myapp.geo.region }}
-
-Here's one of the environment JSON files:
-
-    {
-        // various properties here
-
-        "myapp": {
-            "geo": {
-                "region": "us-east1"
-            }
-        }
-
-        // various properties here
-    }
-
-### Google Deployment Manager
-
-GDM deployments, albeit a very generic name, are really aliases to Google
-Deployment Manager manifest files, where each `YAML` file is a single
-"deployment". To avoid confusion with a deployment process, we'll call
-these files (the _Google Deployment Manager's Deployments_) as GDM
-manifests.
-
-Each such manifest is a `YAML` file, located under the
-`/deploy/staging/deployments` directory, that describes a set of
-resources that need to be present in the target environment, like VMs,
-IP addresses, TLS certificates, etc. These `YAML` files are submitted to
-Google Deployment Manager upon deployment for processing.
-
-Note that Deployster, however, will not simply deploy all `YAML` files -
-instead it will obtain the list of GDM manifests to deploy from the
-environment context. The way to specify the list of GDM manifests in
-your environment context is like this:
-
-    {
-        ...
-        "gdm": {
-            "defaultStrategy": "update_if_changed",
-            "configurations": [
-                {
-                    "name": "certificates"
-                },
-                {
-                    "name": "cluster",
-                    "strategy": "create_only"
-                },
-                {
-                    "name": "weave-scope"
-                }
-            ]
-        },
-        ...
-    }
-
-You can see that the `gdm.configurations` JSON path is an array of JSON
-objects, each one denoting a single GDM manifest to be deployed. For
-each such manifest, we specify the name (which will be translated to a
-GDM manifest filename under the `deployments` directory) and optionally
-a deployment strategy (see below). If no deployment strategy is given,
-the `gdm.defaultStrategy` property is used, or if it's missing - the
-default strategy is `update_if_changed`.
-
-Specifying the list of GDM manifests to be deployed in your environment
-context has the benefit of applying different manifests to different
-environments - for example, you could create special manifests that are
-only meant to be deployed in development or QA environments that
-restrict access to your machines.
-
-#### Deployment strategy
-
-Some deployments in Google Deployment Manager require a different
-strategy than the simple _desired vs. actual_ resolve process - eg. when
-the deployment updates resources that Google Deployment Manager does not
-support updates for (eg. Kubernetes clusters). For such deployments, a
-conditional _drop then create_ (aka. _"recreate"_) strategy is more
-appropriate than the default _"update"_ strategy, or alternatively a
-_only create_ strategy will create the resource once, and never touch it
-again (you wouldn't want to drop & create the cluster in production now
-would ya?)
-
-The available strategies are:
-
-* The `update_always` strategy always submit the configuration to Google
-  Deployment Manager, letting it create any missing resources, delete
-  resources that are no longer present in the configuration, and update
-  resources whose configuration changed.
-
-* The `update_if_changed` strategy is the same as `update_always`, but
-  compares the configuration file contents to the currently stored copy
-  of the configuration in the Google Deployment Manager repository, and
-  only if they differ it will be submitted to Google Deployment Manager.
-  *This is the default mode*.
-
-* The `create_only` strategy will deploy the manifest if it has not yet
-  been deployed. Otherwise, if it exists it will leave it alone.
-
-* The `recreate` strategy is similar to `update_always` in that it
-  compares the file contents to the previously deployed one, but if
-  there's a difference, it will _*delete*_ the deployment first (**causing
-  any resources it previously created to be deleted as well!**) and then
-  create the deployment from scratch (hence the name "recreate").
-
-### Kubernetes
-
-[Kubernetes](https://kubernetes.io) is a "_Production-Grade Container
-Orchestration_" framework, intended to host applications and processes
-that are kept running automatically, with support for common
-architectural needs such as service discovery & load-balancing,
-isolation, manual & automatic scaling, etc.
-
-Deployment to Kubernetes clusters is performed using the `kubectl` tool
-which interacts with Kubernetes clusters for querying, administration &
-deployment. The input to this tool is a set of `YAML` files that
-describe the _desired state_ of resources that should be deployed in the
-cluster (such as configurations, pods, services, etc). The tool detects
-the _actual state_ of those resources, and then performs the necessary
-actions required to reach the _desired state_ from the _actual state_.
-
-Note that the creation of the actual cluster should be done _before_
-using this tool - in our case, using the Google Deployment Manager. Once
-a cluster exists, we can use this tool to deploy or update resources in
-it.
-
-The deployment process is applying Kubernetes configuration maps and
-manifests onto the Kubernetes cluster using manifests under the
-`/deploy/staging/kubernetes` directory. This directory contains the
-following sections:
-
-* The `security` directory contains manifests that apply required
-  security bindings necessary for deployment (both for this project and
-  for developers at large.)
-
-* The `system` directory contains configuration maps and manifests
-  intended to be deployed into the `kube-system` namespace. These are
-  infrastructure manifests that are not an intrinsic part of any
-  application.
-
-* Any other directory contains configuration maps and manifests that
-  should be deployed into a separate namespace (whose name is the name
-  of this sub-directory). We recommend creating a `app` sub-directory
-  and placing all your apps there. This provides a good enough isolation
-  between system resources (in `kube-system` namespace) and applicative
-  resources (in the `app` namespace)
-
-The deployment process will deploy these three sections in the order
-specified above.
-
-Each manifest is treated as a [Jinja2](http://jinja.pocoo.org/docs/2.9/)
-template, just as described for the Google Deployment Manager
-configuration files in the previous section. Therefor a manifest can
-reference configuration values from the environment context, allowing
-the manifest to contain dynamic per-environment values.
-
-## Local development
-
-For developers, in order to set up a development environment for this
-project, please follow these instructions:
-
-1. Install Python 2.7.x
-
-2. Ensure you have the `virtual` package
-
-    If you're on `Fedora`, you can run this:
-
-        sudo dnf install python2-virtualenv
-
-    Otherwise, use `pip`:
-
-        pip install --upgrade virtualenv
-
-    See [virtualenv](https://virtualenv.pypa.io/en/stable/) for more
-    information.
-
-3. Create or activate a virtualenv in `python` by running this at the
-   repository root:
-
-        virtualenv .python2.7
-        source ./.python2.7/bin/activate
-        pip install jsonmerge Jinja2 google-api-python-client
-
-    **NOTE:** the last step (`pip install ...`) is a one time step, so
-    once you've created the virtual environment and executed the `pip`
-    step, you no longer need to run it again (unless you deleted the
-    `.python2.7` directory of course).
-
-4. Ensure you're authenticated to `gcloud`:
-
-        gcloud auth application-default login
-
-    [See here](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login) for more information.
-
-5. Deploy! Execute this in the repository root:
-
-        PYTHONUNBUFFERED=1 ./bin/apply.py ...
-
-    For example:
-
-        PYTHONUNBUFFERED=1 ./bin/apply.py \
-                --org-id 123 \
-                --billing-account-id 321 \
-                --gcr-project my-gcr-project \
-                --project my-qa-project \
-                --env qa \
-                default.json qa.json
-
-    This will deploy to the `qa` environment, which will reside in the
-    `my-qa-project` GCP project, but will make sure that the default
-    service account in `my-qa-project` will have access to GCR in the
-    `my-gcr-project` (so Kubernetes will be able to pull Docker images
-    from it). The environment context for this deployment will be
-    created by layering `qa.json` on top of `default.json` (so `qa.json`
-    will override values in `default.json`).
-
-## ROADMAP
-
-* Support touching Kubernetes deployments when configmaps change, so they
-  are restarted to take the new configuration into effect.
-
-* Support & document how to override environment context array values
-  (eg. `default.json` has a `"myKey": ["value1"]` and `custom.json` has
-  `"myKey": ["value2"]` and the desired state is `"myKey": ["value1","value2"]`).
-  It's possible though, that the array contains objects, and the
-  overriding environment just wants to override one of the keys in one
-  of the objects in that array - how should we support that?
-
-* Document literal configuration map support (augment configmaps with
-  values in environment context under `configurations` key)
-
-## Contributions
-
-Any contribution to the project will be appreciated! Whether it's bug
-reports, feature requests, pull requests - all are welcome, as long as
-you follow our [contribution guidelines for this project](CONTRIBUTING.md)
-and our [code of conduct](CODE_OF_CONDUCT.md).
+Deployster is an extensible resource-centric deployment tool. It allows
+developers to declare their _desired_ state of the deployment plane &
+toplogy, and then attempts to migrate from the _current_ state into the
+_desired_ state.
+
+The difference between Deployster and other similar tools such as
+[Google Deployment Manager](https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types),
+[Terraform](https://www.terraform.io/docs/providers/external/data_source.html) and
+others is its extensibility:
+
+- Extensible: new resource types can be easily added
+- Docker-first philosophy: resources are written as Docker images, which
+allows resource implementors to use any tool they deem appropriate
+- Stateless: in contrast to similar tools, Deployster will never store
+your topology state (locally or remotely) which enables your to work on
+your infrastructure or deployments manually, side-by-side with Deployster.
+- Reproducible: deployments are meant to be idempotent, such running the
+same deployment multiple times should yield the same result as running
+it just once, assuming that nothing else modifies it.
+- Smart: Deployster allows (and sometimes requires) inter-resource
+dependencies, which enable Deployster to roll out actions in the
+appropriate order.
+- Safe: everyone makes mistakes, and nobody likes dealing with them at
+midnight :)
+    - Deployster attempts to help by being fully transparent about
+    what it is about to do and what it actually does.
+    - Will support _Rollbacks_ which will enable you to more easily
+    recover from accidental roll-outs.
+
+## Architecture
+
+Deployster mechanics is built around three main components:
+
+- Resource Types: each resource type is essentially a Docker image that
+implements a simple contract that allows receiving configuration,
+querying the resource state, and performing an action.
+
+- Manifest: a YAML or JSON document (TBD) written by the
+deployer or developer, that describes _how_ the final state should be.
+It's Deployster's job to use this manifest to _discover_ the current
+state, and then plan the set of actions that will migrate it to the
+_desired_ state as described in the manifest.
+
+- Context: a separate set of YAML or JSON documents that configure
+the deployment. Since you would usually want to use the same deployment
+manifests for different environments (eg. QA, production, etc) or
+scenarios, there will always be dynamic aspects of the manifests (eg.
+the amount of CPUs or RAM for a VM). The context, by virtue of being
+dynamic, allow extracting this information from the manifest. You
+typically control the context by choosing different context files to
+attach to the deployment.
+
+## Resource graph
+
+The first thing Deployster will do is build an up-to-date resource graph
+which reflects the current deployment state. It will collect all
+resources from the manifest, and query each one for its current state.
+Resources that depend on other resources will wait until those resources
+are queried first, but will still be queried, even if the resources they
+depend on do not exist.
+
+The response from resources to the state query must also include the
+list of actions required.
+
+## Context
+
+TBD.
+
+## Requirements & Plugs
+
+TBD.
+
+## Resource Types
+
+TBD.
+
+## Python dependencies
+
+* PyYAML

@@ -1,0 +1,27 @@
+plugs:
+  gcloud:
+    path: ~/.config/gcloud
+    resource_names:
+      - my_project
+    resource_types:
+      - infolinks/deployster-gcp-project
+
+resources:
+
+  {{ gcp_project }}:
+      type: infolinks/deployster-gcp-project
+      properties:
+        organization_id: {{ organization_id }}
+        billing_account_id: {{ billing_account_id }}
+        apis:
+          enabled:
+            - cloudbuild.googleapis.com
+            - monitoring.googleapis.com
+          disabled:
+            - logging.googleapis.com
+
+  my-addr:
+    type: infolinks/deployster-gcp-compute-address
+    properties:
+      region: {{ region }}
+      project: ~{{ gcp_project }}
