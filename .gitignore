@@ -1,4 +1,5 @@
 /.python2.7
 /.python3
+/work
 *.iml
 .merged-environment.json
