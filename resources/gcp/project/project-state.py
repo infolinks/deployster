@@ -17,19 +17,31 @@ from deployster.gcp.services import get_billing, get_service_management
 #     shell=True)
 
 
-def create_project_action(params):
+def create_project_action(project_id, organization_id=None):
+    args = [
+        '--project-id', project_id,
+        '--name', project_id
+    ]
+    if organization_id:
+        args.extend(['--organization-id', organization_id])
+
     return {
         'name': 'create-project',
-        'description': f"Create project {params['name']}",
-        'entrypoint': '/deployster/create-project.py'
+        'description': f"Create project {project_id}",
+        'entrypoint': '/deployster/create-project.py',
+        'args': args
     }
 
 
-def set_organization_action(project_id, parent_id):
+def set_organization_action(project_id, organization_id):
     return {
         'name': 'set-organization',
-        'description': f"Attach project '{project_id}' to parent '{parent_id}'",
-        'entrypoint': '/deployster/set-organization.py'
+        'description': f"Attach project '{project_id}' to organization '{organization_id}'",
+        'entrypoint': '/deployster/set-organization.py',
+        'args': [
+            '--project-id', project_id,
+            '--organization-id', organization_id
+        ]
     }
 
 
@@ -37,7 +49,8 @@ def clear_organization_action(project_id):
     return {
         'name': 'clear-organization',
         'description': f"Detach project '{project_id}' from parent",
-        'entrypoint': '/deployster/clear-organization.py'
+        'entrypoint': '/deployster/clear-organization.py',
+        'args': ['--project-id', project_id]
     }
 
 
@@ -45,7 +58,11 @@ def set_billing_account_action(project_id, billing_account_id):
     return {
         'name': 'set-billing-account',
         'description': f"Update billing account of project '{project_id}' to '{billing_account_id}'",
-        'entrypoint': '/deployster/set-billing-account.py'
+        'entrypoint': '/deployster/set-billing-account.py',
+        'args': [
+            '--project-id', project_id,
+            '--billing-account-id', billing_account_id
+        ]
     }
 
 
@@ -53,7 +70,8 @@ def clear_billing_account_action(project_id):
     return {
         'name': 'clear-billing-account',
         'description': f"Detach project '{project_id}' from its billing account",
-        'entrypoint': '/deployster/clear-billing-account.py'
+        'entrypoint': '/deployster/clear-billing-account.py',
+        'args': ['--project-id', project_id]
     }
 
 
@@ -61,7 +79,11 @@ def enable_api(project_id, api_name):
     return {
         'name': 'enable-service-api',
         'description': f"Enable API '{api_name}' for project '{project_id}'",
-        'entrypoint': '/deployster/enable-service-api.py'
+        'entrypoint': '/deployster/enable-service-api.py',
+        'args': [
+            '--project-id', project_id,
+            '--api', api_name
+        ]
     }
 
 
@@ -69,7 +91,11 @@ def disable_api(project_id, api_name):
     return {
         'name': 'disable-service-api',
         'description': f"Disable API '{api_name}' for project '{project_id}'",
-        'entrypoint': '/deployster/disable-service-api.py'
+        'entrypoint': '/deployster/disable-service-api.py',
+        'args': [
+            '--project-id', project_id,
+            '--api', api_name
+        ]
     }
 
 
@@ -145,7 +171,7 @@ def main():
     except TooManyProjectsMatchError:
         state = {
             'status': "INVALID",
-            'reason': "more than one project is named '%s'" % params['name']
+            'reason': f"more than one project is named '{params['name']}'"
         }
 
     except ProjectNotFoundError:
