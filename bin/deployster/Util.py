@@ -66,7 +66,7 @@ def err(message):
 
 
 def ask(message, chars, default):
-    prompt = ':question: ' + message + ' ['
+    prompt = message + ' ['
     for c in chars:
         prompt = prompt + (c.upper() if c == default else c.lower())
         prompt = prompt + '/'
