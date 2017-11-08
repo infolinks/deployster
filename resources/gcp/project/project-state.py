@@ -7,12 +7,21 @@ from deployster.gcp.projects import find_project, ProjectNotFoundError, TooManyP
 from deployster.gcp.services import get_billing, get_service_management
 
 
+# TODO: pass arguments to actions (add 'args' to action descriptors)
+
+# TODO: create action to allow GCR access to new project's default service account
+# subprocess.check_call(
+#     "gcloud projects add-iam-policy-binding %s " % gcr_project_id +
+#     ("--member='serviceAccount:%s-compute@developer.gserviceaccount.com' " % project['projectNumber']) +
+#     "--role='roles/storage.objectViewer'",
+#     shell=True)
+
+
 def create_project_action(params):
     return {
         'name': 'create-project',
         'description': f"Create project {params['name']}",
-        'entrypoint': '/deployster/create-project.py',
-        'args': []
+        'entrypoint': '/deployster/create-project.py'
     }
 
 
