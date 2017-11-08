@@ -57,9 +57,9 @@ class ResourceAction:
                 args=self._args)
 
             # persist state
-            state_file = open(f"{self.resource.work_dir}/{self.name}.json", 'w')
-            state_file.write(json.dumps(result, indent=2))
-            state_file.close()
+            result_file = open(f"{self.resource.work_dir}/{self.name}.json", 'w')
+            result_file.write(json.dumps(result, indent=2))
+            result_file.close()
 
             # refresh resource
             self.resource.refresh_state()
