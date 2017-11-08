@@ -14,8 +14,9 @@ class ResourceState:
             raise ResourceStateError(f"Protocol error occurred (resource state must be an object)")
         elif 'status' not in data or not isinstance(data['status'], str):
             raise ResourceStateError(f"Protocol error occurred ('status' was not provided or is not a string)")
-        elif 'properties' not in data or not isinstance(data['properties'], dict):
-            raise ResourceStateError(f"Protocol error occurred ('properties' was not provided or is not a dictionary)")
+        elif data['status'] in ['VALID', 'STALE'] and (
+                'properties' not in data or not isinstance(data['properties'], dict)):
+            raise ResourceStateError(f"Protocol error occurred ('properties' expected for status '{data['status']}')")
 
         try:
             self._status = ResourceStatus[data['status']]
