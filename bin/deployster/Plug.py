@@ -12,6 +12,9 @@ class Plug:
         self._resource_names = data['resource_names']
         self._resource_types = data['resource_types']
 
+        if not self._path.exists():
+            raise Exception(f"Plug '{self.name}' path ('{self.path}') does not exist.")
+
     @property
     def name(self):
         return self._name
