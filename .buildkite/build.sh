@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -e
 
 TAG="${BUILDKITE_COMMIT:=local}"
 
