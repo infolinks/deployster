@@ -10,21 +10,14 @@ from deployster.gcp.services import wait_for_resource_manager_operation
 
 def main():
     params = json.loads(sys.stdin.read())
-    name = params['name']
-    properties = params['properties']
 
-    request_body = {
-        "projectId": name,
-        "name": name
-    }
-
-    if 'organization_id' in properties:
-        request_body['parent'] = {
+    cloud_resource_manager = build(serviceName='cloudresourcemanager', version='v1')
+    result = cloud_resource_manager.projects().update(projectId=params['name'], body={
+        "parent": {
             'type': 'organization',
-            'id': str(properties['organization_id'])
+            'id': str(params['properties']['organization_id'])
         }
-
-    result = build(serviceName='cloudresourcemanager', version='v1').projects().create(body=request_body).execute()
+    }).execute()
     project = wait_for_resource_manager_operation(result)
     print(json.dumps({'project': project}))
 
