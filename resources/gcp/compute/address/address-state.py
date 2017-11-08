@@ -5,22 +5,24 @@ import sys
 
 from googleapiclient.errors import HttpError
 
-from deployster.gcp.services import get_compute
+from deployster.gcp.services import get_compute, wait_for_compute_operation
 
 
 def main():
     params = json.loads(sys.stdin.read())
+    project_id = params['properties']['project']['project_id']
+    region = params['properties']['region']
+    address_name = params['name']
+
     try:
-        address = get_compute().addresses().get(project=params['properties']['project']['project_id'],
-                                                region=params['properties']['region'],
-                                                address=params['name']).execute()
-        print(json.dumps(address, indent=2), file=sys.stderr)
+        op = get_compute().addresses().get(project=project_id, region=region, address=address_name).execute()
+        print(json.dumps(op, indent=2), file=sys.stderr)
         state = {
             'status': 'VALID',
             'actions': [],
-            'properties': {
-            }
+            'properties': wait_for_compute_operation(op)
         }
+
     except HttpError as e:
         if e.resp.status == 404:
             state = {
@@ -29,35 +31,20 @@ def main():
                     {
                         'name': 'create-address',
                         'description': f"Create GCP address",
-                        'entrypoint': '/deployster/create-address.py'
+                        'entrypoint': '/deployster/create-address.py',
+                        'args': [
+                            '--project-id', project_id,
+                            '--region', region,
+                            '--name', address_name
+                        ]
                     }
-                ],
-                'properties': {}
+                ]
             }
         else:
             state = {
                 'status': 'INVALID',
                 'reason': str(e)
             }
-
-    # except TooManyProjectsMatchError:
-    #     state = {
-    #         'status': "INVALID",
-    #         'reason': "more than one project is named '%s'" % params['name']
-    #     }
-
-    # except ProjectNotFoundError:
-    #     actions = [create_project_action(params)]
-    #     if 'billing_account_id' in params:
-    #         actions.append(set_billing_account_action(params['name'], params['billing_account_id']))
-    #     for api_name in params['properties']['apis']['disabled']:
-    #         actions.append(disable_api(params['name'], api_name))
-    #     for api_name in params['properties']['apis']['enabled']:
-    #         actions.append(enable_api(params['name'], api_name))
-    #     state = {
-    #         'status': "MISSING",
-    #         'actions': actions
-    #     }
 
     print(json.dumps(state))
 

@@ -69,3 +69,22 @@ def wait_for_service_manager_operation(result):
 
             else:
                 raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
+
+
+def wait_for_compute_operation(result):
+    if 'response' in result:
+        return result['response']
+
+    operations_service = get_compute().operations()
+    while True:
+        sleep(5)
+        result = operations_service.get(name=result['name']).execute()
+        if 'done' in result and result['done']:
+            if 'response' in result:
+                return result['response']
+
+            elif 'error' in result:
+                raise Exception("ERROR: %s" % json.dumps(result['error']))
+
+            else:
+                raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
