@@ -20,7 +20,7 @@ class ResourceState:
 
         try:
             self._status = ResourceStatus[data['status']]
-            self._properties = data['properties']
+            self._properties = data['properties'] if 'properties' in data else {}
         except KeyError:
             raise ResourceStateError(f"Protocol error occurred (illegal status: {data['status']})")
 
