@@ -19,6 +19,11 @@ class UndefinedManifestVariableError(UndefinedError):
         super().__init__(f"undefined variable referenced in '{manifest_file}' ({message})")
 
 
+class UnknownResourceError(UndefinedError):
+    def __init__(self, resource_name, manifest_file):
+        super().__init__(f"unknown resource: {resource_name} referenced in '{manifest_file}'")
+
+
 class ResourceDependencyResolver:
 
     def __init__(self, deployment, resources):
@@ -51,6 +56,7 @@ class Deployment:
         self._plugs = {}
         self._resources = {}
         self._verbose = verbose
+        self._manifest_file = manifest_file
 
         # setup work directory
         self._work_dir = Path(f'./work/deployment/{self.name}').resolve()
@@ -101,7 +107,10 @@ class Deployment:
         return self._plugs
 
     def resource(self, name):
-        return self.resources[name]
+        if name in self.resources:
+            return self.resources[name]
+        else:
+            raise UnknownResourceError(resource_name=name,manifest_file=self._manifest_file)
 
     @property
     def resources(self):
@@ -180,9 +189,8 @@ class Deployment:
         log(bold("\n:dizzy: " + underline("Executing plan...\n")))
         indent()
         for action in plan:
-            log(yellow(f":wrench: {action.resource.name}: {action.name}\n"))
             indent()
             action.execute()
             unindent()
         unindent()
-        log('\n')
+        log('')

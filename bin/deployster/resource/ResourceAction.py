@@ -1,6 +1,6 @@
 import json
 
-from deployster.Util import log, indent, unindent, err, red
+from deployster.Util import log, indent, unindent, err, red, yellow, italic
 from deployster.resource.DockerError import DockerError
 from deployster.resource.ResourceActionError import ResourceActionError
 
@@ -44,7 +44,8 @@ class ResourceAction:
         return self._args
 
     def execute(self):
-        log(f"{self.name} @ {self.resource.name}")
+        log(yellow(f":wrench: {self.description} (" + italic(f"{self.name} @ {self.resource.name}") + ")\n"))
+
         indent()
         try:
             result = self.resource.execute_command(
@@ -63,11 +64,13 @@ class ResourceAction:
 
             # refresh resource
             self.resource.refresh_state()
+            log('')
 
         except DockerError as e:
-            err('\n')
+            err('')
             err(red(e.message))
             err(red(e.process.stderr))
             exit(1)
 
-        unindent()
+        finally:
+            unindent()

@@ -150,7 +150,7 @@ class Resource:
             elif isinstance(v, dict):
                 self._expand_dict(v)
 
-    def execute_command(self, stdin=None, entrypoint='', **args):
+    def execute_command(self, stdin=None, entrypoint='', args=None):
         command = ["docker", "run", "-i"]
         command.extend(["--volume", f"{Path.cwd()}:/var/lib/deployster/workspace"])
         command.extend(["--volume", f"{self.work_dir}:/var/lib/deployster/resource"])
@@ -161,7 +161,8 @@ class Resource:
         if entrypoint:
             command.extend(["--entrypoint", entrypoint])
         command.append(self._type)
-        command.extend(args)
+        if args:
+            command.extend(args)
 
         if self.deployment.verbose:
             log(faint(f"Input for Docker command: {json.dumps(stdin,indent=2)}"))

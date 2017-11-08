@@ -8,8 +8,8 @@ import sys
 from colors import bold
 
 from deployster.Context import Context
-from deployster.Deployment import Deployment
-from deployster.Util import ask, log
+from deployster.Deployment import Deployment, UnknownResourceError
+from deployster.Util import ask, log, err
 
 
 def parse_variable(expr):
@@ -58,9 +58,18 @@ def main_impl():
     deployment = Deployment(context=context, manifest_file=args.manifest, verbose=args.verbose)
 
     # plan the deployment
-    plan = deployment.plan()
-    if args.plan:
-        exit(0)
+    plan = None
+    try:
+        plan = deployment.plan()
+        if args.plan:
+            exit(0)
+    except UnknownResourceError as e:
+        err('')
+        if args.verbose:
+            print(e)
+        else:
+            print(e.message)
+        exit(1)
 
     # execute?
     if args.assume_yes or ask(bold('Execute?'), chars='yn', default='y') == 'y':
