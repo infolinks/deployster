@@ -10,7 +10,7 @@ def main():
     argparser = argparse.ArgumentParser(description='Attach GCP project to organization.')
     argparser.add_argument('--project-id', dest='project_id', required=True, metavar='PROJECT-ID',
                            help="the GCP project ID (eg. 'western-evening', or 'backoffice')")
-    argparser.add_argument('--billing-account-id', type=int, dest='billing_account_id', required=True,
+    argparser.add_argument('--billing-account-id', dest='billing_account_id', required=True,
                            metavar='BILLING-ACCOUNT-ID',
                            help="the billing account ID (alpha-numeric)")
     args = argparser.parse_args()
