@@ -10,7 +10,7 @@ def main():
     argparser = argparse.ArgumentParser(description='Attach GCP project to organization.')
     argparser.add_argument('--project-id', dest='project_id', required=True, metavar='PROJECT-ID',
                            help="the GCP project ID (eg. 'western-evening', or 'backoffice')")
-    argparser.add_argument('--api', type=int, dest='api', required=True,
+    argparser.add_argument('--api', dest='api', required=True,
                            metavar='API-NAME',
                            help="the API name (eg. 'cloudbuild.googleapis.com)")
     args = argparser.parse_args()
