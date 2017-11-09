@@ -5,7 +5,7 @@ import sys
 
 from googleapiclient.errors import HttpError
 
-from deployster.gcp.services import get_compute, wait_for_compute_operation
+from deployster.gcp.services import get_compute
 
 
 def main():
@@ -15,12 +15,18 @@ def main():
     address_name = params['name']
 
     try:
-        op = get_compute().addresses().get(project=project_id, region=region, address=address_name).execute()
-        print(json.dumps(op, indent=2), file=sys.stderr)
+        addr = get_compute().addresses().get(project=project_id, region=region, address=address_name).execute()
         state = {
             'status': 'VALID',
             'actions': [],
-            'properties': wait_for_compute_operation(op)
+            'properties': {
+                'id': addr['id'],
+                'name': addr['name'],
+                'description': addr['description'],
+                'address': addr['address'],
+                'status': addr['status'],
+                'region': region,
+            }
         }
 
     except HttpError as e:
