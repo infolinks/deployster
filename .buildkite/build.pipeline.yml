@@ -1,8 +1,5 @@
 steps:
 
-  - label: build & push Docker image
+  - label: Build & push Docker images
     command:
-      - ./.buildkite/build.sh
-      - gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-base:${BUILDKITE_COMMIT}
-      - gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-compute-address:${BUILDKITE_COMMIT}
-      - gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-project:${BUILDKITE_COMMIT}
+      - ./.buildkite/build.sh ${BUILDKITE_COMMIT} push
