@@ -7,8 +7,6 @@ from deployster.gcp.projects import find_project, ProjectNotFoundError, TooManyP
 from deployster.gcp.services import get_billing, get_service_management
 
 
-# TODO: pass arguments to actions (add 'args' to action descriptors)
-
 # TODO: create action to allow GCR access to new project's default service account
 # subprocess.check_call(
 #     "gcloud projects add-iam-policy-binding %s " % gcr_project_id +
@@ -99,9 +97,7 @@ def disable_api(project_id, api_name):
     }
 
 
-def handle_project_exists(params, project):
-    project_id = params['name']
-    desired_properties = params['properties']
+def handle_project_exists(project_id, desired_properties, project):
     desired_parent_id = desired_properties['organization_id'] if 'organization_id' in desired_properties else None
     desired_billing_account_id = \
         desired_properties['billing_account_id'] if 'billing_account_id' in desired_properties else None
@@ -121,18 +117,18 @@ def handle_project_exists(params, project):
     # compare project organization
     if desired_parent_id and desired_parent_id != actual_parent_id:
         status = 'STALE'
-        actions.append(set_organization_action(project_id, desired_parent_id))
+        actions.append(set_organization_action(project_id=project_id, organization_id=desired_parent_id))
     elif not desired_parent_id and actual_parent_id:
         status = 'STALE'
-        actions.append(clear_organization_action(project_id))
+        actions.append(clear_organization_action(project_id=project_id))
 
     # compare project billing account
     if desired_billing_account_id and desired_billing_account_id != actual_billing_account_id:
         status = 'STALE'
-        actions.append(set_billing_account_action(project_id, desired_billing_account_id))
+        actions.append(set_billing_account_action(project_id=project_id, billing_account_id=desired_billing_account_id))
     elif not desired_billing_account_id and actual_billing_account_id:
         status = 'STALE'
-        actions.append(clear_billing_account_action(project_id))
+        actions.append(clear_billing_account_action(project_id=project_id))
 
     # compare project APIs
     actual_enabled_apis = get_service_management().services().list(consumerId=f'project:{project_id}').execute()
@@ -141,11 +137,11 @@ def handle_project_exists(params, project):
     for api_name in desired_enabled_api_names:
         if api_name not in actual_enabled_api_names:
             status = 'STALE'
-            actions.append(enable_api(project_id, api_name))
+            actions.append(enable_api(project_id=project_id, api_name=api_name))
     for api_name in desired_disabled_api_names:
         if api_name in actual_enabled_api_names:
             status = 'STALE'
-            actions.append(disable_api(project_id, api_name))
+            actions.append(disable_api(project_id=project_id, api_name=api_name))
 
     # return status, state, and possibly actions
     return {
@@ -165,23 +161,29 @@ def handle_project_exists(params, project):
 
 def main():
     params = json.loads(sys.stdin.read())
+    properties = params['properties']
+    project_id = properties['project_id']
     try:
-        state = handle_project_exists(params, find_project(params['name']))
+        state = handle_project_exists(project_id=project_id,
+                                      desired_properties=properties,
+                                      project=find_project(project_id=project_id))
 
     except TooManyProjectsMatchError:
         state = {
             'status': "INVALID",
-            'reason': f"more than one project is named '{params['name']}'"
+            'reason': f"more than one project is named '{properties['project_id']}'"
         }
 
     except ProjectNotFoundError:
-        actions = [create_project_action(params)]
+        organization_id = properties['organization_id'] if 'organization_id' in properties else None
+        actions = [create_project_action(project_id=project_id, organization_id=organization_id)]
         if 'billing_account_id' in params:
-            actions.append(set_billing_account_action(params['name'], params['billing_account_id']))
+            billing_account_id = params['billing_account_id']
+            actions.append(set_billing_account_action(project_id=project_id, billing_account_id=billing_account_id))
         for api_name in params['properties']['apis']['disabled']:
-            actions.append(disable_api(params['name'], api_name))
+            actions.append(disable_api(project_id=project_id, api_name=api_name))
         for api_name in params['properties']['apis']['enabled']:
-            actions.append(enable_api(params['name'], api_name))
+            actions.append(enable_api(project_id=project_id, api_name=api_name))
         state = {
             'status': "MISSING",
             'actions': actions

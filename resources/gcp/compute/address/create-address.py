@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from deployster.gcp.services import get_compute, wait_for_compute_operation
+from deployster.gcp.services import get_compute, wait_for_compute_region_operation
 
 
 def main():
@@ -35,7 +35,7 @@ def main():
     addresses_service = get_compute().addresses()
     result = addresses_service.insert(project=args.project_id, region=args.region, body={'name': args.name}).execute()
     print(json.dumps(result, indent=2), file=sys.stderr)
-    response = wait_for_compute_operation(result)
+    response = wait_for_compute_region_operation(project_id=args.project_id, region=args.region, operation=result)
     print(json.dumps({'response': response}))
 
 
