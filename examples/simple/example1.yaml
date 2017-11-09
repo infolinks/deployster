@@ -8,20 +8,21 @@ plugs:
 
 resources:
 
-  {{ gcp_project }}:
-      type: infolinks/deployster-gcp-project
+  project:
+      type: gcr.io/infolinks-gcr/deployster-gcp-project:local
       properties:
+        project_id: {{ gcp_project }}
         organization_id: {{ organization_id }}
         billing_account_id: {{ billing_account_id }}
-        apis:
-          enabled:
-            - cloudbuild.googleapis.com
-            - monitoring.googleapis.com
-          disabled:
-            - logging.googleapis.com
+#        apis:
+#          enabled:
+#            - cloudbuild.googleapis.com
+#            - monitoring.googleapis.com
+#          disabled:
+#            - logging.googleapis.com
 
   my-addr:
-    type: infolinks/deployster-gcp-compute-address
+    type: gcr.io/infolinks-gcr/deployster-gcp-compute-address:local
     properties:
       region: {{ region }}
-      project: ~{{ gcp_project }}
+      project: ~project
