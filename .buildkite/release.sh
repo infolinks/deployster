@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 TAG="${1}"
-[[ -z "${TAG}" ]] && echo "usage: $0 <tag> <version>" && exit 1
+[[ -z "${TAG}" ]] && echo "usage: $0 <tag> <version>" >&2 && exit 1
 
 VERSION="${2}"
-[[ -z "${VERSION}" ]] && echo "usage: $0 <tag> <version>" && exit 1
+[[ -z "${VERSION}" ]] && echo "usage: $0 <tag> <version>" >&2 && exit 1
 
 set -ex
 

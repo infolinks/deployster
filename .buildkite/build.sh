@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 TAG="${1}"
-[[ -z "${TAG}" ]] && echo "usage: $0 <tag>" && exit 1
+[[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
 
 set -ex
 
