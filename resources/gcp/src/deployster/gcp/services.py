@@ -76,7 +76,7 @@ def wait_for_service_manager_operation(result):
                 raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
 
 
-def wait_for_compute_region_operation(project_id, region, operation):
+def wait_for_compute_region_operation(project_id, region, operation, timeout=60):
     operations_service = get_compute().regionOperations()
 
     interval = 5
@@ -93,11 +93,11 @@ def wait_for_compute_region_operation(project_id, region, operation):
                 raise Exception("ERROR: %s" % json.dumps(result['error']))
             else:
                 return result
-        if counter >= 60:
+        if counter >= timeout:
             raise Exception(f"Timed out waiting for Google Compute regional operation: {json.dumps(result,indent=2)}")
 
 
-def wait_for_compute_global_operation(project_id, operation):
+def wait_for_compute_global_operation(project_id, operation, timeout=60):
     operations_service = get_compute().globalOperations()
 
     interval = 5
@@ -114,11 +114,11 @@ def wait_for_compute_global_operation(project_id, operation):
                 raise Exception("ERROR: %s" % json.dumps(result['error']))
             else:
                 return result
-        if counter >= 60:
+        if counter >= timeout:
             raise Exception(f"Timed out waiting for Google Compute global operation: {json.dumps(result,indent=2)}")
 
 
-def wait_for_compute_zonal_operation(project_id, zone, operation):
+def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=60):
     operations_service = get_compute().zoneOperations()
 
     interval = 5
@@ -135,5 +135,26 @@ def wait_for_compute_zonal_operation(project_id, zone, operation):
                 raise Exception("ERROR: %s" % json.dumps(result['error']))
             else:
                 return result
-        if counter >= 60:
+        if counter >= timeout:
+            raise Exception(f"Timed out waiting for Google Compute zonal operation: {json.dumps(result,indent=2)}")
+
+
+def wait_for_container_projects_zonal_operation(project_id, zone, operation, timeout=60):
+    operations_service = get_container().projects().zones().operations()
+
+    interval = 5
+    counter = 0
+    while True:
+        sleep(interval)
+        counter = counter + interval
+
+        result = operations_service.get(projectId=project_id, zone=zone, operationId=operation['name']).execute()
+        print(json.dumps(result, indent=2), file=sys.stderr)
+
+        if 'status' in result and result['status'] == 'DONE':
+            if 'error' in result:
+                raise Exception("ERROR: %s" % json.dumps(result['error']))
+            else:
+                return result
+        if counter >= timeout:
             raise Exception(f"Timed out waiting for Google Compute zonal operation: {json.dumps(result,indent=2)}")
