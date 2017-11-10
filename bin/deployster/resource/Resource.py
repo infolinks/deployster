@@ -158,8 +158,12 @@ class Resource:
             target_path = plug_info['target_path']
             plug = plug_info['plug']
             command.extend(["--volume", f"{plug.path}:{target_path}"])
+
+        entrypoint_name = 'default'
         if entrypoint:
             command.extend(["--entrypoint", entrypoint])
+            entrypoint_name = entrypoint.replace('/', '_')
+
         command.append(self._type)
         if args:
             command.extend(args)
@@ -167,10 +171,22 @@ class Resource:
         if self.deployment.verbose:
             log(faint(f"Input for Docker command: {json.dumps(stdin,indent=2)}"))
 
+        stdin_file = open(self.work_dir / (entrypoint_name + '_stdin.json'), 'w')
+        stdin_file.write(json.dumps(stdin, indent=2) if stdin else '')
+        stdin_file.close()
+
         process = subprocess.run(command,
-                                 input=json.dumps(stdin) if stdin else None,
+                                 input=json.dumps(stdin) if stdin else '{}',
                                  encoding='utf-8',
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        stdout_file = open(self.work_dir / (entrypoint_name + '_stdout.json'), 'w')
+        stdout_file.write(process.stdout)
+        stdout_file.close()
+
+        stderr_file = open(self.work_dir / (entrypoint_name + '_stderr.json'), 'w')
+        stderr_file.write(process.stderr)
+        stderr_file.close()
 
         if self.deployment.verbose:
             if process.stdout:
