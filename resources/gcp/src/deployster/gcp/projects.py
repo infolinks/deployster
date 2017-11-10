@@ -1,7 +1,5 @@
 from deployster.gcp.services import get_resource_manager
 
-services = {}
-
 
 class ProjectNotFoundError(Exception):
 
