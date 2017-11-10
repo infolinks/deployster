@@ -31,7 +31,7 @@ class ResourceState:
                 actions_count = len(data['actions'])
                 raise ResourceStateError(f"invalid resources must not have actions ({actions_count} actions found)")
             else:
-                self._reason = None
+                self._reason = data['reason']
                 self._actions = []
 
         elif self.status == ResourceStatus.MISSING or self.status == ResourceStatus.STALE:
