@@ -110,7 +110,7 @@ class Deployment:
         if name in self.resources:
             return self.resources[name]
         else:
-            raise UnknownResourceError(resource_name=name,manifest_file=self._manifest_file)
+            raise UnknownResourceError(resource_name=name, manifest_file=self._manifest_file)
 
     @property
     def resources(self):
@@ -170,7 +170,10 @@ class Deployment:
                 unindent()
 
             elif res.state.status == ResourceStatus.INVALID:
-                log(red(resource_status("x", res) + ": " + res.state.reason))
+                log(red(resource_status("x", res)))
+                indent()
+                log(red(res.state.reason))
+                unindent()
                 invalid = True
 
             log('')
@@ -179,7 +182,7 @@ class Deployment:
 
         log('')
         if invalid:
-            log(bold(red(f"Invalid resources found, plan cannot be executed.")))
+            log(bold(red(f"Invalid resources found, plan cannot be executed.\n")))
             exit(1)
 
         return actions
