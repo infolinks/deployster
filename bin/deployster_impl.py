@@ -72,5 +72,8 @@ def main_impl():
         exit(1)
 
     # execute?
-    if args.assume_yes or ask(bold('Execute?'), chars='yn', default='y') == 'y':
-        deployment.execute(plan)
+    if len(plan):
+        if args.assume_yes or ask(bold('Execute?'), chars='yn', default='y') == 'y':
+            deployment.execute(plan)
+    else:
+        print(f"No action necessary.")
