@@ -9,11 +9,11 @@ plugs:
 resources:
 
   project:
-      type: gcr.io/infolinks-gcr/deployster-gcp-project:local
-      properties:
-        project_id: {{ gcp_project }}
-        organization_id: {{ organization_id }}
-        billing_account_id: {{ billing_account_id }}
+    type: gcr.io/infolinks-gcr/deployster-gcp-project:local
+    properties:
+      project_id: {{ gcp_project }}
+      organization_id: {{ organization_id }}
+      billing_account_id: {{ billing_account_id }}
 #        apis:
 #          enabled:
 #            - cloudbuild.googleapis.com
@@ -21,8 +21,48 @@ resources:
 #          disabled:
 #            - logging.googleapis.com
 
-  my-addr:
+  apps-load-balancer:
     type: gcr.io/infolinks-gcr/deployster-gcp-compute-address:local
     properties:
       region: {{ region }}
       project: ~project
+
+  cluster:
+    type: gcr.io/infolinks-gcr/deployster-gcp-container-cluster:local
+    properties:
+      project: ~project
+      name: apps
+      description: This is my cluster.
+      zone: {{ zone }}
+      version: 1.8.2-gke.0
+      node_pools:
+
+        # Nodes for the web traffic load balancer
+        - name: load-balancer
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-load-balancer
+          labels:
+            role: load-balancer
+
+        # Nodes for edge systems (ad-server, static resources, etc)
+        - name: edge
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-edge
+          labels:
+            role: edge
+
+        # Nodes for backoffice systems (insight, central, etc)
+        - name: backoffice
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-backoffice
+          labels:
+            role: backoffice
