@@ -3,3 +3,4 @@
 /work
 *.iml
 .merged-environment.json
+Dockerfile.local

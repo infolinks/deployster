@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import subprocess
 import sys
 
 from googleapiclient.errors import HttpError
@@ -39,7 +40,6 @@ def build_action(project_id, cluster_zone, cluster_name,
 
 def get_cluster_node_pool_actions(project_id, cluster_zone, cluster_name,
                                   desired_cluster, pool_name, desired_pool):
-
     # TODO: some node pool changes are not supported by the API currently; support delete+create instead
     # get actual state of the node pool
     try:
@@ -277,10 +277,19 @@ def main():
     clusters_service = get_container().projects().zones().clusters()
     try:
         properties = params['properties']
-        cluster = clusters_service.get(projectId=properties['project']['project_id'],
-                                       zone=properties['zone'],
-                                       clusterId=properties['name']).execute()
+        project_id = properties['project']['project_id']
+        cluster_zone = properties['zone']
+        cluster_name = properties['name']
+
+        cluster = clusters_service.get(projectId=project_id, zone=cluster_zone, clusterId=cluster_name).execute()
         state = get_cluster_state(desired_cluster=properties, actual_cluster=cluster)
+
+        command = \
+            f"gcloud container clusters get-credentials {cluster_name} --project {project_id} --zone {cluster_zone}"
+        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if process.returncode != 0:
+            print(f"Failed authenticating to cluster: {process.stderr}", file=sys.stderr)
+            exit(process.returncode)
 
     except InvalidStatusError as e:
         state = {

@@ -4,16 +4,13 @@ import json
 
 
 def main():
-
-    initialization = {
+    print(json.dumps({
         "requires": {
             "gcloud": "/root/.config/gcloud",
             "kube": "/root/.kube"
         },
-        "state_entrypoint": "/deployster/cluster-state.py"
-    }
-
-    print(json.dumps(initialization))
+        "state_entrypoint": "/deployster/namespace-state.py"
+    }))
 
 
 if __name__ == "__main__":

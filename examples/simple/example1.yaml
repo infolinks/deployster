@@ -1,6 +1,14 @@
+# TODO: plug resource permissions do not work! (security...)
+
 plugs:
   gcloud:
     path: ~/.config/gcloud
+    resource_names:
+      - my_project
+    resource_types:
+      - infolinks/deployster-gcp-project
+  kube:
+    path: ~/.kube
     resource_names:
       - my_project
     resource_types:
@@ -66,3 +74,22 @@ resources:
             - apps-backoffice
           labels:
             role: backoffice
+
+  networking-namespace:
+    type: gcr.io/infolinks-gcr/deployster-k8s-namespace:local
+    properties:
+      project: ~project
+      zone: {{ zone }}
+      cluster: ~cluster
+      name: networking
+      description: Namespace for networking-related software.
+
+  networking-service-account:
+    type: gcr.io/infolinks-gcr/deployster-k8s-rbac-service-account:local
+    properties:
+      project: ~project
+      zone: {{ zone }}
+      cluster: ~cluster
+      namespace: ~networking-namespace
+      name: networking
+      description: Networking service account.

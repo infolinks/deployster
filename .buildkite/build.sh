@@ -3,20 +3,31 @@
 TAG="${1}"
 [[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
 
+# update all FROM clauses with the new tag
+for docker_file in $(find "./resources" -name "Dockerfile"); do
+    sed "s/^FROM \(gcr.io\/infolinks-gcr\/deployster-[^:]\+\):.+$/FROM \1:${TAG}/g" "${docker_file}" > ${docker_file}.local
+done
+
+# build a Docker image from the given path
+function build_image(){
+    IMAGE_PATH="${1}"
+    IMAGE_NAME="gcr.io/infolinks-gcr/deployster-${IMAGE_PATH//\//-}"
+    docker build --tag "${IMAGE_NAME}:${TAG}" --file "./resources/${IMAGE_PATH}/Dockerfile.local" ./resources
+    if [[ "${2}" == "push" ]]; then
+        docker push "${IMAGE_NAME}:${TAG}"
+    fi
+}
+
 set -ex
 
-sed -i "s/^FROM .*/FROM gcr.io\/infolinks-gcr\/deployster-gcp-base:${TAG}/g" ./resources/gcp/compute/address/Dockerfile
-sed -i "s/^FROM .*/FROM gcr.io\/infolinks-gcr\/deployster-gcp-base:${TAG}/g" ./resources/gcp/container/cluster/Dockerfile
-sed -i "s/^FROM .*/FROM gcr.io\/infolinks-gcr\/deployster-gcp-base:${TAG}/g" ./resources/gcp/project/Dockerfile
-
-gcloud docker -- build --tag "gcr.io/infolinks-gcr/deployster-gcp-base:${TAG}" --file "./resources/gcp/base/Dockerfile" ./resources
-gcloud docker -- build --tag "gcr.io/infolinks-gcr/deployster-gcp-compute-address:${TAG}" --file "./resources/gcp/compute/address/Dockerfile" ./resources
-gcloud docker -- build --tag "gcr.io/infolinks-gcr/deployster-gcp-container-cluster:${TAG}" --file "./resources/gcp/container/cluster/Dockerfile" ./resources
-gcloud docker -- build --tag "gcr.io/infolinks-gcr/deployster-gcp-project:${TAG}" --file "./resources/gcp/project/Dockerfile" ./resources
-
-if [[ "${2}" == "push" ]]; then
-    gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-base:${TAG}
-    gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-compute-address:${TAG}
-    gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-container-cluster:${TAG}
-    gcloud docker -- push gcr.io/infolinks-gcr/deployster-gcp-project:${TAG}
-fi
+# authenticate to GCR & build images
+gcloud docker --authorize-only
+build_image "gcp/base"
+build_image "gcp/compute/address"
+build_image "gcp/container/cluster"
+build_image "gcp/project"
+build_image "k8s/base"
+build_image "k8s/namespace"
+#build_image "k8s/rbac/cluster-role"
+#build_image "k8s/rbac/role"
+build_image "k8s/rbac/service-account"

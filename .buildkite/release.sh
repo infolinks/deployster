@@ -8,22 +8,15 @@ VERSION="${2}"
 
 set -ex
 
-gcloud docker -- tag "gcr.io/infolinks-gcr/deployster-gcp-base:${TAG}" "infolinks/deployster-gcp-base:${VERSION}"
-gcloud docker -- tag "infolinks/deployster-gcp-base:${VERSION}" "infolinks/deployster-gcp-base:latest"
-gcloud docker -- push "infolinks/deployster-gcp-base:${VERSION}"
-gcloud docker -- push "infolinks/deployster-gcp-base:latest"
+# tag images as VERSION and 'latest', then push them to Docker Hub
+gcloud docker --authorize-only
+for docker_file in $(find "./resources" -name "Dockerfile"); do
+    IMAGE_DIR="${docker_file//\/Dockerfile/}"
+    IMAGE_PATH="${IMAGE_DIR//\.\/resources\//}"
+    IMAGE_NAME="gcr.io/infolinks-gcr/deployster-${IMAGE_PATH//\//-}"
 
-gcloud docker -- tag "gcr.io/infolinks-gcr/deployster-gcp-compute-address:${TAG}" "infolinks/deployster-gcp-compute-address:${VERSION}"
-gcloud docker -- tag "infolinks/deployster-gcp-compute-address:${VERSION}" "infolinks/deployster-gcp-compute-address:latest"
-gcloud docker -- push "infolinks/deployster-gcp-compute-address:${VERSION}"
-gcloud docker -- push "infolinks/deployster-gcp-compute-address:latest"
-
-gcloud docker -- tag "gcr.io/infolinks-gcr/deployster-gcp-container-cluster:${TAG}" "infolinks/deployster-gcp-container-cluster:${VERSION}"
-gcloud docker -- tag "infolinks/deployster-gcp-container-cluster:${VERSION}" "infolinks/deployster-gcp-container-cluster:latest"
-gcloud docker -- push "infolinks/deployster-gcp-container-cluster:${VERSION}"
-gcloud docker -- push "infolinks/deployster-gcp-container-cluster:latest"
-
-gcloud docker -- tag "gcr.io/infolinks-gcr/deployster-gcp-project:${TAG}" "infolinks/deployster-gcp-project:${VERSION}"
-gcloud docker -- tag "infolinks/deployster-gcp-project:${VERSION}" "infolinks/deployster-gcp-project:latest"
-gcloud docker -- push "infolinks/deployster-gcp-project:${VERSION}"
-gcloud docker -- push "infolinks/deployster-gcp-project:latest"
+    docker tag "${IMAGE_NAME}:${TAG}" "${IMAGE_NAME}:${VERSION}"
+    docker push "${IMAGE_NAME}:${VERSION}"
+    docker tag "${IMAGE_NAME}:${TAG}" "${IMAGE_NAME}:latest"
+    docker push "${IMAGE_NAME}:latest"
+done
