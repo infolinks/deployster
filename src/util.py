@@ -1,3 +1,4 @@
+import argparse
 import collections
 import termios
 import tty
@@ -10,7 +11,7 @@ def merge(*args):
     return merge_into({}, args)
 
 
-def merge_into(target, *args):
+def merge_into(target: dict, *args) -> dict:
     for source in args:
         for k, v in source.items():
             if k in target and isinstance(target[k], dict) and isinstance(source[k], collections.Mapping):
@@ -20,52 +21,63 @@ def merge_into(target, *args):
     return target
 
 
+def parse_variable(expr):
+    tokens = expr.split('=', 1)
+    if len(tokens) != 2:
+        raise argparse.ArgumentTypeError('bad variable declaration: %s' % expr)
+    else:
+        return {
+            'key': tokens[0],
+            'value': tokens[1]
+        }
+
+
 class _Indent:
 
     def __init__(self) -> None:
         super().__init__()
         self._indent = 0
 
-    def indent(self):
+    def indent(self) -> None:
         self._indent = self._indent + 5
 
-    def unindent(self):
+    def unindent(self) -> None:
         self._indent = self._indent - 5
 
     @property
-    def level(self):
+    def level(self) -> int:
         return self._indent
 
 
 _indent = _Indent()
 
 
-def indent():
+def indent() -> None:
     _indent.indent()
 
 
-def unindent():
+def unindent() -> None:
     _indent.unindent()
 
 
-def _msg(message):
+def _msg(message) -> str:
     indent = " " * _indent.level
     return "\n".join([indent + line for line in message.split("\n")])
 
 
-def log(message):
+def log(message) -> None:
     print(emoji.emojize(_msg(message), use_aliases=True), flush=True)
 
 
-def logp(message):
+def logp(message) -> None:
     print(emoji.emojize(_msg(message), use_aliases=True), flush=True, end='')
 
 
-def err(message):
+def err(message) -> None:
     print(emoji.emojize(_msg(message), use_aliases=True), flush=True, file=sys.stderr)
 
 
-def ask(message, chars, default):
+def ask(message, chars, default) -> str:
     prompt = message + ' ['
     for c in chars:
         prompt = prompt + (c.upper() if c == default else c.lower())
@@ -76,14 +88,14 @@ def ask(message, chars, default):
     while True:
         ch = getch().lower()
         if ord(ch[0]) == 3 or ord(ch[0]) == 4:
-            log(underline(bold(red('CANCELED\n'))))
+            log(underline(bold(red('ABORTED\n'))))
             exit(1)
         elif ch.lower()[0] in chars.lower():
-            log(bold(ch.lower() + '\n'))
+            log(bold(ch.lower()))
             return ch
 
 
-def getch():
+def getch() -> None:
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:

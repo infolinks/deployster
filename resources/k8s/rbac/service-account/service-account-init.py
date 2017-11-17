@@ -5,11 +5,26 @@ import json
 
 def main():
     print(json.dumps({
-        "requires": {
-            "gcloud": "/root/.config/gcloud",
-            "kube": "/root/.kube"
+        "label": "Kubernetes Service Account",
+        "required_plugs": {
+            "gcloud": "/root/.config/gcloud"
         },
-        "state_entrypoint": "/deployster/service-account-state.py"
+        "required_resources": {
+            "namespace": "infolinks/deployster/k8s/namespace"
+        },
+        "config_schema": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": False,
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "state_action": {
+            "entrypoint": "/deployster/service-account-state.py"
+        }
     }))
 
 

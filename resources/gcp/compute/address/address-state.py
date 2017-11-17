@@ -8,51 +8,55 @@ from googleapiclient.errors import HttpError
 from deployster.gcp.services import get_compute
 
 
-def main():
-    params = json.loads(sys.stdin.read())
-    project_id = params['properties']['project']['project_id']
-    region = params['properties']['region']
-    address_name = params['name']
+class AddressNotFoundError(Exception):
 
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
+def find_regional_address(project_id: str, region: str, name: str) -> dict:
     try:
-        addr = get_compute().addresses().get(project=project_id, region=region, address=address_name).execute()
-        state = {
-            'status': 'VALID',
-            'actions': [],
-            'properties': {
-                'id': addr['id'],
-                'name': addr['name'],
-                'description': addr['description'],
-                'address': addr['address'],
-                'status': addr['status'],
-                'region': region,
-            }
-        }
-
+        return get_compute().addresses().get(project=project_id, region=region, address=name).execute()
     except HttpError as e:
         if e.resp.status == 404:
-            state = {
-                'status': 'MISSING',
-                'actions': [
-                    {
-                        'name': 'create-address',
-                        'description': f"Create GCP address",
-                        'entrypoint': '/deployster/create-address.py',
-                        'args': [
-                            '--project-id', project_id,
-                            '--region', region,
-                            '--name', address_name
-                        ]
-                    }
-                ]
-            }
+            raise AddressNotFoundError(
+                f"address '{name}' in region '{region}' could not be found in project '{project_id}'")
         else:
-            state = {
-                'status': 'INVALID',
-                'reason': str(e)
-            }
+            raise
 
-    print(json.dumps(state))
+
+def main():
+    stdin: dict = json.loads(sys.stdin.read())
+    cfg: dict = stdin['config']
+    dependencies: dict = stdin['dependencies']
+
+    project_id: str = dependencies['project']['config']['project_id']
+    region: str = cfg['region']
+    name: str = cfg['name']
+
+    try:
+        addr: dict = find_regional_address(project_id=project_id, region=region, name=name)
+        print(json.dumps({
+            'status': 'VALID',
+            'properties': addr
+        }, indent=2))
+
+    except AddressNotFoundError:
+        print(json.dumps({
+            'status': 'MISSING',
+            'actions': [
+                {
+                    'name': 'create-address',
+                    'description': f"Create GCP regional IP address '{name}'",
+                    'entrypoint': '/deployster/create-address.py',
+                    'args': [
+                        '--project-id', project_id,
+                        '--region', region,
+                        '--name', name
+                    ]
+                }
+            ]
+        }, indent=2))
 
 
 if __name__ == "__main__":

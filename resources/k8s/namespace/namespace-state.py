@@ -6,50 +6,50 @@ import sys
 
 
 def main():
-    params = json.loads(sys.stdin.read())
-    properties = params['properties']
-    project_id = properties['project']['project_id']
-    zone = properties['cluster']['zone']
-    cluster_name = properties['cluster']['name']
-    namespace_name = properties['name']
+    stdin: dict = json.loads(sys.stdin.read())
+    dependencies: dict = stdin['dependencies']
 
+    project_id = dependencies['cluster']['dependencies']['project']['config']['project_id']
+    cluster_zone = dependencies['cluster']['config']['zone']
+    cluster_name = dependencies['cluster']['config']['name']
+    namespace_name = stdin['config']['name']
+
+    # authenticate to the cluter
     # TODO: authenticate to given cluster using cluster.masterAuth.<clusterCaCertificate|clientCertificate|clientKey>
-    #       we can use kubectl to create custom cluster, user & context to this cluster
-
-    command = f"kubectl get namespace {namespace_name} --ignore-not-found=true --output=json"
+    command = f"gcloud container clusters get-credentials {cluster_name} --project {project_id} --zone {cluster_zone}"
     process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
     if process.returncode != 0:
-        state = {
-            'status': 'INVALID',
-            'reason': f"Failed getting namespace '{namespace_name}':\n{process.stderr}"
-        }
+        print(f"Failed authenticating to cluster: {process.stderr}", file=sys.stderr)
+        exit(process.returncode)
+
+    # check if namespace exists
+    command = f"kubectl get namespace {namespace_name} --ignore-not-found=true -o=json"
+    process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if process.returncode != 0:
+        print(f"Failed getting namespace '{namespace_name}':\n{process.stderr}", file=sys.stderr)
+        exit(1)
     elif process.stdout:
-        state = {
+        print(json.dumps({
             'status': 'VALID',
-            'actions': [],
             'properties': json.loads(process.stdout)
-        }
+        }, indent=2))
     else:
-        state = {
+        print(json.dumps({
             'status': 'MISSING',
             'actions': [
                 {
                     'name': 'create-namespace',
-                    'description': f"Create namespace '{namespace_name}'",
+                    'description': f"Create namespace '{namespace_name}' in GKE cluster '{cluster_name}'",
                     'entrypoint': '/deployster/create-namespace.py',
                     'args': [
                         '--project-id', project_id,
-                        '--zone', zone,
-                        '--cluster-name', cluster_name,
+                        '--zone', cluster_zone,
+                        '--name', cluster_name,
                         '--namespace', namespace_name
                     ]
                 }
-            ],
-            'properties': {}
-        }
-
-    print(json.dumps(state))
+            ]
+        }, indent=2))
 
 
 if __name__ == "__main__":

@@ -33,25 +33,27 @@ def build_node_pool(properties, pool):
 
 
 def main():
-    params = json.loads(sys.stdin.read())
-    properties = params['properties']
-    project_id = properties['project']['project_id']
-    zone = properties['zone']
-    version = properties['version']
+    stdin: dict = json.loads(sys.stdin.read())
+    cfg: dict = stdin['config']
+    dependencies: dict = stdin['dependencies']
 
-    config = get_container().projects().zones().getServerconfig(projectId=project_id, zone=zone).execute()
+    project_id = dependencies['project']['config']['project_id']
+    cluster_zone = cfg['zone']
+    version = cfg['version']
+
+    config = get_container().projects().zones().getServerconfig(projectId=project_id, zone=cluster_zone).execute()
     if version not in config['validNodeVersions']:
-        print(f"version '{version}' is not an acceptable Kubernetes node version in GKE", file=sys.stderr)
+        print(f"version '{version}' is not supported as a node version in GKE", file=sys.stderr)
         exit(1)
     elif version not in config['validMasterVersions']:
-        print(f"version '{version}' is not an acceptable Kubernetes master version in GKE", file=sys.stderr)
+        print(f"version '{version}' is not supported as a master version in GKE", file=sys.stderr)
         exit(1)
 
-    operation = get_container().projects().zones().clusters().create(projectId=project_id, zone=zone, body={
+    cluster_config = {
         "cluster": {
-            "name": properties['name'],
-            "description": properties['description'],
-            "locations": [properties['zone']],
+            "name": cfg['name'],
+            "description": cfg['description'],
+            "locations": [cfg['zone']],
             "initialClusterVersion": version,
             "masterAuth": {"username": ""},
             "masterAuthorizedNetworksConfig": {"enabled": False},
@@ -64,16 +66,17 @@ def main():
                 "horizontalPodAutoscaling": {"disabled": False},
             },
             "enableKubernetesAlpha": False,
-            "nodePools": [build_node_pool(properties, pool) for pool in properties['node_pools']]
+            "nodePools": [build_node_pool(cfg, pool) for pool in cfg['node_pools']]
         },
-    }).execute()
+    }
 
-    result = wait_for_container_projects_zonal_operation(project_id=project_id,
-                                                         zone=zone,
-                                                         operation=operation,
-                                                         timeout=900)
-
-    print(json.dumps({'response': result}))
+    operation = get_container().projects().zones().clusters().create(projectId=project_id,
+                                                                     zone=cluster_zone,
+                                                                     body=cluster_config).execute()
+    wait_for_container_projects_zonal_operation(project_id=project_id,
+                                                zone=cluster_zone,
+                                                operation=operation,
+                                                timeout=900)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import argparse
 import json
 import sys
@@ -33,30 +34,23 @@ def build_node_pool(pool):
 
 def main():
     argparser = argparse.ArgumentParser(description='Create node pool.')
-    argparser.add_argument('--project-id', dest='project_id', required=True, metavar='PROJECT-ID',
-                           help="the GCP project ID (eg. 'western-evening', or 'backoffice')")
-    argparser.add_argument('--zone', required=True, metavar='ZONE', help="the zone of the cluster.")
-    argparser.add_argument('--name', required=True, metavar='NAME', help="the name of the target cluster.")
-    argparser.add_argument('--pool', required=True, metavar='NAME', help="the name of the node pool.")
+    argparser.add_argument('--project-id', required=True, metavar='ID', help="the alpha-numeric GCP project ID")
+    argparser.add_argument('--zone', required=True, metavar='ZONE', help="the primary zone of the cluster")
+    argparser.add_argument('--name', required=True, metavar='NAME', help="the name of the cluster")
+    argparser.add_argument('--pool', required=True, metavar='NAME', help="the name of the node pool")
     args = argparser.parse_args()
 
-    params = json.loads(sys.stdin.read())
-    properties = params['properties']
+    stdin = json.loads(sys.stdin.read())
 
     operation = get_container().projects().zones().clusters().nodePools().create(
-        projectId=args.project_id,
-        zone=args.zone,
-        clusterId=properties['name'],
+        projectId=args.project_id, zone=args.zone, clusterId=args.name,
         body={
-            "nodePool": build_node_pool(pool) for pool in properties['node_pools'] if pool['name'] == args.pool
+            "nodePool": build_node_pool(pool) for pool in stdin['config']['node_pools'] if pool['name'] == args.pool
         }).execute()
-
-    result = wait_for_container_projects_zonal_operation(project_id=properties['project']['project_id'],
-                                                         zone=properties['zone'],
-                                                         operation=operation,
-                                                         timeout=900)
-
-    print(json.dumps({'response': result}))
+    wait_for_container_projects_zonal_operation(project_id=args.project_id,
+                                                zone=args.zone,
+                                                operation=operation,
+                                                timeout=900)
 
 
 if __name__ == "__main__":
