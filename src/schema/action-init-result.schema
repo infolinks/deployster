@@ -24,12 +24,6 @@
         "state_action": {
             "type": "object",
             "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
                 "image": {
                     "type": "string"
                 },
