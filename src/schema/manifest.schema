@@ -12,6 +12,7 @@
                     "required": [ "path" ],
                     "properties": {
                         "path": { "type": "string" },
+                        "read_only": { "type": "boolean" },
                         "resource_names": {
                             "type": "array",
                             "items": { "type": "string" },

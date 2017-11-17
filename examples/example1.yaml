@@ -1,6 +1,7 @@
 plugs:
   gcloud:
-    path: ~/.config/gcloud
+    path: {{ gcloud_path }}
+    read_only: true
     resource_types:
       - infolinks/deployster/gcp/project
       - infolinks/deployster/gcp/compute/address

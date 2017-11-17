@@ -8,11 +8,13 @@ for docker_file in $(find "./resources" -name "Dockerfile"); do
 done
 
 # build a Docker image from the given path
-function build_image(){
+function build_resource_image(){
     IMAGE_PATH="${1}"
     IMAGE_NAME="infolinks/deployster/${IMAGE_PATH}"
-    docker build --tag "${IMAGE_NAME}:${TAG}" --file "./resources/${IMAGE_PATH}/Dockerfile.local" ./resources
+    echo "Building Docker image: ${IMAGE_NAME}:${TAG}" >&2
+    docker build -q --tag "${IMAGE_NAME}:${TAG}" --file "./resources/${IMAGE_PATH}/Dockerfile.local" ./resources
     if [[ "${2}" == "push" ]]; then
+        echo "Pushing Docker image: ${IMAGE_NAME}:${TAG}" >&2
         docker push "${IMAGE_NAME}:${TAG}"
     fi
 }
@@ -21,12 +23,20 @@ set -e
 
 # authenticate to GCR & build images
 gcloud docker --authorize-only
-build_image "gcp/base"
-build_image "gcp/compute/address"
-build_image "gcp/container/cluster"
-build_image "gcp/project"
-build_image "k8s/base"
-build_image "k8s/namespace"
-#build_image "k8s/rbac/cluster-role"
-#build_image "k8s/rbac/role"
-build_image "k8s/rbac/service-account"
+build_resource_image "gcp/base"
+build_resource_image "gcp/compute/address"
+build_resource_image "gcp/container/cluster"
+build_resource_image "gcp/project"
+build_resource_image "k8s/base"
+build_resource_image "k8s/namespace"
+#build_resource_image "k8s/rbac/cluster-role"
+#build_resource_image "k8s/rbac/role"
+build_resource_image "k8s/rbac/service-account"
+
+# build main deployster image
+echo "Building Docker image: infolinks/deployster:${TAG}" >&2
+docker build -q --tag "infolinks/deployster:${TAG}" .
+if [[ "${2}" == "push" ]]; then
+    echo "Pushing Docker image: infolinks/deployster:${TAG}" >&2
+    docker push "infolinks/deployster:${TAG}"
+fi

@@ -20,3 +20,8 @@ for docker_file in $(find "./resources" -name "Dockerfile"); do
     docker tag "${IMAGE_NAME}:${TAG}" "${IMAGE_NAME}:latest"
     docker push "${IMAGE_NAME}:latest"
 done
+
+docker tag "infolinks/deployster:${TAG}" "infolinks/deployster:${VERSION}"
+docker push "infolinks/deployster:${VERSION}"
+docker tag "infolinks/deployster:${TAG}" "infolinks/deployster:latest"
+docker push "infolinks/deployster:latest"

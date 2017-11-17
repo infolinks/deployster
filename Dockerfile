@@ -1,14 +1,14 @@
-FROM google/cloud-sdk:171.0.0-alpine
+FROM alpine:3.6
 MAINTAINER Arik Kfir <arik@infolinks.com>
-RUN apk --no-cache --update add jq py2-pip && \
-    gcloud components install --quiet kubectl && \
-    pip --quiet --disable-pip-version-check --no-cache-dir install \
-        google-api-python-client \
+RUN apk --no-cache --update add bash docker jq python3 py3-pip && \
+    pip3 --quiet --disable-pip-version-check --no-cache-dir install \
         Jinja2 \
-        jsonmerge \
-        python-dateutil
-ADD bin /deploy/bin
-RUN chmod a+x /deploy/bin/*.py && \
-    mkdir -p /deploy/staging
-WORKDIR /deploy/staging
-ENTRYPOINT ["/deploy/bin/deploy.sh"]
+        jsonschema \
+        PyYAML \
+        emoji \
+        ansicolors
+ENV PYTHONPATH="/deployster/lib:$PYTHONPATH"
+COPY src /deployster/lib
+RUN chmod a+x /deployster/lib/deployster.py
+WORKDIR /deployster/workspace/
+ENTRYPOINT ["/deployster/lib/deployster.py"]

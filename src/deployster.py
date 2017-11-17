@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import json
@@ -78,15 +78,14 @@ class Plug:
     def __init__(self,
                  name: str,
                  path: str,
+                 readonly: bool,
                  allowed_resource_names: Sequence[str],
                  allowed_resource_types: Sequence[str]):
         self._name: str = name
         self._path: Path = Path(os.path.expanduser(path=path))
+        self._readonly: bool = readonly
         self._resource_names: Sequence[str] = allowed_resource_names
         self._resource_types: Sequence[str] = allowed_resource_types
-
-        if not self._path.exists():
-            raise FileNotFoundError(f"Plug '{self.name}' path ('{self.path}') does not exist.")
 
     @property
     def name(self) -> str:
@@ -95,6 +94,10 @@ class Plug:
     @property
     def path(self) -> Path:
         return self._path
+
+    @property
+    def readonly(self) -> bool:
+        return self._readonly
 
     @property
     def resource_names(self) -> Sequence[str]:
@@ -162,16 +165,15 @@ class Action:
     def args(self) -> Sequence[str]:
         return self._args
 
-    def execute(self, work_dir: Path, volumes: Mapping[str, str] = None, stdin: dict = None):
+    def execute(self, work_dir: Path, volumes: Sequence[str] = None, stdin: dict = None):
         os.makedirs(str(work_dir), exist_ok=True)
 
         command = ["docker", "run", "-i"]
 
         # setup volumes
-        command.extend(["--volume", f"{work_dir}:/deployster/action"])
-        command.extend(["--volume", f"{Path.cwd()}:/deployster/workspace"])
-        for host_path, container_path in volumes.items() if volumes else {}:
-            command.extend(["--volume", f"{host_path}:{container_path}"])
+        if volumes:
+            for volume in volumes:
+                command.extend(["--volume", volume])
 
         # setup entrypoint
         if self.entrypoint:
@@ -245,10 +247,11 @@ class Manifest:
         # parse plugs
         plugs: MutableMapping[str, Plug] = {}
         for plug_name, plug in (manifest['plugs'] if 'plugs' in manifest else {}).items():
-            plugs[plug_name] = Plug(plug_name,
-                                    plug['path'],
-                                    plug['resource_names'] if 'resource_names' in plug else [],
-                                    plug['resource_types'] if 'resource_types' in plug else [])
+            plugs[plug_name] = Plug(name=plug_name,
+                                    path=plug['path'],
+                                    readonly=plug['read_only'] if 'read_only' in plug else True,
+                                    allowed_resource_names=plug['resource_names'] if 'resource_names' in plug else [],
+                                    allowed_resource_types=plug['resource_types'] if 'resource_types' in plug else [])
         self._plugs: Mapping[str, Plug] = plugs
 
         # parse resources
@@ -297,7 +300,7 @@ class ResourceState:
         self._resource: Resource = resource
         self._work_dir: Path = work_dir
         self._config_schema: dict = None
-        self._plugs: Mapping[str, str] = None
+        self._plugs: Mapping[str, Plug] = None
         self._dependencies: Mapping[str, Resource] = None
         self._state_action: Action = None
         self._status: ResourceStatus = None
@@ -339,21 +342,28 @@ class ResourceState:
     def properties(self) -> dict:
         return self._properties
 
-    def get_as_dependency(self) -> dict:
+    def get_as_dependency(self, include_properties: bool = True) -> dict:
         resolver = self._resource_state_provider
-        return {
+        data = {
             'type': self.resource.type,
             'config': self.resource.config,
-            'properties': self.properties,
-            'dependencies': {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
+            'dependencies': {
+                k: resolver(v.name).get_as_dependency(include_properties) for k, v in self._dependencies.items()
+            }
         }
+        if include_properties:
+            data['properties'] = self.properties
+        return data
 
     def initialize(self) -> None:
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
 
         result = init_action.execute(work_dir=self._work_dir / init_action.name,
-                                     stdin={'name': self.resource.name, 'type': self.resource.type})
+                                     stdin={
+                                         'name': self.resource.name,
+                                         'type': self.resource.type
+                                     })
         self._type_label: str = result['label']
 
         # validate manifest against our manifest schema
@@ -366,7 +376,7 @@ class ResourceState:
         self._config_schema: dict = result['config_schema'] if 'config_schema' in result else None
 
         # collect required plugs, failing if any plug is missing
-        plugs: MutableMapping[str, str] = {}
+        plugs: MutableMapping[str, Plug] = {}
         for plug_name, container_path in (result['required_plugs'] if 'required_plugs' in result else {}).items():
             if plug_name not in self.manifest.plugs:
                 raise UserError(f"resource '{self.resource.name}' requires missing plug '{plug_name}'")
@@ -375,8 +385,8 @@ class ResourceState:
             if not plug.allowed_for(self.resource):
                 raise UserError(f"plug '{plug_name}' is not allowed for resource '{self.resource.name}'")
             else:
-                plugs[plug.path] = container_path
-        self._plugs: Mapping[str, str] = plugs
+                plugs[container_path] = plug
+        self._plugs: Mapping[str, Plug] = plugs
 
         # collect required resources, failing if any resource is missing
         dependencies: MutableMapping[str, Resource] = {}
@@ -424,7 +434,7 @@ class ResourceState:
                 self._actions: Sequence[Action] = []
                 return
             else:
-                dependencies[dependency_alias] = dependency_state.get_as_dependency()
+                dependencies[dependency_alias] = dependency_state.get_as_dependency(include_properties=False)
 
         # execute state action
         if not stealth:
@@ -441,7 +451,7 @@ class ResourceState:
         # execute the resource state action
         result = self._state_action.execute(
             work_dir=self._work_dir / self._state_action.name,
-            volumes=self._plugs,
+            volumes=[f"{plug.path}:{cpath}:{'ro' if plug.readonly else 'rw'}" for cpath, plug in self._plugs.items()],
             stdin={
                 'name': self.resource.name,
                 'type': self.resource.type,
@@ -506,12 +516,15 @@ class ResourceState:
             log('')
             indent()
             # TODO: stream stderr/stdout from the action to deployster console (we don't expect JSON from this action)
-            action.execute(work_dir=self._work_dir / action.name, volumes=self._plugs, stdin={
-                'name': self.resource.name,
-                'type': self.resource.type,
-                'config': self.resource.config,
-                'dependencies': {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
-            })
+            action.execute(
+                work_dir=self._work_dir / action.name,
+                volumes=[f"{p.path}:{cpath}:{'ro' if p.readonly else 'rw'}" for cpath, p in self._plugs.items()],
+                stdin={
+                    'name': self.resource.name,
+                    'type': self.resource.type,
+                    'config': self.resource.config,
+                    'dependencies': {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
+                })
             unindent()
 
         # refresh to receive updated properties
@@ -655,19 +668,8 @@ class Plan:
         unindent()
 
 
-def create_context(args) -> Context:
-    context = Context()
-    for var in args.vars:
-        context.add_variable(var['key'], var['value'])
-    for var_file in args.var_files:
-        context.add_file(var_file)
-    if args.verbose:
-        log(f"Context: {json.dumps(context.data, indent=2)}")
-    return context
-
-
 def main():
-    argparser = argparse.ArgumentParser(prog="deployster.sh", description="Deployment automation tool.",
+    argparser = argparse.ArgumentParser(description="Deployment automation tool.",
                                         epilog="Written by Infolinks Inc. (https://github.com/infolinks/deployster)")
     argparser.add_argument('--var', action='append', type=util.parse_variable, metavar='NAME=VALUE', dest='vars',
                            default=[], help='makes the given variable available to the deployment manifest')
@@ -682,9 +684,22 @@ def main():
     log('')
 
     try:
-        context: Context = create_context(args)
+        work_path = Path(f"/deployster/work/{os.path.basename(args.manifest)}")
+
+        # create context
+        context = Context()
+        for var in args.vars:
+            context.add_variable(var['key'], var['value'])
+        for var_file in args.var_files:
+            context.add_file(var_file)
+        if args.verbose:
+            log(f"Context: {json.dumps(context.data, indent=2)}")
+
+        # load manifest
         manifest: Manifest = Manifest(context=context, manifest_file=args.manifest)
-        plan: Plan = Plan(work_dir=Path(f"./work/{os.path.basename(args.manifest)}").resolve(), manifest=manifest)
+
+        # build the deployment plan, display, and potentially execute it
+        plan: Plan = Plan(work_dir=work_path.resolve(), manifest=manifest)
         plan.bootstrap()
         plan.resolve()
         plan.display()
