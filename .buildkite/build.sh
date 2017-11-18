@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 TAG="${1}"
 [[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
 
@@ -18,8 +20,6 @@ function build_resource_image(){
         docker push "${IMAGE_NAME}:${TAG}"
     fi
 }
-
-set -e
 
 # authenticate to GCR & build images
 gcloud docker --authorize-only
