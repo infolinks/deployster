@@ -1,7 +1,7 @@
 plugs:
   gcloud:
     path: {{ gcloud_path }}
-    read_only: true
+    read_only: false
     resource_types:
       - infolinks/deployster-gcp-project
       - infolinks/deployster-gcp-compute-address
