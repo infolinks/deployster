@@ -128,7 +128,7 @@ invocation is mainly to allow the resource to provide back to Deployster
 information about the resource; therefor, Deployster will expect the
 following structure back:
 
-```json
+```javascript
 {
     // The resource type's label, eg. "Google Cloud VM"
     "label": "<resource-type-label>",
@@ -182,7 +182,7 @@ The way this happens is by Deployster invoking the _state action_ that
 the resource provided during the _initialization_ phase. This action,
 when executed, is provided the following JSON structure on its `stdin`:
 
-```JSON
+```javascript
 {
     // The name of the resource in the deployment manifest
     "name": "<resource-name>",
@@ -223,7 +223,7 @@ whatever means it deems necessary to discover the current state of the
 resource. The state action is expected to output the following JSON
 on its `stdout`:
 
-```JSON
+```javascript
 {
     "status": "<resource-status>", // must be "MISSING", "STALE", or "VALID"
 
