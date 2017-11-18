@@ -2,4 +2,4 @@ steps:
 
   - label: Version & push Docker images
     command:
-      - ./.buildkite/release.sh "${BUILDKITE_COMMIT}" "${VERSION}"
+      - ./.buildkite/release.sh "${VERSION}"

@@ -2,4 +2,4 @@ steps:
 
   - label: Build & push Docker images
     command:
-      - ./.buildkite/build.sh ${BUILDKITE_COMMIT} push
+      - ./.buildkite/build.sh ${BUILDKITE_COMMIT}
