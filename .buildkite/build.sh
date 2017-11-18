@@ -5,6 +5,8 @@ set -ex
 TAG="${1}"
 [[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
 
+PUSH="${2}"
+
 for docker_file in $(find "./resources" -name "Dockerfile"); do
     sed "s/^FROM \(infolinks\/deployster-[^:]\+\):.\+$/FROM \1:${TAG}/g" "${docker_file}" > ${docker_file}.local
 done
@@ -15,7 +17,7 @@ function build_resource_image(){
     IMAGE_NAME="infolinks/deployster-${IMAGE_PATH//\//-}"
     echo "Building Docker image: ${IMAGE_NAME}:${TAG}" >&2
     docker build -q --tag "${IMAGE_NAME}:${TAG}" --file "./resources/${IMAGE_PATH}/Dockerfile.local" ./resources
-    if [[ "${2}" == "push" ]]; then
+    if [[ "${PUSH}" == "push" ]]; then
         echo "Pushing Docker image: ${IMAGE_NAME}:${TAG}" >&2
         docker push "${IMAGE_NAME}:${TAG}"
     fi
@@ -36,7 +38,7 @@ build_resource_image "k8s/rbac/service-account"
 # build main deployster image
 echo "Building Docker image: infolinks/deployster:${TAG}" >&2
 docker build -q --tag "infolinks/deployster:${TAG}" .
-if [[ "${2}" == "push" ]]; then
+if [[ "${PUSH}" == "push" ]]; then
     echo "Pushing Docker image: infolinks/deployster:${TAG}" >&2
     docker push "infolinks/deployster:${TAG}"
 fi
