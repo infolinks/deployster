@@ -1,0 +1,5 @@
+deployster_version: local
+region: europe-west1
+zone: europe-west1-c
+billing_account_id: 000100-19F21B-71CA79
+organization_id: 152501428218

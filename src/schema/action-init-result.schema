@@ -1,0 +1,40 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [ "label", "state_action" ],
+    "properties": {
+        "label": {
+            "type": "string"
+        },
+        "required_plugs": {
+            "type": "object",
+            "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9_\\-]*$": { "type": "string" }
+            }
+        },
+        "required_resources": {
+            "type": "object",
+            "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9_\\-]*$": { "type": "string" }
+            }
+        },
+        "config_schema": {
+            "type": "object"
+        },
+        "state_action": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "entrypoint": {
+                    "type": "string"
+                },
+                "args": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                }
+            }
+        }
+    }
+}

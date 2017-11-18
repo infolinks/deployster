@@ -1,0 +1,38 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [ "status" ],
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": [ "MISSING", "STALE", "VALID" ]
+        },
+        "actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "image": {
+                        "type": "string"
+                    },
+                    "entrypoint": {
+                        "type": "string"
+                    },
+                    "args": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    }
+                }
+            }
+        },
+        "properties": {
+            "type": "object"
+        }
+    }
+}

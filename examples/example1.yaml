@@ -1,0 +1,85 @@
+plugs:
+  gcloud:
+    path: {{ gcloud_path }}
+    read_only: true
+    resource_types:
+      - infolinks/deployster-gcp-project
+      - infolinks/deployster-gcp-compute-address
+      - infolinks/deployster-gcp-container-cluster
+      - infolinks/deployster-k8s-namespace
+      - infolinks/deployster-k8s-rbac-service-account
+
+resources:
+
+  project:
+    type: infolinks/deployster-gcp-project:{{ deployster_version }}
+    config:
+      project_id: {{ gcp_project }}
+      organization_id: {{ organization_id }}
+      billing_account_id: {{ billing_account_id }}
+      apis:
+         enabled:
+           - logging.googleapis.com
+           - monitoring.googleapis.com
+         disabled:
+           - cloudbuild.googleapis.com
+
+  apps-load-balancer:
+    type: infolinks/deployster-gcp-compute-address:{{ deployster_version }}
+    dependencies:
+      project: project
+    config:
+      name: apps-load-balancer
+      region: {{ region }}
+
+  cluster:
+    type: infolinks/deployster-gcp-container-cluster:{{ deployster_version }}
+    dependencies:
+      project: project
+    config:
+      zone: {{ zone }}
+      name: apps
+      description: Applications cluster.
+      version: 1.8.2-gke.0
+      node_pools:
+        # Nodes for the web traffic load balancer
+        - name: load-balancer
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-load-balancer
+          labels:
+            role: load-balancer
+        # Nodes for edge systems (ad-server, static resources, etc)
+        - name: edge
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-edge
+          labels:
+            role: edge
+        # Nodes for backoffice systems (insight, central, etc)
+        - name: backoffice
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-backoffice
+          labels:
+            role: backoffice
+
+  networking-namespace:
+    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}
+    dependencies:
+      cluster: cluster
+    config:
+      name: networking
+
+  networking-service-account:
+    type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}
+    dependencies:
+      namespace: networking-namespace
+    config:
+      name: networking
