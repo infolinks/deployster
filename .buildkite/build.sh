@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 
 TAG="${1}"
 [[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
