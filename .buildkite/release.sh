@@ -5,7 +5,8 @@ VERSION="${1}"
 
 set -ex
 
-source $(dirname $0)/build.sh "${VERSION}" push
+echo "Building & pushing versioned images..."
+$(dirname $0)/build.sh "${VERSION}" push
 
 # tag images as VERSION and 'latest', then push them to Docker Hub
 gcloud docker --authorize-only
