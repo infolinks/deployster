@@ -350,6 +350,10 @@ add this flag, Deployster will compute ask you for confirmation before
 actually executing the deployment, unless you add `--yes` to the command
 line).
 
+## Available resources
+
+TBD.
+
 ## ROADMAP
 
 * Support creating a Plan from a previously-saved plan file (incl. comparing updated state to saved state)
