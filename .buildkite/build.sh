@@ -6,7 +6,7 @@ TAG="${1}"
 [[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
 
 for docker_file in $(find "./resources" -name "Dockerfile"); do
-    sed "s/^FROM \([^:]\+\):.+$/FROM \1:${TAG}/g" "${docker_file}" > ${docker_file}.local
+    sed "s/^FROM \(infolinks\/deployster-[^:]\+\):.\+$/FROM \1:${TAG}/g" "${docker_file}" > ${docker_file}.local
 done
 
 # build a Docker image from the given path
