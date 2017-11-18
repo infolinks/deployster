@@ -30,6 +30,11 @@ midnight :)
     - Will support _Rollbacks_ which will enable you to more easily
     recover from accidental roll-outs.
 
+## Examples
+
+Examples are available under the `examples` directory - please have a
+look!
+
 ## Architecture
 
 Deployster mechanics is built around three main components:
