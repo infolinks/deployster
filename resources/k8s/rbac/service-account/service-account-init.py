@@ -10,7 +10,7 @@ def main():
             "gcloud": "/root/.config/gcloud"
         },
         "required_resources": {
-            "namespace": "infolinks/deployster/k8s/namespace"
+            "namespace": "infolinks/deployster-k8s-namespace"
         },
         "config_schema": {
             "type": "object",

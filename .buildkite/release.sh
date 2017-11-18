@@ -13,7 +13,7 @@ gcloud docker --authorize-only
 for docker_file in $(find "./resources" -name "Dockerfile"); do
     IMAGE_DIR="${docker_file//\/Dockerfile/}"
     IMAGE_PATH="${IMAGE_DIR//\.\/resources\//}"
-    IMAGE_NAME="infolinks/deployster/${IMAGE_PATH}"
+    IMAGE_NAME="infolinks/deployster/${IMAGE_PATH//\//-}"
 
     docker tag "${IMAGE_NAME}:${TAG}" "${IMAGE_NAME}:${VERSION}"
     docker push "${IMAGE_NAME}:${VERSION}"

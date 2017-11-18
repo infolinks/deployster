@@ -10,7 +10,7 @@ done
 # build a Docker image from the given path
 function build_resource_image(){
     IMAGE_PATH="${1}"
-    IMAGE_NAME="infolinks/deployster/${IMAGE_PATH}"
+    IMAGE_NAME="infolinks/deployster-${IMAGE_PATH//\//-}"
     echo "Building Docker image: ${IMAGE_NAME}:${TAG}" >&2
     docker build -q --tag "${IMAGE_NAME}:${TAG}" --file "./resources/${IMAGE_PATH}/Dockerfile.local" ./resources
     if [[ "${2}" == "push" ]]; then

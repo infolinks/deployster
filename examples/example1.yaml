@@ -3,16 +3,16 @@ plugs:
     path: {{ gcloud_path }}
     read_only: true
     resource_types:
-      - infolinks/deployster/gcp/project
-      - infolinks/deployster/gcp/compute/address
-      - infolinks/deployster/gcp/container/cluster
-      - infolinks/deployster/k8s/namespace
-      - infolinks/deployster/k8s/rbac/service-account
+      - infolinks/deployster-gcp-project
+      - infolinks/deployster-gcp-compute-address
+      - infolinks/deployster-gcp-container-cluster
+      - infolinks/deployster-k8s-namespace
+      - infolinks/deployster-k8s-rbac-service-account
 
 resources:
 
   project:
-    type: infolinks/deployster/gcp/project:{{ deployster_version }}
+    type: infolinks/deployster-gcp-project:{{ deployster_version }}
     config:
       project_id: {{ gcp_project }}
       organization_id: {{ organization_id }}
@@ -25,7 +25,7 @@ resources:
            - cloudbuild.googleapis.com
 
   apps-load-balancer:
-    type: infolinks/deployster/gcp/compute/address:{{ deployster_version }}
+    type: infolinks/deployster-gcp-compute-address:{{ deployster_version }}
     dependencies:
       project: project
     config:
@@ -33,7 +33,7 @@ resources:
       region: {{ region }}
 
   cluster:
-    type: infolinks/deployster/gcp/container/cluster:{{ deployster_version }}
+    type: infolinks/deployster-gcp-container-cluster:{{ deployster_version }}
     dependencies:
       project: project
     config:
@@ -71,14 +71,14 @@ resources:
             role: backoffice
 
   networking-namespace:
-    type: infolinks/deployster/k8s/namespace:{{ deployster_version }}
+    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}
     dependencies:
       cluster: cluster
     config:
       name: networking
 
   networking-service-account:
-    type: infolinks/deployster/k8s/rbac/service-account:{{ deployster_version }}
+    type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}
     dependencies:
       namespace: networking-namespace
     config:

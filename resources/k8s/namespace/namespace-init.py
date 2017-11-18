@@ -10,7 +10,7 @@ def main():
             "gcloud": "/root/.config/gcloud"
         },
         "required_resources": {
-            "cluster": "infolinks/deployster/gcp/container/cluster"
+            "cluster": "infolinks/deployster-gcp-container-cluster"
         },
         "config_schema": {
             "type": "object",
