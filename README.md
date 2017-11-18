@@ -39,18 +39,18 @@ implements a simple contract that allows receiving configuration,
 querying the resource state, and performing an action.
 
 - Manifest: a YAML or JSON document (TBD) written by the
-deployer or developer, that describes _how_ the _final state_ should be.
+deployer or developer, that describes _what_ the final state should be.
 It's Deployster's job to use this manifest to _discover_ the current
 state, and then plan the set of actions that will migrate it to the
 _desired_ state as described in the manifest.
 
 - Context: a separate set of variables (inferred from command-line
-variables and/or YAML or JSON documents) that configure the deployment.
-Since you would usually want to use the same deployment manifests for
-different environments (eg. QA, production, etc) or scenarios, there
-will always be some dynamic aspects of the manifests (eg. the amount of
-CPUs or RAM for a VM). The context, by virtue of being dynamic, allows
-you to avoid storing such information in the manifest. You would
+variables and/or YAML or JSON documents) augmenting the manifest with
+dynamic values, allowing you to use the same manifest in different
+environments or scenarios. For example, the manifest may specify that
+a Kubernetes cluster is to be deployed, but the number of nodes would
+probably be different between production & QA - this is a value you
+would store in the context instead of the manifest.
 
 ### Manifest
 
