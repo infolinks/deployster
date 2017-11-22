@@ -385,8 +385,13 @@ class ResourceState:
         except ValidationError as e:
             raise UserError(f"Protocol error during initialization of '{self.resource.name}': {e.message}") from e
 
-        # collect resource configuration schema, if any
+        # collect resource configuration schema, and if one was provided, validate resource configuration using it
         self._config_schema: dict = result['config_schema'] if 'config_schema' in result else None
+        if self._config_schema:
+            try:
+                jsonschema.validate(self.resource.config, self._config_schema)
+            except ValidationError as e:
+                raise UserError(f"Invalid resource configuration for '{self.resource.name}': {e.message}") from e
 
         # collect required plugs, failing if any plug is missing
         plugs: MutableMapping[str, Plug] = {}
@@ -453,13 +458,6 @@ class ResourceState:
         if not stealth:
             log(f":point_right: {self.resource.name}")
             indent()
-
-        # validate resource configuration is legal according to this resource's config schema (if any)
-        if self._config_schema:
-            try:
-                jsonschema.validate(self.resource.config, self._config_schema)
-            except ValidationError as e:
-                raise UserError(f"Invalid resource configuration for '{self.resource.name}': {e.message}") from e
 
         # execute the resource state action
         result = self._state_action.execute(
