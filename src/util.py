@@ -30,8 +30,8 @@ class _Indent:
     def indent(self) -> None:
         self._indent = self._indent + 5
 
-    def unindent(self) -> None:
-        self._indent = self._indent - 5
+    def unindent(self, fully=False) -> None:
+        self._indent = 0 if fully else self._indent - 5
 
     @property
     def level(self) -> int:
@@ -45,8 +45,8 @@ def indent() -> None:
     _indent.indent()
 
 
-def unindent() -> None:
-    _indent.unindent()
+def unindent(fully=False) -> None:
+    _indent.unindent(fully)
 
 
 def _msg(message) -> str:

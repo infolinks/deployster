@@ -15,7 +15,7 @@ from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence,
 import jinja2
 import jsonschema
 import yaml
-from colors import bold, underline, red, italic, faint, yellow
+from colors import bold, underline, red, italic, faint, yellow, green
 from jinja2 import UndefinedError
 from jsonschema import ValidationError
 
@@ -684,6 +684,14 @@ class Plan:
 
 
 def main():
+    if os.path.exists("/deployster/VERSION"):
+        with open("/deployster/VERSION", 'r') as f:
+            version = f.read().strip()
+    else:
+        version = "0.0.0"
+    log(green(underline(bold(f"Deployster v{version}"))))
+    log('')
+
     class VariableAction(argparse.Action):
 
         def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None,
@@ -730,7 +738,7 @@ def main():
                     f"WARNING: context file '{values}' does not exist (manifest processing might result in errors)."))
 
     # parse arguments
-    argparser = argparse.ArgumentParser(description="Deployment automation tool.",
+    argparser = argparse.ArgumentParser(description=f"Deployment automation tool, v{version}.",
                                         epilog="Written by Infolinks Inc. (https://github.com/infolinks/deployster)")
     argparser.add_argument('--var', action=VariableAction, metavar='NAME=VALUE', dest='context',
                            help='makes the given variable available to the deployment manifest')
@@ -772,6 +780,11 @@ def main():
             err(red(traceback.format_exc()))
         else:
             err(red(e.message))
+        exit(1)
+    except KeyboardInterrupt:
+        unindent(fully=True)
+        err('')
+        err(red(f"Interrupted."))
         exit(1)
     except Exception:
         # always print stacktrace since this exception is an unexpected exception

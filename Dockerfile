@@ -10,5 +10,7 @@ RUN apk --no-cache --update add bash docker jq python3 py3-pip && \
 ENV PYTHONPATH="/deployster/lib:$PYTHONPATH"
 COPY src /deployster/lib
 RUN chmod a+x /deployster/lib/deployster.py
+ARG VERSION="0.0.0"
+RUN echo "${VERSION}" > /deployster/VERSION
 WORKDIR /deployster/workspace/
 ENTRYPOINT ["/deployster/lib/deployster.py"]
