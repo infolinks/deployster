@@ -77,10 +77,10 @@ class GcpRegionalAddress(DResource):
 
     @property
     def actions_for_missing_status(self) -> Sequence[DAction]:
-        return [DAction(name=f"create-address", description=f"Create regional IP address '{self.region}/{self.name}'")]
+        return [DAction(name=f"create", description=f"Create regional IP address '{self.region}/{self.name}'")]
 
     @action
-    def create_address(self, args):
+    def create(self, args):
         if args: pass
         addresses_service = get_compute().addresses()
         result = addresses_service.insert(project=self.project.project_id,
