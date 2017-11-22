@@ -367,6 +367,13 @@ class ResourceState:
             data['properties'] = self.properties
         return data
 
+    def pull(self) -> None:
+        process = subprocess.run(["docker", "pull", self.resource.type],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if process.returncode != 0:
+            raise UserError(f"pulling Docker image '{self.resource.type}' failed w/ exit code #{process.returncode}:\n"
+                            f"{process.stderr}")
+
     def initialize(self) -> None:
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
@@ -595,18 +602,28 @@ class Plan:
         os.makedirs(str(self.work_dir))
         unindent()
 
-    def bootstrap(self) -> None:
+    def bootstrap(self, pull=True) -> None:
         log(bold(":hourglass: " + underline("Bootstrapping:")))
         log('')
 
         indent()
         self.validate_docker_available()
         self.clean_work_dir()
+        if pull:
+            for state in self._resource_states.values():
+                log(f":point_right: Pulling Docker image for resource '{bold(state.resource.name)}'...")
+                indent()
+                state.pull()
+                unindent()
+        else:
+            warn(f":point_right: Skipping explicit resource image pulling")
+
         for state in self._resource_states.values():
             log(f":point_right: Initializing resource '{bold(state.resource.name)}'")
             indent()
             state.initialize()
             unindent()
+
         unindent()
         log('')
 
@@ -740,6 +757,8 @@ def main():
     # parse arguments
     argparser = argparse.ArgumentParser(description=f"Deployment automation tool, v{version}.",
                                         epilog="Written by Infolinks Inc. (https://github.com/infolinks/deployster)")
+    argparser.add_argument('--no-pull', dest='pull', action='store_false',
+                           help='skip resource Docker images pulling (rely on Docker default)')
     argparser.add_argument('--var', action=VariableAction, metavar='NAME=VALUE', dest='context',
                            help='makes the given variable available to the deployment manifest')
     argparser.add_argument('--var-file', action=VariablesFileAction, metavar='FILE', dest='context',
@@ -763,7 +782,7 @@ def main():
         # build the deployment plan, display, and potentially execute it
         work_path = Path(f"/deployster/work/{os.path.basename(args.manifest)}")
         plan: Plan = Plan(work_dir=work_path.resolve(), manifest=manifest)
-        plan.bootstrap()
+        plan.bootstrap(args.pull)
         plan.resolve()
         plan.display()
         if args.plan or plan.empty:
