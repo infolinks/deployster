@@ -20,7 +20,7 @@ from jinja2 import UndefinedError
 from jsonschema import ValidationError
 
 import util
-from util import ask, log, err, indent, unindent
+from util import ask, log, warn, err, indent, unindent
 
 
 class UserError(Exception):
@@ -720,10 +720,14 @@ def main():
             super().__init__(option_strings, dest, nargs, const, default, type, choices, required, help, metavar)
 
         def __call__(self, parser, namespace, values, option_string=None):
-            if not hasattr(namespace, self.dest) or not getattr(namespace, self.dest):
-                setattr(namespace, self.dest, Context())
-            context: Context = getattr(namespace, self.dest)
-            context.add_file(values)
+            if os.path.exists(values):
+                if not hasattr(namespace, self.dest) or not getattr(namespace, self.dest):
+                    setattr(namespace, self.dest, Context())
+                context: Context = getattr(namespace, self.dest)
+                context.add_file(values)
+            else:
+                warn(yellow(
+                    f"WARNING: context file '{values}' does not exist (manifest processing might result in errors)."))
 
     # parse arguments
     argparser = argparse.ArgumentParser(description="Deployment automation tool.",
