@@ -4,4 +4,4 @@
 *.iml
 *.pyc
 .merged-environment.json
-Dockerfile.local
+Dockerfile.*.local

@@ -1,44 +1,55 @@
 #!/usr/bin/env bash
 
-set -ex
-
+# parse arguments
 TAG="${1}"
-[[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
-
 PUSH="${2}"
 
-for docker_file in $(find "./resources" -name "Dockerfile"); do
-    sed "s/^FROM \(infolinks\/deployster-[^:]\+\):.\+$/FROM \1:${TAG}/g" "${docker_file}" > ${docker_file}.local
+# validate arguments
+[[ -z "${TAG}" ]] && echo "usage: $0 <tag>" >&2 && exit 1
+
+# setup
+DEPLOYSTER_HOME=$(cd $(dirname $0)/..; pwd)
+RESOURCES_HOME="${DEPLOYSTER_HOME}/resources"
+TAG_PREFIX="infolinks/deployster"
+IMAGE_FROM_PATTERN="s/^FROM \(infolinks\/deployster-[^:]\+\):.\+$/FROM \1:${TAG}/g"
+
+# fail on first error
+set -e
+
+# process Dockerfile files and replace ":local" in "FROM" clauses with actual tag
+echo "Creating versioned Dockerfiles..." >&2
+for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
+    sed "${IMAGE_FROM_PATTERN}" "${dockerfile}" > "${dockerfile}.local"
 done
 
-# build a Docker image from the given path
-function build_resource_image(){
-    IMAGE_PATH="${1}"
-    IMAGE_NAME="infolinks/deployster-${IMAGE_PATH//\//-}"
-    echo "Building Docker image: ${IMAGE_NAME}:${TAG}" >&2
-    docker build -q --tag "${IMAGE_NAME}:${TAG}" --file "./resources/${IMAGE_PATH}/Dockerfile.local" ./resources
-    if [[ "${PUSH}" == "push" ]]; then
-        echo "Pushing Docker image: ${IMAGE_NAME}:${TAG}" >&2
-        docker push "${IMAGE_NAME}:${TAG}"
-    fi
-}
+# build resource images
+for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
+    IMAGE_NAME=$(echo "${dockerfile}" | sed "s/.*\/Dockerfile\.\(.\+\)$/\1/g")
+    IMAGE_NAME=${IMAGE_NAME//_/-}
+    echo "Building Docker image '${TAG_PREFIX}-${IMAGE_NAME}:${TAG}'..." >&2
+    docker build -q --tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" --file "${dockerfile}.local" "${RESOURCES_HOME}"
+done
 
-# authenticate to GCR & build images
-gcloud docker --authorize-only
-build_resource_image "gcp/base"
-build_resource_image "gcp/compute/address"
-build_resource_image "gcp/container/cluster"
-build_resource_image "gcp/project"
-build_resource_image "k8s/base"
-build_resource_image "k8s/namespace"
-#build_resource_image "k8s/rbac/cluster-role"
-#build_resource_image "k8s/rbac/role"
-build_resource_image "k8s/rbac/service-account"
+# build deployster image
+echo "Building Docker image '${TAG_PREFIX}:${TAG}'..." >&2
+docker build -q --tag "${TAG_PREFIX}:${TAG}" --file "${DEPLOYSTER_HOME}/Dockerfile" "${DEPLOYSTER_HOME}"
 
-# build main deployster image
-echo "Building Docker image: infolinks/deployster:${TAG}" >&2
-docker build -q --tag "infolinks/deployster:${TAG}" .
+# push images (if asked to)
 if [[ "${PUSH}" == "push" ]]; then
-    echo "Pushing Docker image: infolinks/deployster:${TAG}" >&2
-    docker push "infolinks/deployster:${TAG}"
+
+    echo "Authenticating to DockerHub..." >&2
+    gcloud docker --authorize-only
+
+    for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
+        IMAGE_NAME=$(echo "${dockerfile}" | sed "s/.*\/Dockerfile\.\(.\+\)$/\1/g")
+        IMAGE_NAME=${IMAGE_NAME//_/-}
+        echo "Pushing Docker image '${TAG_PREFIX}-${IMAGE_NAME}:${TAG}'..." >&2
+        docker push "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}"
+    done
+
+    # push deployster image
+    echo "Pushing Docker image '${TAG_PREFIX}:${TAG}'..." >&2
+    docker push "${TAG_PREFIX}:${TAG}"
 fi
+
+exit 0

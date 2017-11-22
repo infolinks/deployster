@@ -1,3 +1,5 @@
 *.iml
 *.md
+*.local
+*.pyc
 LICENSE
