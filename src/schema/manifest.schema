@@ -36,6 +36,7 @@
                     "required": [ "type" ],
                     "properties": {
                         "type": { "type": "string" },
+                        "readonly": { "type": "boolean" },
                         "dependencies": {
                             "type": "object",
                             "patternProperties": {

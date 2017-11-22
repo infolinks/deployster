@@ -25,7 +25,7 @@ from util import ask, log, err, indent, unindent
 
 class UserError(Exception):
     def __init__(self, message) -> None:
-        super().__init__()
+        super().__init__(message)
         self.message = message
 
 
@@ -50,10 +50,15 @@ class Context:
 
 
 class Resource:
-    def __init__(self, name: str, type: str, config: dict = None, dependencies: Mapping[str, str] = None) -> None:
+    def __init__(self, name: str,
+                 type: str,
+                 readonly: bool,
+                 config: dict = None,
+                 dependencies: Mapping[str, str] = None) -> None:
         super().__init__()
         self._name: str = name
         self._type: str = type
+        self._readonly: bool = readonly
         self._config: dict = config if config else {}
         self._dependencies: Mapping[str, str] = dependencies if dependencies else {}
 
@@ -64,6 +69,10 @@ class Resource:
     @property
     def type(self) -> str:
         return self._type
+
+    @property
+    def readonly(self) -> bool:
+        return self._readonly
 
     @property
     def config(self) -> dict:
@@ -249,7 +258,7 @@ class Manifest:
         for plug_name, plug in (manifest['plugs'] if 'plugs' in manifest else {}).items():
             plugs[plug_name] = Plug(name=plug_name,
                                     path=plug['path'],
-                                    readonly=plug['read_only'] if 'read_only' in plug else True,
+                                    readonly=plug['read_only'] if 'read_only' in plug else False,
                                     allowed_resource_names=plug['resource_names'] if 'resource_names' in plug else [],
                                     allowed_resource_types=plug['resource_types'] if 'resource_types' in plug else [])
         self._plugs: Mapping[str, Plug] = plugs
@@ -257,10 +266,12 @@ class Manifest:
         # parse resources
         resources: MutableMapping[str, Resource] = {}
         for resource_name, resource in (manifest['resources'] if 'resources' in manifest else {}).items():
-            resources[resource_name] = Resource(resource_name,
-                                                resource['type'],
-                                                resource['config'] if 'config' in resource else {},
-                                                resource['dependencies'] if 'dependencies' in resource else {})
+            resources[resource_name] = \
+                Resource(name=resource_name,
+                         type=resource['type'],
+                         readonly=resource['readonly'] if 'readonly' in resource else False,
+                         config=resource['config'] if 'config' in resource else {},
+                         dependencies=resource['dependencies'] if 'dependencies' in resource else {})
         self._resources = resources
 
     @property
@@ -345,6 +356,7 @@ class ResourceState:
     def get_as_dependency(self, include_properties: bool = True) -> dict:
         resolver = self._resource_state_provider
         data = {
+            'name': self.resource.name,
             'type': self.resource.type,
             'config': self.resource.config,
             'dependencies': {
@@ -362,7 +374,8 @@ class ResourceState:
         result = init_action.execute(work_dir=self._work_dir / init_action.name,
                                      stdin={
                                          'name': self.resource.name,
-                                         'type': self.resource.type
+                                         'type': self.resource.type,
+                                         'config': self.resource.config
                                      })
         self._type_label: str = result['label']
 
@@ -372,8 +385,13 @@ class ResourceState:
         except ValidationError as e:
             raise UserError(f"Protocol error during initialization of '{self.resource.name}': {e.message}") from e
 
-        # collect resource configuration schema, if any
+        # collect resource configuration schema, and if one was provided, validate resource configuration using it
         self._config_schema: dict = result['config_schema'] if 'config_schema' in result else None
+        if self._config_schema:
+            try:
+                jsonschema.validate(self.resource.config, self._config_schema)
+            except ValidationError as e:
+                raise UserError(f"Invalid resource configuration for '{self.resource.name}': {e.message}") from e
 
         # collect required plugs, failing if any plug is missing
         plugs: MutableMapping[str, Plug] = {}
@@ -441,13 +459,6 @@ class ResourceState:
             log(f":point_right: {self.resource.name}")
             indent()
 
-        # validate resource configuration is legal according to this resource's config schema (if any)
-        if self._config_schema:
-            try:
-                jsonschema.validate(self.resource.config, self._config_schema)
-            except ValidationError as e:
-                raise UserError(f"Invalid resource configuration for '{self.resource.name}': {e.message}") from e
-
         # execute the resource state action
         result = self._state_action.execute(
             work_dir=self._work_dir / self._state_action.name,
@@ -477,9 +488,13 @@ class ResourceState:
                 self._actions: Sequence[Action] = []
                 self._properties: dict = result['properties']
         elif 'properties' in result:
-            raise UserError(f"resource '{self.resource.name}' was stated to be {self._status}, yet provided properties")
+            raise UserError(f"resource '{self.resource.name}' was stated to be {status}, yet provided properties")
         elif 'actions' not in result or not len(result['actions']):
-            raise UserError(f"reource '{self.resource.name}' is {self.status}, yet has no actions")
+            raise UserError(f"resource '{self.resource.name}' is {status}, yet has no actions")
+        elif self.resource.readonly:
+            raise UserError(f"resource '{self.resource.name}' is declared as a read-only resource, but its status is "
+                            f"{status}. Read-only resources are blocked from being updated, therefor this "
+                            f"deployment plan is aborted.")
         else:
             self._status: ResourceStatus = status
 
@@ -669,11 +684,53 @@ class Plan:
 
 
 def main():
+    class VariableAction(argparse.Action):
+
+        def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None,
+                     required=False, help=None, metavar=None):
+            if const is not None:
+                raise ValueError("'const' not allowed with VariableAction")
+            if type is not None and type != str:
+                raise ValueError("'type' must be 'str' (or None)")
+            super().__init__(option_strings, dest, nargs, const, default, type, choices, required, help, metavar)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            if not hasattr(namespace, self.dest) or not getattr(namespace, self.dest):
+                setattr(namespace, self.dest, Context())
+            context: Context = getattr(namespace, self.dest)
+
+            tokens = values.split('=', 1)
+            if len(tokens) != 2:
+                raise argparse.ArgumentTypeError(f"bad variable: '{values}'")
+            else:
+                var_name = tokens[0]
+                var_value = tokens[1]
+                if var_value[0] == '"' and var_value[-1] == '"':
+                    var_value = var_value[1:-1]
+                context.add_variable(var_name, var_value)
+
+    class VariablesFileAction(argparse.Action):
+
+        def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None,
+                     required=False, help=None, metavar=None):
+            if const is not None:
+                raise ValueError("'const' not allowed with VariableAction")
+            if type is not None and type != str:
+                raise ValueError("'type' must be 'str' (or None)")
+            super().__init__(option_strings, dest, nargs, const, default, type, choices, required, help, metavar)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            if not hasattr(namespace, self.dest) or not getattr(namespace, self.dest):
+                setattr(namespace, self.dest, Context())
+            context: Context = getattr(namespace, self.dest)
+            context.add_file(values)
+
+    # parse arguments
     argparser = argparse.ArgumentParser(description="Deployment automation tool.",
                                         epilog="Written by Infolinks Inc. (https://github.com/infolinks/deployster)")
-    argparser.add_argument('--var', action='append', type=util.parse_variable, metavar='NAME=VALUE', dest='vars',
-                           default=[], help='makes the given variable available to the deployment manifest')
-    argparser.add_argument('--var-file', action='append', metavar='FILE', dest='var_files',
+    argparser.add_argument('--var', action=VariableAction, metavar='NAME=VALUE', dest='context',
+                           help='makes the given variable available to the deployment manifest')
+    argparser.add_argument('--var-file', action=VariablesFileAction, metavar='FILE', dest='context',
                            help='makes the variables in the given file available to the deployment manifest')
     argparser.add_argument('manifest', help='the deployment manifest to execute.')
     argparser.add_argument('-p', '--plan', action='store_true', dest='plan', help="print deployment plan and exit")
@@ -684,14 +741,7 @@ def main():
     log('')
 
     try:
-        work_path = Path(f"/deployster/work/{os.path.basename(args.manifest)}")
-
-        # create context
-        context = Context()
-        for var in args.vars:
-            context.add_variable(var['key'], var['value'])
-        for var_file in args.var_files:
-            context.add_file(var_file)
+        context: Context = args.context
         if args.verbose:
             log(f"Context: {json.dumps(context.data, indent=2)}")
 
@@ -699,6 +749,7 @@ def main():
         manifest: Manifest = Manifest(context=context, manifest_file=args.manifest)
 
         # build the deployment plan, display, and potentially execute it
+        work_path = Path(f"/deployster/work/{os.path.basename(args.manifest)}")
         plan: Plan = Plan(work_dir=work_path.resolve(), manifest=manifest)
         plan.bootstrap()
         plan.resolve()

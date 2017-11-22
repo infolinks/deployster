@@ -3,10 +3,14 @@ plugs:
     path: {{ gcloud_path }}
     read_only: false
     resource_types:
+      - infolinks/deployster-gcp-compute-regional-ip-address
+      - infolinks/deployster-gcp-gke-cluster
       - infolinks/deployster-gcp-project
-      - infolinks/deployster-gcp-compute-address
-      - infolinks/deployster-gcp-container-cluster
       - infolinks/deployster-k8s-namespace
+      - infolinks/deployster-k8s-rbac-cluster-role
+      - infolinks/deployster-k8s-rbac-cluster-role-binding
+      - infolinks/deployster-k8s-rbac-role
+      - infolinks/deployster-k8s-rbac-role-binding
       - infolinks/deployster-k8s-rbac-service-account
 
 resources:
@@ -17,23 +21,17 @@ resources:
       project_id: {{ gcp_project }}
       organization_id: {{ organization_id }}
       billing_account_id: {{ billing_account_id }}
-      apis:
-         enabled:
-           - logging.googleapis.com
-           - monitoring.googleapis.com
-         disabled:
-           - cloudbuild.googleapis.com
 
-  apps-load-balancer:
-    type: infolinks/deployster-gcp-compute-address:{{ deployster_version }}
+  apps-ip-address:
+    type: infolinks/deployster-gcp-compute-regional-ip-address:{{ deployster_version }}
     dependencies:
       project: project
     config:
       name: apps-load-balancer
       region: {{ region }}
 
-  cluster:
-    type: infolinks/deployster-gcp-container-cluster:{{ deployster_version }}
+  apps-cluster:
+    type: infolinks/deployster-gcp-gke-cluster:{{ deployster_version }}
     dependencies:
       project: project
     config:
@@ -70,16 +68,75 @@ resources:
           labels:
             role: backoffice
 
-  networking-namespace:
+  cluster-admin-role:
+    type: infolinks/deployster-k8s-rbac-cluster-role:{{ deployster_version }}
+    readonly: true
+    dependencies:
+      cluster: apps-cluster
+    config:
+      name: cluster-admin
+      rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - nonResourceURLs:
+          - '*'
+          verbs:
+          - '*'
+
+  team-cluster-admins-binding:
+    type: infolinks/deployster-k8s-rbac-cluster-role-binding:{{ deployster_version }}
+    dependencies:
+      cluster-role: cluster-admin-role
+    config:
+      name: team-cluster-admins
+      subjects:
+        - kind: User
+          name: arik@infolinks.com
+        - kind: User
+          name: jack@infolinks.com
+
+  example-namespace:
     type: infolinks/deployster-k8s-namespace:{{ deployster_version }}
     dependencies:
-      cluster: cluster
+      cluster: apps-cluster
     config:
-      name: networking
+      name: example
+      metadata:
+        annotations:
+          arik: kfir
 
-  networking-service-account:
+  example-role:
+    type: infolinks/deployster-k8s-rbac-role:{{ deployster_version }}
+    dependencies:
+      namespace: example-namespace
+    config:
+      name: example
+      rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - 'get'
+
+  example-service-account:
     type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}
     dependencies:
-      namespace: networking-namespace
+      namespace: example-namespace
     config:
-      name: networking
+      name: example
+
+  example-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:{{ deployster_version }}
+    dependencies:
+      role: example-role
+    config:
+      name: example
+      subjects:
+        - kind: ServiceAccount
+          name: example
+          namespace: example

@@ -21,17 +21,6 @@ def merge_into(target: dict, *args) -> dict:
     return target
 
 
-def parse_variable(expr):
-    tokens = expr.split('=', 1)
-    if len(tokens) != 2:
-        raise argparse.ArgumentTypeError('bad variable declaration: %s' % expr)
-    else:
-        return {
-            'key': tokens[0],
-            'value': tokens[1]
-        }
-
-
 class _Indent:
 
     def __init__(self) -> None:
