@@ -386,6 +386,8 @@ TBD.
 * Support marking resources as deleted; useful to have Deployster ensure a certain resource DOES NOT exist
 * Support patterns for plug permissions
 * Support optional resource dependencies
+* Support declaring dependency lists (give me a list of dependencies of type X)
+    - useful for \[cluster-\]role-bindings
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
