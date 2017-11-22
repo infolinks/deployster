@@ -22,15 +22,15 @@ resources:
       organization_id: {{ organization_id }}
       billing_account_id: {{ billing_account_id }}
 
-{#  apps-load-balancer:#}
-{#    type: infolinks/deployster-gcp-compute-regional-ip-address:{{ deployster_version }}#}
-{#    dependencies:#}
-{#      project: project#}
-{#    config:#}
-{#      name: apps-load-balancer#}
-{#      region: {{ region }}#}
+  apps-ip-address:
+    type: infolinks/deployster-gcp-compute-regional-ip-address:{{ deployster_version }}
+    dependencies:
+      project: project
+    config:
+      name: apps-load-balancer
+      region: {{ region }}
 
-  cluster:
+  apps-cluster:
     type: infolinks/deployster-gcp-gke-cluster:{{ deployster_version }}
     dependencies:
       project: project
@@ -49,30 +49,30 @@ resources:
             - apps-load-balancer
           labels:
             role: load-balancer
-{#        # Nodes for edge systems (ad-server, static resources, etc)#}
-{#        - name: edge#}
-{#          min_size: 1#}
-{#          max_size: 1#}
-{#          preemptible: true#}
-{#          tags:#}
-{#            - apps-edge#}
-{#          labels:#}
-{#            role: edge#}
-{#        # Nodes for backoffice systems (insight, central, etc)#}
-{#        - name: backoffice#}
-{#          min_size: 1#}
-{#          max_size: 1#}
-{#          preemptible: true#}
-{#          tags:#}
-{#            - apps-backoffice#}
-{#          labels:#}
-{#            role: backoffice#}
+        # Nodes for edge systems (ad-server, static resources, etc)
+        - name: edge
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-edge
+          labels:
+            role: edge
+        # Nodes for backoffice systems (insight, central, etc)
+        - name: backoffice
+          min_size: 1
+          max_size: 1
+          preemptible: true
+          tags:
+            - apps-backoffice
+          labels:
+            role: backoffice
 
-  cluster-admin:
+  cluster-admin-role:
     type: infolinks/deployster-k8s-rbac-cluster-role:{{ deployster_version }}
     readonly: true
     dependencies:
-      cluster: cluster
+      cluster: apps-cluster
     config:
       name: cluster-admin
       rules:
@@ -87,10 +87,10 @@ resources:
           verbs:
           - '*'
 
-  team-cluster-admins:
+  team-cluster-admins-binding:
     type: infolinks/deployster-k8s-rbac-cluster-role-binding:{{ deployster_version }}
     dependencies:
-      cluster-role: cluster-admin
+      cluster-role: cluster-admin-role
     config:
       name: team-cluster-admins
       subjects:
@@ -99,19 +99,44 @@ resources:
         - kind: User
           name: jack@infolinks.com
 
-{#  networking-namespace:#}
-{#    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}#}
-{#    dependencies:#}
-{#      cluster: cluster#}
-{#    config:#}
-{#      name: networking#}
-{#      metadata:#}
-{#        annotations:#}
-{#          arik: kfir#}
-{##}
-{#  networking-service-account:#}
-{#    type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}#}
-{#    dependencies:#}
-{#      namespace: networking-namespace#}
-{#    config:#}
-{#      name: networking#}
+  example-namespace:
+    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}
+    dependencies:
+      cluster: apps-cluster
+    config:
+      name: example
+      metadata:
+        annotations:
+          arik: kfir
+
+  example-role:
+    type: infolinks/deployster-k8s-rbac-role:{{ deployster_version }}
+    dependencies:
+      namespace: example-namespace
+    config:
+      name: example
+      rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - 'get'
+
+  example-service-account:
+    type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}
+    dependencies:
+      namespace: example-namespace
+    config:
+      name: example
+
+  example-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:{{ deployster_version }}
+    dependencies:
+      role: example-role
+    config:
+      name: example
+      subjects:
+        - kind: ServiceAccount
+          name: example
+          namespace: example
