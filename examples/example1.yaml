@@ -70,6 +70,7 @@ resources:
 
   cluster-admin:
     type: infolinks/deployster-k8s-rbac-cluster-role:{{ deployster_version }}
+    readonly: true
     dependencies:
       cluster: cluster
     config:
