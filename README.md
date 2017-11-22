@@ -389,6 +389,8 @@ TBD.
 * Support declaring dependency lists (give me a list of dependencies of type X)
     - useful for \[cluster-\]role-bindings
 * Support manifest fragments (ie. inclusion of manifests from other manifests)
+* Support auto-included variable files (eg. `context.auto.<*>.yaml`)
+* Support configurable action timeouts (per action preferably)
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
