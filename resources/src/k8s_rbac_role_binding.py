@@ -3,8 +3,9 @@
 import json
 import subprocess
 import sys
-from typing import Mapping
+from typing import Mapping, Sequence
 
+from dresources import action
 from gcp_gke_cluster import GkeCluster
 from k8s_namespace import K8sNamespace
 from k8s_rbac_role import K8sRole
@@ -15,8 +16,8 @@ class K8sRoleBinding(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._namespace: K8sNamespace = None
         self._role: K8sRole = None
+        self._subjects: Sequence[dict] = None
 
     @property
     def cluster(self) -> GkeCluster:
@@ -24,14 +25,11 @@ class K8sRoleBinding(K8sResource):
 
     @property
     def namespace(self) -> K8sNamespace:
-        if self._namespace is None:
-            self._namespace: K8sNamespace = K8sNamespace(self.resource_dependency('namespace'))
-        return self._namespace
+        return self.role.namespace
 
     @property
     def role(self) -> K8sRole:
         if self._role is None:
-            # TODO: validate that 'namespace' and 'role' and in the same cluster
             self._role: K8sRole = K8sRole(self.resource_dependency('role'))
         return self._role
 
@@ -44,13 +42,17 @@ class K8sRoleBinding(K8sResource):
         return self.resource_config['name']
 
     @property
-    def rules(self) -> dict:
-        return self.resource_config["rules"]
+    def subjects(self) -> Sequence[dict]:
+        if self._subjects is None:
+            self._subjects: Sequence[dict] = self.resource_config["subjects"]
+            for subject in self._subjects:
+                if 'apiGroup' not in subject:
+                    subject['apiGroup'] = 'rbac.authorization.k8s.io'
+        return self._subjects
 
     @property
     def resource_required_resources(self) -> Mapping[str, str]:
         return {
-            "namespace": "infolinks/deployster-k8s-namespace",
             "role": "infolinks/deployster-k8s-rbac-role"
         }
 
@@ -70,39 +72,76 @@ class K8sRoleBinding(K8sResource):
                         "labels": {"type": "object"}
                     }
                 },
-                "rules": {
+                "subjects": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "apiGroups": {
-                                "type": "array",
-                                "items": {"type": "string"}
+                            "apiGroup": {
+                                "type": "string"
                             },
-                            "nonResourceURLs": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "resourceNames": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "resources": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "verbs": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            }
+                            "kind": {"type": "string"},
+                            "name": {"type": "string"},
+                            "namespace": {"type": "string"}
                         }
                     }
                 }
             }
         }
 
-    def create(self):
-        command = f"kubectl create {self.k8s_type} {self.name} --namespace {self.namespace.name} --output=json"
+    def discover_actual_properties(self):
+        command = f"kubectl get {self.k8s_type} {self.name} --namespace {self.namespace.name} " \
+                  f"                                        --ignore-not-found=true " \
+                  f"                                        --output=json"
+        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if process.returncode != 0:
+            raise Exception(f"illegal state: failed getting '{self.k8s_type}' '{self.name}':\n" f"{process.stderr}")
+        else:
+            return json.loads(process.stdout) if process.stdout else None
+
+    @action
+    def create(self, args):
+        filename = f"/tmp/role-binding-{self.name}.json"
+        with open(filename, 'w') as f:
+            f.write(json.dumps({
+                "apiVersion": "rbac.authorization.k8s.io/v1",
+                "kind": "RoleBinding",
+                "metadata": {
+                    "name": self.name,
+                    "namespace": self.namespace.name,
+                    "annotations": self.annotations,
+                    "labels": self.labels
+                },
+                "roleRef": {
+                    "apiGroup": "rbac.authorization.k8s.io",
+                    "kind": "Role",
+                    "name": self.role.name
+                },
+                "subjects": self.subjects
+            }))
+        command = f"kubectl create --output=json --filename={filename}"
+        exit(subprocess.run(command, shell=True).returncode)
+
+    @action
+    def update_role_binding_role(self, args):
+        if args: pass
+        patch = json.dumps({
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
+                "kind": "Role",
+                "name": self.role.name
+            }
+        })
+        command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{patch}'"
+        exit(subprocess.run(command, shell=True).returncode)
+
+    @action
+    def update_role_binding_subjects(self, args):
+        if args: pass
+        patch = json.dumps({
+            'subjects': self.subjects
+        })
+        command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{patch}'"
         exit(subprocess.run(command, shell=True).returncode)
 
 

@@ -5,6 +5,7 @@ import subprocess
 import sys
 from typing import Mapping
 
+from dresources import action
 from gcp_gke_cluster import GkeCluster
 from k8s_namespace import K8sNamespace
 from k8s_resources import K8sResource
@@ -65,8 +66,31 @@ class K8sServiceAccount(K8sResource):
             }
         }
 
-    def create(self):
-        command = f"kubectl create {self.k8s_type} {self.name} --namespace {self.namespace.name} --output=json"
+    def discover_actual_properties(self):
+        command = f"kubectl get {self.k8s_type} {self.name} --namespace {self.namespace.name} " \
+                  f"                                        --ignore-not-found=true " \
+                  f"                                        --output=json"
+        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if process.returncode != 0:
+            raise Exception(f"illegal state: failed getting '{self.k8s_type}' '{self.name}':\n" f"{process.stderr}")
+        else:
+            return json.loads(process.stdout) if process.stdout else None
+
+    @action
+    def create(self, args):
+        filename = f"/tmp/service-account-{self.name}.json"
+        with open(filename, 'w') as f:
+            f.write(json.dumps({
+                "apiVersion": "v1",
+                "kind": "ServiceAccount",
+                "metadata": {
+                    "name": self.name,
+                    "namespace": self.namespace.name,
+                    "annotations": self.annotations,
+                    "labels": self.labels
+                }
+            }))
+        command = f"kubectl create --output=json --filename={filename}"
         exit(subprocess.run(command, shell=True).returncode)
 
 
