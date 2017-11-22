@@ -25,7 +25,7 @@ class K8sClusterRoleBinding(K8sResource):
     @property
     def cluster_role(self) -> K8sClusterRole:
         if self._cluster_role is None:
-            self._cluster_role: K8sClusterRole = K8sClusterRole(self.resource_dependency('cluster_role'))
+            self._cluster_role: K8sClusterRole = K8sClusterRole(self.resource_dependency('cluster-role'))
         return self._cluster_role
 
     @property
@@ -38,7 +38,7 @@ class K8sClusterRoleBinding(K8sResource):
 
     @property
     def subjects(self) -> Sequence[dict]:
-        if self._subjects is not None:
+        if self._subjects is None:
             self._subjects: Sequence[dict] = self.resource_config["subjects"]
             for subject in self._subjects:
                 if 'apiGroup' not in subject:
@@ -48,7 +48,7 @@ class K8sClusterRoleBinding(K8sResource):
     @property
     def resource_required_resources(self) -> Mapping[str, str]:
         return {
-            "cluster_role": "infolinks/deployster-k8s-rbac-cluster-role"
+            "cluster-role": "infolinks/deployster-k8s-rbac-cluster-role"
         }
 
     @property
@@ -93,10 +93,11 @@ class K8sClusterRoleBinding(K8sResource):
                                    description=f"Update cluster-role binding subjects"))
         return actions
 
-    def create(self):
+    @action
+    def create(self, args):
         filename = f"/tmp/cluster-role-binding-{self.name}.json"
-        with open(filename) as f:
-            f.write({
+        with open(filename, 'w') as f:
+            f.write(json.dumps({
                 "apiVersion": "rbac.authorization.k8s.io/v1",
                 "kind": "ClusterRoleBinding",
                 "metadata": {
@@ -105,11 +106,12 @@ class K8sClusterRoleBinding(K8sResource):
                     "labels": self.labels
                 },
                 "roleRef": {
+                    "apiGroup": "rbac.authorization.k8s.io",
                     "kind": "ClusterRole",
                     "name": self.cluster_role.name
                 },
                 "subjects": self.subjects
-            })
+            }))
         command = f"kubectl create --output=json --filename={filename}"
         exit(subprocess.run(command, shell=True).returncode)
 

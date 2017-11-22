@@ -87,7 +87,18 @@ resources:
           verbs:
           - '*'
 
-{##}
+  team-cluster-admins:
+    type: infolinks/deployster-k8s-rbac-cluster-role-binding:{{ deployster_version }}
+    dependencies:
+      cluster-role: cluster-admin
+    config:
+      name: team-cluster-admins
+      subjects:
+        - kind: User
+          name: arik@infolinks.com
+        - kind: User
+          name: jack@infolinks.com
+
 {#  networking-namespace:#}
 {#    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}#}
 {#    dependencies:#}
