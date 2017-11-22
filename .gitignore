@@ -1,7 +1,7 @@
-/.python2.7
 /.python3
 /work
+/examples/*.sh
+/examples/work
 *.iml
 *.pyc
-.merged-environment.json
 Dockerfile.*.local
