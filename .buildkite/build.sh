@@ -32,7 +32,9 @@ done
 
 # build deployster image
 echo "Building Docker image '${TAG_PREFIX}:${TAG}'..." >&2
-docker build -q --tag "${TAG_PREFIX}:${TAG}" --file "${DEPLOYSTER_HOME}/Dockerfile" "${DEPLOYSTER_HOME}"
+docker build -q --build-arg "VERSION=${TAG}" \
+                --tag "${TAG_PREFIX}:${TAG}" \
+                --file "${DEPLOYSTER_HOME}/Dockerfile" "${DEPLOYSTER_HOME}"
 
 # push images (if asked to)
 if [[ "${PUSH}" == "push" ]]; then
