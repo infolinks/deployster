@@ -5,6 +5,7 @@ import subprocess
 import sys
 from typing import Mapping
 
+from dresources import action
 from gcp_gke_cluster import GkeCluster
 from k8s_resources import K8sResource
 
@@ -60,8 +61,20 @@ class K8sNamespace(K8sResource):
             }
         }
 
-    def create(self):
-        command = f"kubectl create {self.k8s_type} {self.name} --output=json"
+    @action
+    def create(self, args):
+        filename = f"/tmp/namespace-{self.name}.json"
+        with open(filename, 'w') as f:
+            f.write(json.dumps({
+                "apiVersion": "v1",
+                "kind": "Namespace",
+                "metadata": {
+                    "name": self.name,
+                    "annotations": self.annotations,
+                    "labels": self.labels
+                }
+            }))
+        command = f"kubectl create --output=json --filename={filename}"
         exit(subprocess.run(command, shell=True).returncode)
 
 

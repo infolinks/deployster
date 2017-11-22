@@ -93,8 +93,21 @@ class K8sClusterRole(K8sResource):
             actions.append(DAction(name="update-cluster-role-rules", description=f"Update cluster-role rules"))
         return actions
 
-    def create(self):
-        command = f"kubectl create {self.k8s_type} {self.name} --output=json"
+    @action
+    def create(self, args):
+        filename = f"/tmp/cluster-role-{self.name}.json"
+        with open(filename, 'w') as f:
+            f.write(json.dumps({
+                "apiVersion": "rbac.authorization.k8s.io/v1",
+                "kind": "ClusterRole",
+                "metadata": {
+                    "name": self.name,
+                    "annotations": self.annotations,
+                    "labels": self.labels
+                },
+                "rules": self.rules
+            }))
+        command = f"kubectl create --output=json --filename={filename}"
         exit(subprocess.run(command, shell=True).returncode)
 
     @action
