@@ -35,7 +35,7 @@ class K8sRoleBinding(K8sResource):
 
     @property
     def k8s_type(self) -> str:
-        return "role"
+        return "rolebinding"
 
     @property
     def name(self) -> str:
@@ -45,9 +45,6 @@ class K8sRoleBinding(K8sResource):
     def subjects(self) -> Sequence[dict]:
         if self._subjects is None:
             self._subjects: Sequence[dict] = self.resource_config["subjects"]
-            for subject in self._subjects:
-                if 'apiGroup' not in subject:
-                    subject['apiGroup'] = 'rbac.authorization.k8s.io'
         return self._subjects
 
     @property
