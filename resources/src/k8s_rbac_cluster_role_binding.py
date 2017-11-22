@@ -17,6 +17,7 @@ class K8sClusterRoleBinding(K8sResource):
         super().__init__(data)
         self._cluster_role: K8sClusterRole = None
         self._subjects: Sequence[dict] = None
+        # TODO: support creating 'role-binding' if 'namespace' is provided (ie. cluster-role constrained to a namespace)
 
     @property
     def cluster(self) -> GkeCluster:
@@ -76,7 +77,8 @@ class K8sClusterRoleBinding(K8sResource):
                                 "type": "string"
                             },
                             "kind": {"type": "string"},
-                            "name": {"type": "string"}
+                            "name": {"type": "string"},
+                            "namespace": {"type": "string"}
                         }
                     }
                 }
@@ -119,7 +121,11 @@ class K8sClusterRoleBinding(K8sResource):
     def update_cluster_role_binding_role(self, args):
         if args: pass
         patch = json.dumps({
-            'subjects': self.subjects
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": self.cluster_role.name
+            }
         })
         command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{patch}'"
         exit(subprocess.run(command, shell=True).returncode)
