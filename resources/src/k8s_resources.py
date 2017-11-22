@@ -8,7 +8,6 @@ from dresources import DResource, DAction, action
 from gcp_gke_cluster import GkeCluster
 
 
-# TODO: decide where would be the best place to call "self.cluster.authenticate()"
 class K8sResource(DResource):
 
     def __init__(self, data: dict) -> None:
@@ -101,13 +100,14 @@ class K8sResource(DResource):
 
     @action
     def create(self, args):
-        if args: pass
         raise Exception(f"illegal state: 'create' not implemented")
 
+    @action
     def update_annotation(self, args):
         command = f"kubectl annotate {self.k8s_type} {self.name} {args.name}='{args.value}' --overwrite"
         exit(subprocess.run(command, shell=True).returncode)
 
+    @action
     def update_label(self, args):
         command = f"kubectl label {self.k8s_type} {self.name} {args.name}='{args.value}' --overwrite"
         exit(subprocess.run(command, shell=True).returncode)
