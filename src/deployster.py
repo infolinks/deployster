@@ -50,10 +50,15 @@ class Context:
 
 
 class Resource:
-    def __init__(self, name: str, type: str, config: dict = None, dependencies: Mapping[str, str] = None) -> None:
+    def __init__(self, name: str,
+                 type: str,
+                 readonly: bool,
+                 config: dict = None,
+                 dependencies: Mapping[str, str] = None) -> None:
         super().__init__()
         self._name: str = name
         self._type: str = type
+        self._readonly: bool = readonly
         self._config: dict = config if config else {}
         self._dependencies: Mapping[str, str] = dependencies if dependencies else {}
 
@@ -64,6 +69,10 @@ class Resource:
     @property
     def type(self) -> str:
         return self._type
+
+    @property
+    def readonly(self) -> bool:
+        return self._readonly
 
     @property
     def config(self) -> dict:
@@ -249,7 +258,7 @@ class Manifest:
         for plug_name, plug in (manifest['plugs'] if 'plugs' in manifest else {}).items():
             plugs[plug_name] = Plug(name=plug_name,
                                     path=plug['path'],
-                                    readonly=plug['read_only'] if 'read_only' in plug else True,
+                                    readonly=plug['read_only'] if 'read_only' in plug else False,
                                     allowed_resource_names=plug['resource_names'] if 'resource_names' in plug else [],
                                     allowed_resource_types=plug['resource_types'] if 'resource_types' in plug else [])
         self._plugs: Mapping[str, Plug] = plugs
@@ -257,10 +266,12 @@ class Manifest:
         # parse resources
         resources: MutableMapping[str, Resource] = {}
         for resource_name, resource in (manifest['resources'] if 'resources' in manifest else {}).items():
-            resources[resource_name] = Resource(resource_name,
-                                                resource['type'],
-                                                resource['config'] if 'config' in resource else {},
-                                                resource['dependencies'] if 'dependencies' in resource else {})
+            resources[resource_name] = \
+                Resource(name=resource_name,
+                         type=resource['type'],
+                         readonly=resource['readonly'] if 'readonly' in resource else False,
+                         config=resource['config'] if 'config' in resource else {},
+                         dependencies=resource['dependencies'] if 'dependencies' in resource else {})
         self._resources = resources
 
     @property
@@ -479,9 +490,13 @@ class ResourceState:
                 self._actions: Sequence[Action] = []
                 self._properties: dict = result['properties']
         elif 'properties' in result:
-            raise UserError(f"resource '{self.resource.name}' was stated to be {self._status}, yet provided properties")
+            raise UserError(f"resource '{self.resource.name}' was stated to be {status}, yet provided properties")
         elif 'actions' not in result or not len(result['actions']):
-            raise UserError(f"reource '{self.resource.name}' is {self.status}, yet has no actions")
+            raise UserError(f"resource '{self.resource.name}' is {status}, yet has no actions")
+        elif self.resource.readonly:
+            raise UserError(f"resource '{self.resource.name}' is declared as a read-only resource, but its status is "
+                            f"{status}. Read-only resources are blocked from being updated, therefor this "
+                            f"deployment plan is aborted.")
         else:
             self._status: ResourceStatus = status
 
