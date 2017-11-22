@@ -3,10 +3,14 @@ plugs:
     path: {{ gcloud_path }}
     read_only: false
     resource_types:
+      - infolinks/deployster-gcp-compute-regional-ip-address
+      - infolinks/deployster-gcp-gke-cluster
       - infolinks/deployster-gcp-project
-      - infolinks/deployster-gcp-compute-address
-      - infolinks/deployster-gcp-container-cluster
       - infolinks/deployster-k8s-namespace
+      - infolinks/deployster-k8s-rbac-cluster-role
+      - infolinks/deployster-k8s-rbac-cluster-role-binding
+      - infolinks/deployster-k8s-rbac-role
+      - infolinks/deployster-k8s-rbac-role-binding
       - infolinks/deployster-k8s-rbac-service-account
 
 resources:
@@ -17,23 +21,17 @@ resources:
       project_id: {{ gcp_project }}
       organization_id: {{ organization_id }}
       billing_account_id: {{ billing_account_id }}
-      apis:
-         enabled:
-           - logging.googleapis.com
-           - monitoring.googleapis.com
-         disabled:
-           - cloudbuild.googleapis.com
 
-  apps-load-balancer:
-    type: infolinks/deployster-gcp-compute-address:{{ deployster_version }}
-    dependencies:
-      project: project
-    config:
-      name: apps-load-balancer
-      region: {{ region }}
+{#  apps-load-balancer:#}
+{#    type: infolinks/deployster-gcp-compute-regional-ip-address:{{ deployster_version }}#}
+{#    dependencies:#}
+{#      project: project#}
+{#    config:#}
+{#      name: apps-load-balancer#}
+{#      region: {{ region }}#}
 
   cluster:
-    type: infolinks/deployster-gcp-container-cluster:{{ deployster_version }}
+    type: infolinks/deployster-gcp-gke-cluster:{{ deployster_version }}
     dependencies:
       project: project
     config:
@@ -51,35 +49,57 @@ resources:
             - apps-load-balancer
           labels:
             role: load-balancer
-        # Nodes for edge systems (ad-server, static resources, etc)
-        - name: edge
-          min_size: 1
-          max_size: 1
-          preemptible: true
-          tags:
-            - apps-edge
-          labels:
-            role: edge
-        # Nodes for backoffice systems (insight, central, etc)
-        - name: backoffice
-          min_size: 1
-          max_size: 1
-          preemptible: true
-          tags:
-            - apps-backoffice
-          labels:
-            role: backoffice
+{#        # Nodes for edge systems (ad-server, static resources, etc)#}
+{#        - name: edge#}
+{#          min_size: 1#}
+{#          max_size: 1#}
+{#          preemptible: true#}
+{#          tags:#}
+{#            - apps-edge#}
+{#          labels:#}
+{#            role: edge#}
+{#        # Nodes for backoffice systems (insight, central, etc)#}
+{#        - name: backoffice#}
+{#          min_size: 1#}
+{#          max_size: 1#}
+{#          preemptible: true#}
+{#          tags:#}
+{#            - apps-backoffice#}
+{#          labels:#}
+{#            role: backoffice#}
 
-  networking-namespace:
-    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}
+  cluster-admin:
+    type: infolinks/deployster-k8s-rbac-cluster-role:{{ deployster_version }}
     dependencies:
       cluster: cluster
     config:
-      name: networking
+      name: cluster-admin
+      rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - nonResourceURLs:
+          - '*'
+          verbs:
+          - '*'
 
-  networking-service-account:
-    type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}
-    dependencies:
-      namespace: networking-namespace
-    config:
-      name: networking
+{##}
+{#  networking-namespace:#}
+{#    type: infolinks/deployster-k8s-namespace:{{ deployster_version }}#}
+{#    dependencies:#}
+{#      cluster: cluster#}
+{#    config:#}
+{#      name: networking#}
+{#      metadata:#}
+{#        annotations:#}
+{#          arik: kfir#}
+{##}
+{#  networking-service-account:#}
+{#    type: infolinks/deployster-k8s-rbac-service-account:{{ deployster_version }}#}
+{#    dependencies:#}
+{#      namespace: networking-namespace#}
+{#    config:#}
+{#      name: networking#}
