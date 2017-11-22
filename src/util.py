@@ -62,7 +62,13 @@ def logp(message) -> None:
     print(emoji.emojize(_msg(message), use_aliases=True), flush=True, end='')
 
 
+def warn(message) -> None:
+    # TODO: print warnings in yellow (but review calls to 'warn(msg)' to remove manual yellow coloring)
+    print(emoji.emojize(_msg(message), use_aliases=True), flush=True, file=sys.stderr)
+
+
 def err(message) -> None:
+    # TODO: print errors in red (but review calls to 'err(msg)' to remove manual red coloring)
     print(emoji.emojize(_msg(message), use_aliases=True), flush=True, file=sys.stderr)
 
 
