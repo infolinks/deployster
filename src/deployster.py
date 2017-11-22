@@ -14,6 +14,7 @@ from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence,
 
 import jinja2
 import jsonschema
+import termios
 import yaml
 from colors import bold, underline, red, italic, faint, yellow, green
 from jinja2 import UndefinedError
@@ -800,11 +801,19 @@ def main():
         else:
             err(red(e.message))
         exit(1)
+
+    except termios.error as e:
+        unindent(fully=True)
+        err('')
+        err(red(f"IO error: {e}"))
+        exit(1)
+
     except KeyboardInterrupt:
         unindent(fully=True)
         err('')
         err(red(f"Interrupted."))
         exit(1)
+
     except Exception:
         # always print stacktrace since this exception is an unexpected exception
         err(red(traceback.format_exc()))
