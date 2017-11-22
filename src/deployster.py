@@ -690,7 +690,11 @@ def main():
             if len(tokens) != 2:
                 raise argparse.ArgumentTypeError(f"bad variable: '{values}'")
             else:
-                context.add_variable(tokens[0], tokens[1])
+                var_name = tokens[0]
+                var_value = tokens[1]
+                if var_value[0] == '"' and var_value[-1] == '"':
+                    var_value = var_value[1:-1]
+                context.add_variable(var_name, var_value)
 
     class VariablesFileAction(argparse.Action):
 
