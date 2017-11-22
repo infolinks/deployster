@@ -388,6 +388,8 @@ TBD.
 * Support optional resource dependencies
 * Support declaring dependency lists (give me a list of dependencies of type X)
     - useful for \[cluster-\]role-bindings
+* Print Deployster version on startup.
+* Support manifest fragments (ie. inclusion of manifests from other manifests)
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
