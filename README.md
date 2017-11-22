@@ -363,6 +363,9 @@ TBD.
 
 * Support creating a Plan from a previously-saved plan file (incl. comparing updated state to saved state)
 * Support live-streaming of resource action stdout to console (excluding init & state actions)
+* Support marking resources as read-only; useful for known built-in resources we DO NOT want to update/change, but we do want to reference as dependencies
+* Support marking resources as deleted; useful to have Deployster ensure a certain resource DOES NOT exist
+* Support patterns for plug permissions
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
