@@ -299,14 +299,34 @@ Deployster is distributed as a Docker image available for running on
 your machine or servers. Here's an example command-line usage:
 
 ```bash
+deployster.sh ./my-manifest.yaml \
+              --var my_var="some-value" \
+              --var another="some-value" \
+              --var-file ./my-variables-file.yaml \
+              --var my_overriding_variable="overrides 'my_overriding_variable' in the variables file"
+              ...
+```
+
+This invocation registers two variables in the context (`my_var` and
+`another`), as well as any variables defined in the `my-variables-file.yaml`
+file, and finally another variable (`my_overriding_variable`). If the
+`my-variables-file.yaml` also defines `my_overriding_variable`, the
+one on the command-line takes precedence **because it was provided
+_after_ the `--var-file` argument.
+
+You can also invoke the Deployster Docker image manually, like this:
+
+```bash
 docker run -it \                                            # enable interactivity
            -v $(pwd):/deployster/workspace \                # mount your workspace
            -v /var/run/docker.sock:/var/run/docker.sock \   # enable Docker-in-Docker
            infolinks/deployster:latest \                    # the Deployster version to run
-           --var org_id=123456 \                            # add 'org_id' variable to context
-           --var-file my-variables.yaml                     # YAML file containing variables
-           acme-production.yaml                             # the manifest to run
-```
+           ./my-manifest.yaml \
+           --var my_var="some-value" \
+           --var another="some-value" \
+           --var-file ./my-variables-file.yaml \
+           --var my_overriding_variable="overrides 'my_overriding_variable' in the variables file"
+ ```
 
 #### Providing context variables
 
