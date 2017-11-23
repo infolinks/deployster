@@ -73,10 +73,7 @@ class GkeCluster(DResource):
         command = f"gcloud container clusters get-credentials {self.name} " \
                   f"                                --project {self.project.project_id} " \
                   f"                                --zone {self.zone}"
-        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if process.returncode != 0:
-            print(f"failed authenticating to cluster: {process.stderr}", file=sys.stderr)
-            exit(process.returncode)
+        subprocess.run(command, check=True, shell=True)
 
     @property
     def resource_required_plugs(self) -> Mapping[str, str]:
