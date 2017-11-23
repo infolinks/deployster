@@ -6,6 +6,7 @@ import os
 import pkgutil
 import shutil
 import subprocess
+import termios
 import traceback
 from enum import Enum, unique, auto
 from json import JSONDecodeError
@@ -14,7 +15,6 @@ from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence,
 
 import jinja2
 import jsonschema
-import termios
 import yaml
 from colors import bold, underline, red, italic, faint, yellow, green
 from jinja2 import UndefinedError
@@ -175,7 +175,7 @@ class Action:
     def args(self) -> Sequence[str]:
         return self._args
 
-    def execute(self, work_dir: Path, volumes: Sequence[str] = None, stdin: dict = None):
+    def execute(self, work_dir: Path, volumes: Sequence[str] = None, stdin: dict = None, expect_json=True):
         os.makedirs(str(work_dir), exist_ok=True)
 
         command = ["docker", "run", "-i"]
@@ -221,7 +221,7 @@ class Action:
             raise UserError(f"action '{self.name}' failed with exit code #{process.returncode}:\n{process.stderr}")
 
         # if JSON returned, read, parse & return that
-        elif process.stdout:
+        elif process.stdout and expect_json:
             try:
                 return json.loads(process.stdout)
             except JSONDecodeError as e:
@@ -528,10 +528,6 @@ class ResourceState:
         if self.status == ResourceStatus.MISSING and len(self.actions) == 0:
             self.resolve(force=True, stealth=True)
             if self.status == ResourceStatus.VALID:
-                log(yellow(bold(f"WARNING: this resource was considered MISSING because one or more of its "
-                                f"         dependencies was missing; now that its dependencies have been resolved, "
-                                f"         it seems this resource is now VALID - this is probably a bug in the "
-                                f"         '{self.resource.type}' resource image.")))
                 return
 
         for action in self._actions:
@@ -547,7 +543,8 @@ class ResourceState:
                     'type': self.resource.type,
                     'config': self.resource.config,
                     'dependencies': {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
-                })
+                },
+                expect_json=False)
             unindent()
 
         # refresh to receive updated properties

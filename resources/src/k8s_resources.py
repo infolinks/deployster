@@ -23,6 +23,10 @@ class K8sResource(DResource):
         raise Exception(f"illegal state: 'cluster' property not implemented")
 
     @property
+    def namespace(self):
+        return None
+
+    @property
     @abstractmethod
     def k8s_type(self) -> str:
         raise Exception(f"illegal state: 'k8s_type' property not implemented")
@@ -51,7 +55,8 @@ class K8sResource(DResource):
         }
 
     def discover_actual_properties(self):
-        command = f"kubectl get {self.k8s_type} {self.name} --ignore-not-found=true --output=json"
+        namespace_arg = f"--namespace {self.namespace.name}" if self.namespace is not None else ""
+        command = f"kubectl get {self.k8s_type} {self.name} {namespace_arg} --ignore-not-found=true --output=json"
         process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if process.returncode != 0:
             raise Exception(f"illegal state: failed getting '{self.k8s_type}' '{self.name}':\n" f"{process.stderr}")
@@ -68,19 +73,17 @@ class K8sResource(DResource):
         actual_annotations = actual_metadata['annotations'] if 'annotations' in actual_metadata else {}
         for ann_name, ann_value in self.annotations.items():
             if ann_name not in actual_annotations or ann_value != actual_annotations[ann_name]:
-                # TODO: create 'update_annotation' action
                 actions.append(DAction(name='update-annotation',
                                        description=f"Update annotation '{ann_name}'",
-                                       args=[ann_name, ann_value]))
+                                       args=['update_annotation', ann_name, ann_value]))
 
         # compare labels
         actual_labels = actual_metadata['labels'] if 'labels' in actual_metadata else {}
         for label_name, label_value in self.labels.items():
             if label_name not in actual_labels or label_value != actual_labels[label_name]:
-                # TODO: create 'update_label' action
                 actions.append(DAction(name='update-label',
                                        description=f"Update label '{ann_name}'",
-                                       args=[label_name, label_value]))
+                                       args=['update_label', label_name, label_value]))
 
         # if any actions inferred, we're STALE; otherwise we're VALID
         return actions
@@ -104,12 +107,14 @@ class K8sResource(DResource):
 
     @action
     def update_annotation(self, args):
-        command = f"kubectl annotate {self.k8s_type} {self.name} {args.name}='{args.value}' --overwrite"
+        namespace_arg = f"--namespace {self.namespace.name}" if self.namespace is not None else ""
+        command = f"kubectl annotate {self.k8s_type} {self.name} {namespace_arg} {args.name}='{args.value}' --overwrite"
         exit(subprocess.run(command, shell=True).returncode)
 
     @action
     def update_label(self, args):
-        command = f"kubectl label {self.k8s_type} {self.name} {args.name}='{args.value}' --overwrite"
+        namespace_arg = f"--namespace {self.namespace.name}" if self.namespace is not None else ""
+        command = f"kubectl label {self.k8s_type} {self.name} {namespace_arg} {args.name}='{args.value}' --overwrite"
         exit(subprocess.run(command, shell=True).returncode)
 
     def execute_action(self, action_name: str, action_method: Callable[..., Any], args: argparse.Namespace):

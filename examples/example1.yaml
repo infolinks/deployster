@@ -2,16 +2,6 @@ plugs:
   gcloud:
     path: {{ gcloud_path }}
     read_only: false
-    resource_types:
-      - infolinks/deployster-gcp-compute-regional-ip-address
-      - infolinks/deployster-gcp-gke-cluster
-      - infolinks/deployster-gcp-project
-      - infolinks/deployster-k8s-namespace
-      - infolinks/deployster-k8s-rbac-cluster-role
-      - infolinks/deployster-k8s-rbac-cluster-role-binding
-      - infolinks/deployster-k8s-rbac-role
-      - infolinks/deployster-k8s-rbac-role-binding
-      - infolinks/deployster-k8s-rbac-service-account
 
 resources:
 
@@ -140,3 +130,25 @@ resources:
         - kind: ServiceAccount
           name: example
           namespace: example
+
+  example-deployment:
+    type: infolinks/deployster-k8s-deployment:0.0.0
+    dependencies:
+      namespace: example-namespace
+    config:
+      name: example
+      metadata:
+        labels:
+          example-version: 0.0.0
+        annotations:
+          example-ann: lalala2
+      spec:
+        replicas: 3
+        template:
+          metadata:
+            labels:
+              app: nginx
+          spec:
+            containers:
+            - name: nginx
+              image: nginx:1.10
