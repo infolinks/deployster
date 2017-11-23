@@ -391,6 +391,10 @@ TBD.
 * Support manifest fragments (ie. inclusion of manifests from other manifests)
 * Support auto-included variable files (eg. `context.auto.<*>.yaml`)
 * Support configurable action timeouts (per action preferably)
+* Support rollback actions
+* Potential performance improvements:
+    - Avoid cluster authentication for each resource
+    - Parallel execution paths
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
