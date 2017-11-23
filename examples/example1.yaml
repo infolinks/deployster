@@ -139,11 +139,12 @@ resources:
       name: example
       metadata:
         labels:
-          example-version: 0.0.0
-        annotations:
-          example-ann: lalala2
+          test2: abcd
       spec:
         replicas: 3
+        selector:
+          matchLabels:
+            app: nginx
         template:
           metadata:
             labels:

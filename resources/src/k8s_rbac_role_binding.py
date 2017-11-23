@@ -3,9 +3,9 @@
 import json
 import subprocess
 import sys
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, MutableSequence
 
-from dresources import action
+from dresources import action, DAction
 from gcp_gke_cluster import GkeCluster
 from k8s_namespace import K8sNamespace
 from k8s_rbac_role import K8sRole
@@ -34,8 +34,16 @@ class K8sRoleBinding(K8sResource):
         return self._role
 
     @property
-    def k8s_type(self) -> str:
-        return "rolebinding"
+    def k8s_api_group(self) -> str:
+        return "rbac.authorization.k8s.io"
+
+    @property
+    def k8s_api_version(self) -> str:
+        return "v1"
+
+    @property
+    def k8s_kind(self) -> str:
+        return "RoleBinding"
 
     @property
     def name(self) -> str:
@@ -55,91 +63,62 @@ class K8sRoleBinding(K8sResource):
 
     @property
     def resource_config_schema(self) -> dict:
-        return {
-            "type": "object",
-            "required": ["name"],
-            "additionalProperties": False,
-            "properties": {
-                "name": {"type": "string"},
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "annotations": {"type": "object"},
-                        "labels": {"type": "object"}
-                    }
-                },
-                "subjects": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "apiGroup": {
-                                "type": "string"
-                            },
-                            "kind": {"type": "string"},
-                            "name": {"type": "string"},
-                            "namespace": {"type": "string"}
-                        }
-                    }
+        schema = super().resource_config_schema
+        schema['properties']['subjects'] = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "apiGroup": {"type": "string"},
+                    "kind": {"type": "string"},
+                    "name": {"type": "string"},
+                    "namespace": {"type": "string"}
                 }
             }
         }
+        return schema
 
-    def discover_actual_properties(self):
-        command = f"kubectl get {self.k8s_type} {self.name} --namespace {self.namespace.name} " \
-                  f"                                        --ignore-not-found=true " \
-                  f"                                        --output=json"
-        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if process.returncode != 0:
-            raise Exception(f"illegal state: failed getting '{self.k8s_type}' '{self.name}':\n" f"{process.stderr}")
-        else:
-            return json.loads(process.stdout) if process.stdout else None
+    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
+        # TODO: compare role-ref's namespace too
+        if self.role.name != actual_properties['roleRef']['name']:
+            actions.append(DAction(name="update_role_binding_role", description=f"Update role binding role"))
+        if self.subjects != actual_properties['subjects']:
+            actions.append(DAction(name="update-role-binding-subjects", description=f"Update role binding subjects"))
+        return actions
 
-    @action
-    def create(self, args):
-        filename = f"/tmp/role-binding-{self.name}.json"
-        with open(filename, 'w') as f:
-            f.write(json.dumps({
-                "apiVersion": "rbac.authorization.k8s.io/v1",
-                "kind": "RoleBinding",
-                "metadata": {
-                    "name": self.name,
-                    "namespace": self.namespace.name,
-                    "annotations": self.annotations,
-                    "labels": self.labels
-                },
-                "roleRef": {
-                    "apiGroup": "rbac.authorization.k8s.io",
-                    "kind": "Role",
-                    "name": self.role.name
-                },
-                "subjects": self.subjects
-            }))
-        command = f"kubectl create --output=json --filename={filename}"
-        exit(subprocess.run(command, shell=True).returncode)
+    def build_manifest(self) -> dict:
+        manifest = super().build_manifest()
+        manifest['roleRef'] = {
+            "apiGroup": self.role.k8s_api_group,
+            "kind": self.role.k8s_kind,
+            "name": self.role.name
+        }
+        manifest['subjects'] = self.subjects
+        return manifest
 
     @action
     def update_role_binding_role(self, args):
         if args: pass
         patch = json.dumps({
             "roleRef": {
-                "apiGroup": "rbac.authorization.k8s.io",
-                "kind": "Role",
+                "apiGroup": self.role.k8s_api_group,
+                "kind": self.role.k8s_kind,
                 "name": self.role.name
             }
         })
-        command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{patch}'"
-        exit(subprocess.run(command, shell=True).returncode)
+
+        namespace_arg = f"--namespace {self.namespace.name}"
+        command = f"kubectl patch {self.k8s_kind} {self.name} {namespace_arg} --type=merge --patch '{patch}'"
+        subprocess.run(command, check=True, timeout=self.timeout, shell=True)
 
     @action
     def update_role_binding_subjects(self, args):
         if args: pass
-        patch = json.dumps({
-            'subjects': self.subjects
-        })
-        command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{patch}'"
-        exit(subprocess.run(command, shell=True).returncode)
+        patch = json.dumps({'subjects': self.subjects})
+        namespace_arg = f"--namespace {self.namespace.name}"
+        command = f"kubectl patch {self.k8s_kind} {self.name} {namespace_arg} --type=merge --patch '{patch}'"
+        subprocess.run(command, check=True, timeout=self.timeout, shell=True)
 
 
 def main():

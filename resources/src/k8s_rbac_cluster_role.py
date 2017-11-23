@@ -23,8 +23,16 @@ class K8sClusterRole(K8sResource):
         return self._cluster
 
     @property
-    def k8s_type(self) -> str:
-        return "clusterrole"
+    def k8s_api_group(self) -> str:
+        return "rbac.authorization.k8s.io"
+
+    @property
+    def k8s_api_version(self) -> str:
+        return "v1"
+
+    @property
+    def k8s_kind(self) -> str:
+        return "ClusterRole"
 
     @property
     def name(self) -> str:
@@ -42,50 +50,36 @@ class K8sClusterRole(K8sResource):
 
     @property
     def resource_config_schema(self) -> dict:
-        return {
-            "type": "object",
-            "required": ["name", "rules"],
-            "additionalProperties": False,
-            "properties": {
-                "name": {"type": "string"},
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "annotations": {"type": "object"},
-                        "labels": {"type": "object"}
-                    }
-                },
-                "rules": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "apiGroups": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "nonResourceURLs": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "resourceNames": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "resources": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "verbs": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            }
-                        }
+        schema = super().resource_config_schema
+        schema['properties']['rules'] = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "apiGroups": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "nonResourceURLs": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "resourceNames": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "resources": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "verbs": {
+                        "type": "array",
+                        "items": {"type": "string"}
                     }
                 }
             }
         }
+        return schema
 
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
@@ -93,28 +87,16 @@ class K8sClusterRole(K8sResource):
             actions.append(DAction(name="update-cluster-role-rules", description=f"Update cluster-role rules"))
         return actions
 
-    @action
-    def create(self, args):
-        filename = f"/tmp/cluster-role-{self.name}.json"
-        with open(filename, 'w') as f:
-            f.write(json.dumps({
-                "apiVersion": "rbac.authorization.k8s.io/v1",
-                "kind": "ClusterRole",
-                "metadata": {
-                    "name": self.name,
-                    "annotations": self.annotations,
-                    "labels": self.labels
-                },
-                "rules": self.rules
-            }))
-        command = f"kubectl create --output=json --filename={filename}"
-        exit(subprocess.run(command, shell=True).returncode)
+    def build_manifest(self) -> dict:
+        manifest = super().build_manifest()
+        manifest['rules'] = self.rules
+        return manifest
 
     @action
     def update_cluster_role_rules(self, args):
         if args: pass
-        command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{json.dumps({'rules':self.rules})}'"
-        exit(subprocess.run(command, shell=True).returncode)
+        command = f"kubectl patch {self.k8s_kind} {self.name} --type=merge --patch '{json.dumps({'rules':self.rules})}'"
+        subprocess.run(command, check=True, timeout=self.timeout, shell=True)
 
 
 def main():

@@ -3,9 +3,9 @@
 import json
 import subprocess
 import sys
-from typing import Mapping
+from typing import Mapping, MutableSequence, Sequence
 
-from dresources import action
+from dresources import action, DAction
 from gcp_gke_cluster import GkeCluster
 from k8s_namespace import K8sNamespace
 from k8s_resources import K8sResource
@@ -28,8 +28,16 @@ class K8sRole(K8sResource):
         return self._namespace
 
     @property
-    def k8s_type(self) -> str:
-        return "role"
+    def k8s_api_group(self) -> str:
+        return "rbac.authorization.k8s.io"
+
+    @property
+    def k8s_api_version(self) -> str:
+        return "v1"
+
+    @property
+    def k8s_kind(self) -> str:
+        return "Role"
 
     @property
     def name(self) -> str:
@@ -47,84 +55,56 @@ class K8sRole(K8sResource):
 
     @property
     def resource_config_schema(self) -> dict:
-        return {
-            "type": "object",
-            "required": ["name"],
-            "additionalProperties": False,
-            "properties": {
-                "name": {"type": "string"},
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "annotations": {"type": "object"},
-                        "labels": {"type": "object"}
-                    }
-                },
-                "rules": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "apiGroups": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "nonResourceURLs": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "resourceNames": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "resources": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "verbs": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            }
-                        }
+        schema = super().resource_config_schema
+        schema['properties']['rules'] = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "apiGroups": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "nonResourceURLs": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "resourceNames": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "resources": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "verbs": {
+                        "type": "array",
+                        "items": {"type": "string"}
                     }
                 }
             }
         }
+        return schema
 
-    def discover_actual_properties(self):
-        command = f"kubectl get {self.k8s_type} {self.name} --namespace {self.namespace.name} " \
-                  f"                                        --ignore-not-found=true " \
-                  f"                                        --output=json"
-        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if process.returncode != 0:
-            raise Exception(f"illegal state: failed getting '{self.k8s_type}' '{self.name}':\n" f"{process.stderr}")
-        else:
-            return json.loads(process.stdout) if process.stdout else None
+    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
+        if self.rules != actual_properties['rules']:
+            actions.append(DAction(name="update-role-rules", description=f"Update role rules"))
+        return actions
 
-    @action
-    def create(self, args):
-        filename = f"/tmp/role-{self.name}.json"
-        with open(filename, 'w') as f:
-            f.write(json.dumps({
-                "apiVersion": "rbac.authorization.k8s.io/v1",
-                "kind": "Role",
-                "metadata": {
-                    "name": self.name,
-                    "namespace": self.namespace.name,
-                    "annotations": self.annotations,
-                    "labels": self.labels
-                },
-                "rules": self.rules
-            }))
-        command = f"kubectl create --output=json --filename={filename}"
-        exit(subprocess.run(command, shell=True).returncode)
+    def build_manifest(self) -> dict:
+        manifest = super().build_manifest()
+        manifest['rules'] = self.rules
+        return manifest
 
     @action
     def update_role_rules(self, args):
         if args: pass
-        command = f"kubectl patch {self.k8s_type} {self.name} --type=merge --patch '{json.dumps({'rules':self.rules})}'"
-        exit(subprocess.run(command, shell=True).returncode)
+
+        namespace_arg = f"--namespace {self.namespace.name}" if self.namespace is not None else ""
+        patch = json.dumps({'rules': self.rules})
+        command = f"kubectl patch {self.k8s_kind} {self.name} {namespace_arg} --type=merge --patch '{patch}'"
+        subprocess.run(command, check=True, timeout=self.timeout, shell=True)
 
 
 def main():
