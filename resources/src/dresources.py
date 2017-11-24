@@ -158,9 +158,16 @@ class DResource(ABC):
         if actual_properties:
             actions: Sequence[DAction] = self.infer_actions_from_actual_properties(actual_properties=actual_properties)
             if actions:
-                print(json.dumps({'status': 'STALE', 'actions': [action.to_dict() for action in actions]}, indent=2))
+                print(json.dumps({
+                    'status': 'STALE',
+                    'actions': [action.to_dict() for action in actions],
+                    'staleProperties': actual_properties
+                }, indent=2))
             else:
-                print(json.dumps({'status': 'VALID', 'properties': actual_properties}, indent=2))
+                print(json.dumps({
+                    'status': 'VALID',
+                    'properties': actual_properties
+                }, indent=2))
         else:
             print(json.dumps({
                 'status': 'MISSING',
