@@ -395,6 +395,7 @@ TBD.
 * Potential performance improvements:
     - Avoid cluster authentication for each resource
     - Parallel execution paths
+* Move `name` property for Kubernetes resources under the `metadata` section
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
