@@ -152,10 +152,23 @@ resources:
           key1: value1
           key3: value3
 
+  example-secret:
+    type: infolinks/deployster-k8s-secret:0.0.0
+    dependencies:
+      namespace: example-namespace
+    config:
+      manifest:
+        metadata:
+          name: example
+        data:
+          key1: value1
+          key3: value3
+
   example-deployment:
     type: infolinks/deployster-k8s-deployment:0.0.0
     dependencies:
       namespace: example-namespace
+      secret: example-secret
     config:
       manifest:
         metadata:
@@ -172,6 +185,13 @@ resources:
               labels:
                 app: nginx
             spec:
+              volumes:
+                - name: secret-volume
+                  secret:
+                    secretName: example
               containers:
-              - name: nginx
-                image: nginx:1.10
+                - name: nginx
+                  image: nginx:1.10
+                  volumeMounts:
+                    - name: secret-volume
+                      mountPath: /my-secret
