@@ -381,21 +381,27 @@ TBD.
 
 ## ROADMAP
 
-* Support creating a Plan from a previously-saved plan file (incl. comparing updated state to saved state)
-* Support live-streaming of resource action stdout to console (excluding init & state actions)
-* Support marking resources as deleted; useful to have Deployster ensure a certain resource DOES NOT exist
-* Support patterns for plug permissions
-* Support optional resource dependencies
-* Support declaring dependency lists (give me a list of dependencies of type X)
-    - useful for \[cluster-\]role-bindings
-* Support manifest fragments (ie. inclusion of manifests from other manifests)
-* Support auto-included variable files (eg. `context.auto.<*>.yaml`)
-* Support configurable action timeouts (per action preferably)
-* Support rollback actions
-* Potential performance improvements:
-    - Avoid cluster authentication for each resource
-    - Parallel execution paths
-* Move `name` property for Kubernetes resources under the `metadata` section
+- [ ] Support creating a Plan from a previously-saved plan file (incl. comparing updated state to saved state)
+- [ ] Support live-streaming of resource action stdout to console (excluding init & state actions)
+- [ ] Support marking resources as deleted; useful to have Deployster ensure a certain resource DOES NOT exist
+- [ ] Support patterns for plug permissions
+- [ ] Resource dependency mechanism improvements
+        - [ ] Optional resource dependencies
+        - [ ] Dependency lists (give me a list of dependencies of type X)
+- [ ] Support manifest fragments (ie. inclusion of manifests from other manifests)
+- [ ] Support auto-included variable files (eg. `context.auto.<*>.yaml`)
+- [ ] Support configurable action timeouts (per action preferably)
+        - [x] Already supported by Kubernetes resources
+- [ ] Support rollback actions
+- [ ] Potential performance improvements:
+        - Parallel execution paths
+- [ ] Change all GCP resources to accept a service account JSON file _instead_ of a `gcloud` plug
+        - Avoid having a user's `gcloud` directory having `root`-owned files
+- [ ] GKE cluster resource should require a `kube` plug into which it will write authenticated `kubectl` configuration
+        - This plug should then be provided to all other Kubernetes resources
+        - This will enable making Kubernetes resources GKE-agnostic, and work on any Kubernetes cluster
+        - Will boost performance a bit by avoiding re-authentication for each resource
+- [x] Unify cluster roles and namespace roles (and their bindings)
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
