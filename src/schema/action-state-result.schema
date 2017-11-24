@@ -33,6 +33,9 @@
         },
         "properties": {
             "type": "object"
+        },
+        "staleProperties": {
+            "type": "object"
         }
     }
 }
