@@ -693,7 +693,7 @@ class Plan:
 
         indent()
         for state in [state for state in self._deployment_sequence if state.status != ResourceStatus.VALID]:
-            log(f"{state.icon} {state.resource.name} ({state.resource.type})")
+            log(f"{state.icon} {state.resource.name} ({faint(italic(state.resource.type))})")
             log('')
             indent()
             state.execute()
