@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import json
+import subprocess
 import sys
 from typing import Mapping, MutableSequence, Sequence
 
-from dresources import DAction, collect_differences
+from dresources import DAction, collect_differences, action
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
@@ -38,6 +39,10 @@ class K8sDeployment(K8sResource):
         return "Deployment"
 
     @property
+    def spec(self) -> dict:
+        return self.k8s_manifest['spec'] if 'spec' in self.k8s_manifest else None
+
+    @property
     def resource_required_resources(self) -> Mapping[str, str]:
         return {
             "namespace": "infolinks/deployster-k8s-namespace"
@@ -57,7 +62,7 @@ class K8sDeployment(K8sResource):
 
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
-        diffs = collect_differences(self.k8s_manifest['spec'], actual_properties['spec'])
+        diffs = collect_differences(self.spec, actual_properties['spec'])
         if diffs:
             print(f"Found the following differences:\n{diffs}", file=sys.stderr)
             actions.append(DAction(name="update-spec", description=f"Update specification"))
@@ -76,6 +81,16 @@ class K8sDeployment(K8sResource):
             return True
 
         return False
+
+    @action
+    def update_spec(self, args):
+        if args: pass
+
+        patch = json.dumps([{"op": "replace", "path": "/spec", "value": self.spec}])
+        subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
+                       check=True,
+                       timeout=self.timeout,
+                       shell=True)
 
 
 def main():
