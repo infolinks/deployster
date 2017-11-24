@@ -50,7 +50,9 @@ class K8sClusterRoleBinding(K8sResource):
         if self._subjects is None:
             self._subjects: Sequence[dict] = self.resource_config["subjects"]
             for subject in self._subjects:
-                if 'apiGroup' not in subject:
+                if 'kind' not in subject:
+                    raise Exception(f"missing 'kind' property for subject: {json.dumps(subject)}")
+                elif subject['kind'] != 'ServiceAccount' and 'apiGroup' not in subject:
                     subject['apiGroup'] = 'rbac.authorization.k8s.io'
         return self._subjects
 
