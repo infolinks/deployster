@@ -55,6 +55,7 @@ class DAction:
         return data
 
 
+# noinspection PyTypeChecker
 class DResource(ABC):
     def __init__(self, data: dict) -> None:
         super().__init__()
@@ -62,6 +63,7 @@ class DResource(ABC):
         self._resource_name = data['name']
         self._resource_type = data['type']
         self._resource_config: dict = data['config']
+        self._resource_dependencies: dict = data['dependencies']
         self._resource_properties = data['properties'] if 'properties' in data else None
 
     @property
@@ -81,18 +83,26 @@ class DResource(ABC):
         return self._resource_config
 
     @property
+    def resource_dependencies(self) -> Mapping[str, dict]:
+        return self._resource_dependencies
+
+    @property
     def resource_properties(self) -> dict:
         return self._resource_properties
 
-    def resource_dependency(self, name: str) -> dict:
-        if 'dependencies' not in self._data:
-            raise Exception(f"illegal state: dependency lookup cannot be used during resource initialization")
+    def has_dependency(self, name: str, required_type: str = None) -> bool:
+        return name in self.resource_dependencies \
+               and (required_type is None or self.resource_dependencies['type'] == required_type)
 
-        dependencies_data: dict = self._data['dependencies']
-        if name not in dependencies_data:
-            raise Exception(f"illegal state: dependency '{name}' was not provided")
+    def get_resource_dependency(self, name: str, required_type: str = None) -> dict:
+        if self.has_dependency(name=name, required_type=required_type):
+            return self.resource_dependencies[name]
+        else:
+            type = required_type if required_type is not None else 'Any'
+            raise Exception(f"illegal state: could not find dependency '{name}' of type '{type}'")
 
-        return dependencies_data[name]
+    def get_dependency_type(self, name: str) -> str:
+        return self.get_resource_dependency(name)['type']
 
     @property
     def resource_required_plugs(self) -> Mapping[str, str]:

@@ -5,19 +5,18 @@ import sys
 from typing import Mapping
 
 from gcp_gke_cluster import GkeCluster
-from k8s_resources import K8sResource
+from k8s import K8sResource
 
 
 class K8sNamespace(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._cluster: GkeCluster = None
+        # TODO: dependency type validation
+        self._cluster: GkeCluster = GkeCluster(self.get_resource_dependency('cluster'))
 
     @property
     def cluster(self) -> GkeCluster:
-        if self._cluster is None:
-            self._cluster: GkeCluster = GkeCluster(self.resource_dependency('cluster'))
         return self._cluster
 
     @property
@@ -31,10 +30,6 @@ class K8sNamespace(K8sResource):
     @property
     def k8s_kind(self) -> str:
         return "Namespace"
-
-    @property
-    def name(self) -> str:
-        return self.resource_config['name']
 
     @property
     def resource_required_resources(self) -> Mapping[str, str]:

@@ -20,7 +20,7 @@ class GcpRegionalAddress(DResource):
     @property
     def project(self) -> GcpProject:
         if self._project is None:
-            self._project: GcpProject = GcpProject(self.resource_dependency('project'))
+            self._project: GcpProject = GcpProject(self.get_resource_dependency('project'))
         return self._project
 
     @property

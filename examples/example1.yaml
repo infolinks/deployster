@@ -59,97 +59,119 @@ resources:
             role: backoffice
 
   cluster-admin-role:
-    type: infolinks/deployster-k8s-rbac-cluster-role:0.0.0
+    type: infolinks/deployster-k8s-rbac-role:0.0.0
     readonly: true
     dependencies:
       cluster: apps-cluster
     config:
-      name: cluster-admin
-      rules:
-        - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - nonResourceURLs:
-          - '*'
-          verbs:
-          - '*'
+      manifest:
+        metadata:
+          name: cluster-admin
+        rules:
+          - apiGroups:
+            - '*'
+            resources:
+            - '*'
+            verbs:
+            - '*'
+          - nonResourceURLs:
+            - '*'
+            verbs:
+            - '*'
 
   team-cluster-admins-binding:
-    type: infolinks/deployster-k8s-rbac-cluster-role-binding:0.0.0
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
     dependencies:
-      cluster-role: cluster-admin-role
+      role: cluster-admin-role
     config:
-      name: team-cluster-admins
-      subjects:
-        - kind: User
-          name: arik@infolinks.com
-        - kind: User
-          name: jack@infolinks.com
+      manifest:
+        metadata:
+          name: team-cluster-admins
+        subjects:
+          - kind: User
+            name: arik@infolinks.com
+          - kind: User
+            name: jack@infolinks.com
 
   example-namespace:
     type: infolinks/deployster-k8s-namespace:0.0.0
     dependencies:
       cluster: apps-cluster
     config:
-      name: example
-      metadata:
-        annotations:
-          arik: kfir
+      manifest:
+        metadata:
+          name: example
 
   example-role:
     type: infolinks/deployster-k8s-rbac-role:0.0.0
     dependencies:
       namespace: example-namespace
     config:
-      name: example
-      rules:
-        - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - 'get'
+      manifest:
+        metadata:
+          name: example
+        rules:
+          - apiGroups:
+            - '*'
+            resources:
+            - '*'
+            verbs:
+            - 'get'
 
   example-service-account:
     type: infolinks/deployster-k8s-rbac-service-account:0.0.0
     dependencies:
       namespace: example-namespace
     config:
-      name: example
+      manifest:
+        metadata:
+          name: example
 
   example-role-binding:
     type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
     dependencies:
       role: example-role
     config:
-      name: example
-      subjects:
-        - kind: ServiceAccount
+      manifest:
+        metadata:
           name: example
-          namespace: example
+        subjects:
+          - kind: ServiceAccount
+            name: example
+            namespace: example
+
+  example-configmap:
+    type: infolinks/deployster-k8s-configmap:0.0.0
+    dependencies:
+      namespace: example-namespace
+    config:
+      manifest:
+        metadata:
+          name: example
+        data:
+          key1: value1
+          key3: value3
 
   example-deployment:
     type: infolinks/deployster-k8s-deployment:0.0.0
     dependencies:
       namespace: example-namespace
     config:
-      name: example
-      metadata:
-        labels:
-          test2: abcd
-      spec:
-        replicas: 3
-        selector:
-          matchLabels:
-            app: nginx
-        template:
-          metadata:
-            labels:
+      manifest:
+        metadata:
+          name: example
+          labels:
+            test2: abcd
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
               app: nginx
-          spec:
-            containers:
-            - name: nginx
-              image: nginx:1.10
+          template:
+            metadata:
+              labels:
+                app: nginx
+            spec:
+              containers:
+              - name: nginx
+                image: nginx:1.10

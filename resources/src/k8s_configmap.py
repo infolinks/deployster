@@ -7,15 +7,16 @@ from typing import Mapping, MutableSequence, Sequence
 
 from dresources import DAction, action
 from gcp_gke_cluster import GkeCluster
+from k8s import K8sResource
 from k8s_namespace import K8sNamespace
-from k8s_resources import K8sResource
 
 
 class K8sConfigMap(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._namespace: K8sNamespace = None
+        # TODO: dependency type validation
+        self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
 
     @property
     def cluster(self) -> GkeCluster:
@@ -23,8 +24,6 @@ class K8sConfigMap(K8sResource):
 
     @property
     def namespace(self) -> K8sNamespace:
-        if self._namespace is None:
-            self._namespace: K8sNamespace = K8sNamespace(self.resource_dependency('namespace'))
         return self._namespace
 
     @property
@@ -40,12 +39,8 @@ class K8sConfigMap(K8sResource):
         return "ConfigMap"
 
     @property
-    def name(self) -> str:
-        return self.resource_config['name']
-
-    @property
     def data(self) -> dict:
-        return self.resource_config['data']
+        return self.k8s_manifest['data']
 
     @property
     def resource_required_resources(self) -> Mapping[str, str]:
@@ -54,9 +49,15 @@ class K8sConfigMap(K8sResource):
         }
 
     @property
-    def resource_config_schema(self) -> dict:
-        schema = super().resource_config_schema
-        schema['properties']['data'] = {"type": "object"}
+    def k8s_manifest_schema(self) -> dict:
+        schema: dict = super().k8s_manifest_schema
+        schema['required'].append('data')
+        schema['properties'].update({
+            'data': {
+                "type": "object",
+                "additionalProperties": True
+            }
+        })
         return schema
 
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
@@ -65,19 +66,15 @@ class K8sConfigMap(K8sResource):
             actions.append(DAction(name="update-data", description=f"Update configuration map data"))
         return actions
 
-    def build_manifest(self) -> dict:
-        manifest = super().build_manifest()
-        manifest['data'] = self.data
-        return manifest
-
     @action
     def update_data(self, args):
         if args: pass
 
-        namespace_arg = f"--namespace {self.namespace.name}" if self.namespace is not None else ""
-        patch = json.dumps({'data': self.data})
-        command = f"kubectl patch {self.k8s_kind} {self.name} {namespace_arg} --type=merge --patch '{patch}'"
-        subprocess.run(command, check=True, timeout=self.timeout, shell=True)
+        patch = json.dumps([{"op": "replace", "path": "/data", "value": self.k8s_manifest['data']}])
+        subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
+                       check=True,
+                       timeout=self.timeout,
+                       shell=True)
 
 
 def main():

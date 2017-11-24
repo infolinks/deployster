@@ -1,4 +1,0 @@
-FROM infolinks/deployster-dresource:local
-MAINTAINER Arik Kfir <arik@infolinks.com>
-ENTRYPOINT ["/deployster/k8s_rbac_cluster_role_binding.py"]
-CMD ["init"]

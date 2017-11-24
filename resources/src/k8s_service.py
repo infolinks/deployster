@@ -2,18 +2,19 @@
 
 import json
 import sys
-from typing import Mapping
+from typing import Mapping, MutableSequence, Sequence
 
+from dresources import DAction, collect_differences
 from gcp_gke_cluster import GkeCluster
+from k8s import K8sResource
 from k8s_namespace import K8sNamespace
-from k8s_spec_resource import K8sSpecificationResource
 
 
-class K8sService(K8sSpecificationResource):
+class K8sService(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._namespace: K8sNamespace = None
+        self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
 
     @property
     def cluster(self) -> GkeCluster:
@@ -21,8 +22,6 @@ class K8sService(K8sSpecificationResource):
 
     @property
     def namespace(self) -> K8sNamespace:
-        if self._namespace is None:
-            self._namespace: K8sNamespace = K8sNamespace(self.resource_dependency('namespace'))
         return self._namespace
 
     @property
@@ -38,12 +37,11 @@ class K8sService(K8sSpecificationResource):
         return "Service"
 
     @property
-    def name(self) -> str:
-        return self.resource_config['name']
-
-    @property
-    def spec(self) -> dict:
-        return self.resource_config['spec']
+    def service_type(self) -> str:
+        if 'spec' in self.k8s_manifest and 'type' in self.k8s_manifest['spec']:
+            return self.k8s_manifest['spec']['type']
+        else:
+            return "ClusterIP"
 
     @property
     def resource_required_resources(self) -> Mapping[str, str]:
@@ -51,22 +49,34 @@ class K8sService(K8sSpecificationResource):
             "namespace": "infolinks/deployster-k8s-namespace"
         }
 
-    def validate_status(self, result: dict) -> bool:
-        if 'spec' not in result:
-            return False
+    @property
+    def k8s_manifest_schema(self) -> dict:
+        schema: dict = super().k8s_manifest_schema
+        schema['required'].append('spec')
+        schema['properties'].update({
+            'spec': {
+                "type": "object",
+                "additionalProperties": True
+            }
+        })
+        return schema
 
-        spec = result['spec']
-        if 'type' not in spec:
+    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
+        diffs = collect_differences(self.k8s_manifest['spec'], actual_properties['spec'])
+        if diffs:
+            print(f"Found the following differences:\n{diffs}", file=sys.stderr)
+            actions.append(DAction(name="update-spec", description=f"Update specification"))
+        return actions
+
+    def is_available(self, actual_properties: dict):
+        if self.service_type != 'LoadBalancer':
             return True
 
-        type = spec['type']
-        if type != 'LoadBalancer':
-            return True
-
-        if 'status' not in result:
+        if 'status' not in actual_properties:
             return False
 
-        status = result['status']
+        status = actual_properties['status']
         if 'loadBalancer' not in status:
             return False
 
@@ -77,8 +87,8 @@ class K8sService(K8sSpecificationResource):
         ingresses_status = load_balancer_status['ingress']
         if [ing for ing in ingresses_status if 'hostname' in ing or 'ip' in ing]:
             return True
-
-        return False
+        else:
+            return False
 
 
 def main():
