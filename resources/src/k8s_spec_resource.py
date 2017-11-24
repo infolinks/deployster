@@ -18,7 +18,7 @@ class K8sSpecificationResource(K8sResource):
 
     @property
     @abstractmethod
-    def spec(self) -> str:
+    def spec(self) -> dict:
         raise Exception(f"illegal state: 'state' not implemented for '{type(self)}' resource type")
 
     @property

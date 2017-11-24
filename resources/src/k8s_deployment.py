@@ -42,7 +42,7 @@ class K8sDeployment(K8sSpecificationResource):
         return self.resource_config['name']
 
     @property
-    def spec(self) -> str:
+    def spec(self) -> dict:
         return self.resource_config['spec']
 
     @property
