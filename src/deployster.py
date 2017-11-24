@@ -356,13 +356,17 @@ class ResourceState:
 
     def get_as_dependency(self, include_properties: bool = True) -> dict:
         resolver = self._resource_state_provider
+        if self._dependencies is None:
+            dependencies = {}
+        else:
+            dependencies = {k: resolver(v.name).get_as_dependency(include_properties)
+                            for k, v in self._dependencies.items()}
+
         data = {
             'name': self.resource.name,
             'type': self.resource.type,
             'config': self.resource.config,
-            'dependencies': {
-                k: resolver(v.name).get_as_dependency(include_properties) for k, v in self._dependencies.items()
-            }
+            'dependencies': dependencies
         }
         if include_properties:
             data['properties'] = self.properties
@@ -376,15 +380,22 @@ class ResourceState:
                             f"{process.stderr}")
 
     def initialize(self) -> None:
+        # build resource dependencies; NOTE that we ARE NOT validating the resource's required resources here, since
+        # we do not yet know them - the 'init' action will provide back a list of such required resources, and we'll
+        # validate that indeed those are present in the list.
+        dependencies: MutableMapping[str, Resource] = {}
+        for alias, source_resource_name in self.resource.dependencies.items():
+            if source_resource_name not in self.manifest.resources:
+                raise UserError(f"resource '{source_resource_name}' (dependency of '{self.resource.name}') is missing.")
+            else:
+                dependencies[alias] = self.manifest.resource(source_resource_name)
+        self._dependencies: Mapping[str, Resource] = dependencies
+
+        # initialize the resource by invoking the 'init' action (ie. the resource's Docker image's default entrypoint)
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
-
         result = init_action.execute(work_dir=self._work_dir / init_action.name,
-                                     stdin={
-                                         'name': self.resource.name,
-                                         'type': self.resource.type,
-                                         'config': self.resource.config
-                                     })
+                                     stdin=self.get_as_dependency(include_properties=False))
         self._type_label: str = result['label']
 
         # validate manifest against our manifest schema
@@ -414,29 +425,21 @@ class ResourceState:
                 plugs[container_path] = plug
         self._plugs: Mapping[str, Plug] = plugs
 
-        # collect required resources, failing if any resource is missing
-        dependencies: MutableMapping[str, Resource] = {}
-        for alias, type in (result['required_resources'] if 'required_resources' in result else {}).items():
-            if alias not in self.resource.dependencies:
-                raise UserError(f"dependency '{alias}' is missing for resource '{self.resource.name}' ({type})")
-            type = type.split(':', 1)[0] if type.find(':') >= 0 else type
+        # validate that all required resources were provided
+        for alias, required_type in (result['required_resources'] if 'required_resources' in result else {}).items():
+            if alias not in self._dependencies:
+                raise UserError(f"dependency '{alias}' (of type '{type}') must be provided")
+            else:
+                resource = self._dependencies[alias]
 
-            source_resource_name = self.resource.dependencies[alias]
-            if source_resource_name not in self.manifest.resources:
-                raise UserError(f"resource '{source_resource_name}' required by '{self.resource.name}' does not exist.")
-
-            source_resource = self.manifest.resource(source_resource_name)
-
-            source_resource_type = source_resource.type.split(':', 1)[0] \
-                if source_resource.type.find(':') >= 0 else source_resource.type
-            if source_resource_type != type:
+            required_type = required_type.split(':', 1)[0] if required_type.find(':') >= 0 else required_type
+            resource_type = resource.type.split(':', 1)[0] if resource.type.find(':') >= 0 else resource.type
+            if required_type != resource_type:
                 raise UserError(
-                    f"incorrect type for dependency '{source_resource_name}' of '{self.resource.name}', must be of "
-                    f"type '{type}', but that resource is of type '{source_resource.type}'.")
+                    f"incorrect type for dependency '{alias}', must be of type '{required_type}', but that resource "
+                    f"is of type '{resource_type}'.")
 
-            dependencies[alias] = source_resource
-        self._dependencies: Mapping[str, Resource] = dependencies
-
+        # save the 'state' action
         self._state_action: Action = \
             Action.from_json(data=result['state_action'],
                              default_name='state', default_description=f"Resolve state of '{self.resource.name}'",
