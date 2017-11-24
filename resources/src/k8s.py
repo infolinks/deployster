@@ -179,7 +179,8 @@ class K8sResource(DResource):
         if args: pass
 
         subprocess.run(f"{self.kubectl_command('create', identify=False)} -f -",
-                       input=json.dumps(self.build_creation_manifest()).encode('utf-8'),
+                       input=json.dumps(self.build_creation_manifest()),
+                       encoding='utf-8',
                        check=True,
                        timeout=self.timeout,
                        shell=True)
