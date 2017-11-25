@@ -127,7 +127,7 @@ class K8sResource(DResource):
 
         # add an action for each stale annotation & label
         actions: MutableSequence[DAction] = []
-        actions.extend([DAction(name='update-ann',
+        actions.extend([DAction(name='update-annotation',
                                 description=f"Update annotation '{k}' to '{v}'",
                                 args=['update_annotation', k, v])
                         for k, v in desired_anns.items() if k not in actual_anns or v != actual_anns[k]])
@@ -136,6 +136,15 @@ class K8sResource(DResource):
                                 args=['update_label', k, v])
                         for k, v in desired_labels.items() if k not in actual_labels or v != actual_labels[k]])
         return actions
+
+    def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
+        super().define_action_args(action, argparser)
+        if action == 'update_annotation':
+            argparser.add_argument('name', help='annotation name')
+            argparser.add_argument('value', help='annotation value')
+        elif action == 'update_label':
+            argparser.add_argument('name', help='label name')
+            argparser.add_argument('value', help='label value')
 
     @property
     def actions_for_missing_status(self) -> Sequence[DAction]:
