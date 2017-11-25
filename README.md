@@ -403,6 +403,8 @@ TBD.
         - Will boost performance a bit by avoiding re-authentication for each resource
 - [x] Unify cluster roles and namespace roles (and their bindings)
 - [ ] Log operation timing (per resource, per phase(init/discovery/execution), and total)
+- [ ] Setup a test which performs a full deployment to a throwaway project, sends test requests, and tears down.
+- [ ] Support loading variables from `~/.deployster.auto.<*>.yaml`
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
