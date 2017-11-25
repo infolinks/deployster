@@ -354,13 +354,12 @@ class ResourceState:
     def properties(self) -> dict:
         return self._properties
 
-    def get_as_dependency(self, include_properties: bool = True) -> dict:
+    def get_as_dependency(self) -> dict:
         resolver = self._resource_state_provider
         if self._dependencies is None:
             dependencies = {}
         else:
-            dependencies = {k: resolver(v.name).get_as_dependency(include_properties)
-                            for k, v in self._dependencies.items()}
+            dependencies = {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
 
         data = {
             'name': self.resource.name,
@@ -368,7 +367,7 @@ class ResourceState:
             'config': self.resource.config,
             'dependencies': dependencies
         }
-        if include_properties:
+        if self.properties is not None:
             data['properties'] = self.properties
         return data
 
@@ -394,8 +393,7 @@ class ResourceState:
         # initialize the resource by invoking the 'init' action (ie. the resource's Docker image's default entrypoint)
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
-        result = init_action.execute(work_dir=self._work_dir / init_action.name,
-                                     stdin=self.get_as_dependency(include_properties=False))
+        result = init_action.execute(work_dir=self._work_dir / init_action.name, stdin=self.get_as_dependency())
         self._type_label: str = result['label']
 
         # validate manifest against our manifest schema
@@ -463,7 +461,7 @@ class ResourceState:
                 self._actions: Sequence[Action] = []
                 return
             else:
-                dependencies[dependency_alias] = dependency_state.get_as_dependency(include_properties=False)
+                dependencies[dependency_alias] = dependency_state.get_as_dependency()
 
         # execute state action
         if not stealth:
