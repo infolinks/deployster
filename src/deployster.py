@@ -529,6 +529,8 @@ class ResourceState:
         if self.status == ResourceStatus.MISSING and len(self.actions) == 0:
             self.resolve(force=True, stealth=True)
             if self.status == ResourceStatus.VALID:
+                log(f"No action necessary for '{self.resource.name}' (already {bold('VALID')})")
+                log('')
                 return
 
         for action in self._actions:
