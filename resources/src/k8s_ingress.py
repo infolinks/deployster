@@ -6,11 +6,9 @@ import sys
 from typing import Mapping, MutableSequence, Sequence
 
 from dresources import DAction, collect_differences, action
-from gcp_compute_regional_ip_address import GcpRegionalAddress
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
-from k8s_service import K8sService
 
 
 class K8sIngress(K8sResource):
