@@ -215,3 +215,24 @@ resources:
               targetPort: 80
           type: LoadBalancer              # creates a Google TCP Load Balancer
           externalTrafficPolicy: Local    # this preserves the client IP (otherwise target pod won't see it)
+
+  example-ingress:
+    type: infolinks/deployster-k8s-ingress:0.0.0
+    dependencies:
+      namespace: example-namespace
+      deployment: example-deployment
+    config:
+      manifest:
+        metadata:
+          name: example
+          annotations:
+            kubernetes.io/ingress.class: nginx
+            kubernetes.io/tls-acme: "true"
+        spec:
+          rules:
+          - host: example.deployster.com
+            http:
+              paths:
+                - backend:
+                    serviceName: echoserver
+                    servicePort: 80
