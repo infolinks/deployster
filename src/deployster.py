@@ -610,7 +610,7 @@ class Plan:
         self.clean_work_dir()
         if pull:
             for state in self._resource_states.values():
-                log(f":point_right: Pulling Docker image for resource '{bold(state.resource.name)}'...")
+                log(f":point_right: Pulling Docker image '{bold(state.resource.type)}'...")
                 indent()
                 state.pull()
                 unindent()
