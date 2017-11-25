@@ -6,7 +6,7 @@ import sys
 from typing import Mapping, MutableSequence, Sequence
 
 from dresources import DAction, collect_differences, action
-from gcp_compute_regional_ip_address import GcpRegionalAddress
+from gcp_compute_ip_address import GcpIpAddress
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
@@ -19,9 +19,9 @@ class K8sService(K8sResource):
         self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
 
         if self.service_type == 'LoadBalancer':
-            self._address: GcpRegionalAddress = GcpRegionalAddress(self.get_resource_dependency('address'))
+            self._address: GcpIpAddress = GcpIpAddress(self.get_resource_dependency('address'))
         else:
-            self._address: GcpRegionalAddress = None
+            self._address: GcpIpAddress = None
 
     @property
     def cluster(self) -> GkeCluster:

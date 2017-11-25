@@ -1,0 +1,160 @@
+plugs:
+  gcloud:
+    path: {{ gcloud_path }}
+    read_only: false
+
+resources:
+
+  project:
+    type: infolinks/deployster-gcp-project:0.0.0
+    config:
+      project_id: {{ gcp_project }}
+      organization_id: {{ organization_id }}
+      billing_account_id: {{ billing_account_id }}
+      apis:
+        enabled:
+          - cloudapis.googleapis.com
+          - compute.googleapis.com
+          - container.googleapis.com
+          - storage-component.googleapis.com
+
+  lb-ip-address:
+    type: infolinks/deployster-gcp-compute-ip-address:0.0.0
+    dependencies:
+      project: project
+    config:
+      name: lb-ip
+
+  cluster:
+    type: infolinks/deployster-gcp-gke-cluster:0.0.0
+    dependencies:
+      project: project
+    config:
+      zone: {{ zone }}
+      name: test
+      description: Test cluster.
+      version: 1.8.2-gke.0
+      node_pools:
+        - name: default
+          min_size: 1
+          max_size: 1
+          preemptible: true
+
+  cluster-admin-role:
+    type: infolinks/deployster-k8s-rbac-role:0.0.0
+    readonly: true
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: cluster-admin
+        rules:
+          - apiGroups:
+            - '*'
+            resources:
+            - '*'
+            verbs:
+            - '*'
+          - nonResourceURLs:
+            - '*'
+            verbs:
+            - '*'
+
+  team-cluster-admins-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    dependencies:
+      role: cluster-admin-role
+    config:
+      manifest:
+        metadata:
+          name: team-cluster-admins
+        subjects:
+          - kind: User
+            name: {{ user_email }}
+
+  namespace:
+    type: infolinks/deployster-k8s-namespace:0.0.0
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: websvc
+
+  deployment:
+    type: infolinks/deployster-k8s-deployment:0.0.0
+    dependencies:
+      namespace: namespace
+    config:
+      manifest:
+        metadata:
+          name: websvc
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: websvc
+          template:
+            metadata:
+              labels:
+                app: websvc
+            spec:
+              containers:
+                - image: gcr.io/google_containers/echoserver:1.8
+                  name: echoserver
+                  ports:
+                    - containerPort: 8080
+                  env:
+                    - name: NODE_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: spec.nodeName
+                    - name: POD_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.name
+                    - name: POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+                    - name: POD_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+
+  service:
+    type: infolinks/deployster-k8s-service:0.0.0
+    dependencies:
+      namespace: namespace
+      deployment: deployment
+    config:
+      manifest:
+        metadata:
+          name: websvc
+        spec:
+          selector:
+            app: websvc
+          ports:
+            - port: 80
+              targetPort: 8080
+          type: NodePort
+
+  ingress:
+    type: infolinks/deployster-k8s-ingress:0.0.0
+    dependencies:
+      namespace: namespace
+      service: service
+      address: lb-ip-address
+    config:
+      manifest:
+        metadata:
+          name: websvc
+        spec:
+          rules:
+          - host: websvc.deployster.com
+            http:
+              paths:
+                - backend:
+                    serviceName: websvc
+                    servicePort: 80

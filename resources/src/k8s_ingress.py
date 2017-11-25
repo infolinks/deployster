@@ -6,6 +6,7 @@ import sys
 from typing import Mapping, MutableSequence, Sequence
 
 from dresources import DAction, collect_differences, action
+from gcp_compute_ip_address import GcpIpAddress
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
@@ -16,6 +17,20 @@ class K8sIngress(K8sResource):
     def __init__(self, data: dict) -> None:
         super().__init__(data)
         self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
+        self._address: GcpIpAddress = GcpIpAddress(self.get_resource_dependency('address')) \
+            if self.has_dependency('address') else None
+
+        if self._address is not None:
+            if 'manifest' not in self.resource_config: self.resource_config['manifest'] = {}
+            manifest = self.resource_config['manifest']
+
+            if 'metadata' not in manifest: manifest['metadata'] = {}
+            metadata = manifest['metadata']
+
+            if 'annotations' not in metadata: metadata['annotations'] = {}
+            annotations = metadata['annotations']
+
+            annotations['kubernetes.io/ingress.global-static-ip-name'] = self._address.name
 
     @property
     def cluster(self) -> GkeCluster:
