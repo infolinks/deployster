@@ -91,7 +91,7 @@ class GkeCluster(DResource):
     def resource_config_schema(self) -> Mapping[str, dict]:
         return {
             "type": "object",
-            "required": ["zone", "name"],
+            "required": ["zone", "name", "description"],
             "additionalProperties": False,
             "properties": {
                 "zone": {
