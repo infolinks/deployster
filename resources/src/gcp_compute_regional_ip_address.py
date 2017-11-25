@@ -32,6 +32,13 @@ class GcpRegionalAddress(DResource):
         return self.resource_config['name']
 
     @property
+    def ip_address(self) -> str:
+        if self.resource_properties is not None and 'address' in self.resource_properties:
+            return self.resource_properties['address']
+        else:
+            raise Exception(f"address not available")
+
+    @property
     def resource_required_plugs(self) -> Mapping[str, str]:
         return {
             "gcloud": "/root/.config/gcloud"
