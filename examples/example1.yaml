@@ -195,3 +195,23 @@ resources:
                   volumeMounts:
                     - name: secret-volume
                       mountPath: /my-secret
+
+  example-service:
+    type: infolinks/deployster-k8s-service:0.0.0
+    dependencies:
+      namespace: example-namespace
+      deployment: example-deployment
+      address: apps-ip-address
+    config:
+      manifest:
+        metadata:
+          name: example
+        spec:
+          selector:
+            app: nginx
+          ports:
+            - name: http
+              port: 80
+              targetPort: 80
+          type: LoadBalancer              # creates a Google TCP Load Balancer
+          externalTrafficPolicy: Local    # this preserves the client IP (otherwise target pod won't see it)
