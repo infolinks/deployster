@@ -63,7 +63,7 @@ class DResource(ABC):
         self._resource_name = data['name']
         self._resource_type = data['type']
         self._resource_config: dict = data['config']
-        self._resource_dependencies: dict = data['dependencies']
+        self._resource_dependencies: dict = data['dependencies'] if 'dependencies' in data else None
         self._resource_properties = data['properties'] if 'properties' in data else None
 
     @property
