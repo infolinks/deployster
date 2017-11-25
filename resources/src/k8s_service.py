@@ -69,6 +69,7 @@ class K8sService(K8sResource):
         })
         return schema
 
+    @action
     def init(self, args) -> None:
         if 'loadBalancerIP' in self.spec:
             raise Exception(f"illegal config: the 'loadBalancerIP' is not allowed; add 'address' dependency instead "
