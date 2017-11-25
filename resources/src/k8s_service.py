@@ -6,6 +6,7 @@ import sys
 from typing import Mapping, MutableSequence, Sequence
 
 from dresources import DAction, collect_differences, action
+from gcp_compute_regional_ip_address import GcpRegionalAddress
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
@@ -16,6 +17,11 @@ class K8sService(K8sResource):
     def __init__(self, data: dict) -> None:
         super().__init__(data)
         self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
+
+        if self.service_type == 'LoadBalancer':
+            self._address: GcpRegionalAddress = GcpRegionalAddress(self.get_resource_dependency('address'))
+        else:
+            self._address: GcpRegionalAddress = None
 
     @property
     def cluster(self) -> GkeCluster:
@@ -63,13 +69,31 @@ class K8sService(K8sResource):
         })
         return schema
 
+    def init(self, args) -> None:
+        if 'loadBalancerIP' in self.spec:
+            raise Exception(f"illegal config: the 'loadBalancerIP' is not allowed; add 'address' dependency instead "
+                            f"(only for services of type 'LoadBalancer').")
+        super().init(args)
+
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
         diffs = collect_differences(self.spec, actual_properties['spec'])
         if diffs:
             print(f"Found the following differences:\n{diffs}", file=sys.stderr)
             actions.append(DAction(name="update-spec", description=f"Update specification"))
+        elif self.service_type == 'LoadBalancer':
+            addr_dep_ip_address = self._address.ip_address
+            actual_spec_ip_address = actual_properties['spec']['loadBalancerIP']
+            if addr_dep_ip_address != actual_spec_ip_address:
+                actions.append(DAction(name="update-spec", description=f"Update specification"))
         return actions
+
+    def build_creation_manifest(self) -> dict:
+        manifest = super().build_creation_manifest()
+        spec = manifest['spec'] if 'spec' in manifest else {}
+        if self.service_type == 'LoadBalancer':
+            spec['loadBalancerIP'] = self._address.ip_address
+        return manifest
 
     def is_available(self, actual_properties: dict):
         if self.service_type != 'LoadBalancer':
@@ -96,7 +120,12 @@ class K8sService(K8sResource):
     def update_spec(self, args):
         if args: pass
 
-        patch = json.dumps([{"op": "replace", "path": "/spec", "value": self.spec}])
+        spec = {}
+        spec.update(self.spec)
+        if self.service_type == 'LoadBalancer':
+            spec['loadBalancerIP'] = self._address.ip_address
+
+        patch = json.dumps([{"op": "replace", "path": "/spec", "value": spec}])
         subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
                        check=True,
                        timeout=self.timeout,
