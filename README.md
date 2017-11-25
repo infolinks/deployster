@@ -402,6 +402,7 @@ TBD.
         - This will enable making Kubernetes resources GKE-agnostic, and work on any Kubernetes cluster
         - Will boost performance a bit by avoiding re-authentication for each resource
 - [x] Unify cluster roles and namespace roles (and their bindings)
+- [ ] Log operation timing (per resource, per phase(init/discovery/execution), and total)
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
