@@ -106,15 +106,41 @@ class K8sIngress(K8sResource):
     def update_spec(self, args):
         if args: pass
 
-        spec = {}
-        spec.update(self.spec)
+        # get current spec
+        actual_manifest = self.discover_actual_properties()
 
         # we specifically replace selected parts inside 'spec', because LetsEncrypt will store an additional value in
         # the 'spec' - the "tls" property, which we want to leave as is.
-        patch = json.dumps([
-            {"op": "replace", "path": "/spec/backend", "value": spec['backend'] if 'backend' in spec else None},
-            {"op": "replace", "path": "/spec/rules", "value": spec['rules'] if 'rules' in spec else None}
-        ])
+        patch = []
+
+        # replace or remove the 'backend' section
+        if 'tls' in self.spec:
+            if 'tls' in actual_manifest['spec']:
+                patch.append({"op": "replace", "path": "/spec/tls", "value": self.spec['tls']})
+            else:
+                patch.append({"op": "add", "path": "/spec/tls", "value": self.spec['tls']})
+        elif 'tls' in actual_manifest['spec']:
+            patch.append({"op": "remove", "path": "/spec/tls"})
+
+        # replace or remove the 'backend' section
+        if 'backend' in self.spec:
+            if 'backend' in actual_manifest['spec']:
+                patch.append({"op": "replace", "path": "/spec/backend", "value": self.spec['backend']})
+            else:
+                patch.append({"op": "add", "path": "/spec/backend", "value": self.spec['backend']})
+        elif 'backend' in actual_manifest['spec']:
+            patch.append({"op": "remove", "path": "/spec/backend"})
+
+        # replace or remove the 'rules' section
+        if 'rules' in self.spec:
+            if 'rules' in actual_manifest['spec']:
+                patch.append({"op": "replace", "path": "/spec/rules", "value": self.spec['rules']})
+            else:
+                patch.append({"op": "add", "path": "/spec/rules", "value": self.spec['rules']})
+        elif 'rules' in actual_manifest['spec']:
+            patch.append({"op": "remove", "path": "/spec/rules"})
+
+        # patch it
         subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
                        check=True,
                        timeout=self.timeout,
