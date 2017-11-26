@@ -405,6 +405,7 @@ TBD.
 - [ ] Log operation timing (per resource, per phase(init/discovery/execution), and total)
 - [ ] Setup a test which performs a full deployment to a throwaway project, sends test requests, and tears down.
 - [ ] Support loading variables from `~/.deployster.auto.<*>.yaml`
+- [ ] Create "Helm Chart" resource
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
