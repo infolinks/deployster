@@ -1,5 +1,10 @@
-*.iml
-*.md
-*.local
+/.buildkite
+/examples
+/resources
+/.dockerignore
+/.gitignore
+/*.iml
+/*.md
+/*.sh
 *.pyc
-LICENSE
+/LICENSE
