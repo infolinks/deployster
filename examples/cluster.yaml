@@ -21,6 +21,7 @@ resources:
           - container.googleapis.com
           - storage-component.googleapis.com
 
+
   cluster:
     type: infolinks/deployster-gcp-gke-cluster:0.0.0
     dependencies:
