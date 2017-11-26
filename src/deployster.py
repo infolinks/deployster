@@ -235,28 +235,46 @@ class Action:
 class Manifest:
     schema = json.loads(pkgutil.get_data('schema', 'manifest.schema'))
 
-    def __init__(self, context: Context, manifest_file: Path) -> None:
+    def __init__(self, context: Context, manifest_files: Sequence[Path]) -> None:
         super().__init__()
-        self._manifest_file: Path = manifest_file
+        self._manifest_files: Sequence[Path] = manifest_files
 
         # read manifest
-        manifest: dict = {}
-        with open(manifest_file, 'r') as f:
-            environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
-            try:
-                manifest = yaml.load(environment.from_string(f.read()).render(context.data))
-            except UndefinedError as e:
-                raise UserError(f"error in '{manifest_file}': {e.message}") from e
+        composite_manifest: dict = {
+            'plugs': {},
+            'resources': {}
+        }
+        for manifest_file in manifest_files:
+            with open(manifest_file, 'r') as f:
+                environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
+                try:
+                    manifest = yaml.load(environment.from_string(f.read()).render(context.data))
+                except UndefinedError as e:
+                    raise UserError(f"error in '{manifest_file}': {e.message}") from e
 
-        # validate manifest against our manifest schema
-        try:
-            jsonschema.validate(manifest, Manifest.schema)
-        except ValidationError as e:
-            raise UserError(f"Manifest '{manifest_file}' failed validation: {e.message}") from e
+            # validate manifest against our manifest schema
+            try:
+                jsonschema.validate(manifest, Manifest.schema)
+            except ValidationError as e:
+                raise UserError(f"Manifest '{manifest_file}' failed validation: {e.message}") from e
+
+            # merge into the composite manifest
+            if 'plugs' in manifest:
+                for plug_name, plug in manifest['plugs'].items():
+                    if plug_name in composite_manifest['plugs']:
+                        raise UserError(f"Duplicate plug found: '{plug_name}'")
+                    else:
+                        composite_manifest['plugs'][plug_name] = plug
+            if 'resources' in manifest:
+                for resource_name, resource in manifest['resources'].items():
+                    if resource_name in composite_manifest['resources']:
+                        raise UserError(f"Duplicate resource found: '{resource_name}'")
+                    else:
+                        composite_manifest['resources'][resource_name] = resource
 
         # parse plugs
         plugs: MutableMapping[str, Plug] = {}
-        for plug_name, plug in (manifest['plugs'] if 'plugs' in manifest else {}).items():
+        for plug_name, plug in (composite_manifest['plugs']).items():
             plugs[plug_name] = Plug(name=plug_name,
                                     path=plug['path'],
                                     readonly=plug['read_only'] if 'read_only' in plug else False,
@@ -266,7 +284,7 @@ class Manifest:
 
         # parse resources
         resources: MutableMapping[str, Resource] = {}
-        for resource_name, resource in (manifest['resources'] if 'resources' in manifest else {}).items():
+        for resource_name, resource in (composite_manifest['resources']).items():
             resources[resource_name] = \
                 Resource(name=resource_name,
                          type=resource['type'],
@@ -276,8 +294,8 @@ class Manifest:
         self._resources = resources
 
     @property
-    def manifest_file(self) -> Path:
-        return self._manifest_file
+    def manifest_files(self) -> Sequence[Path]:
+        return self._manifest_files
 
     def plug(self, name) -> Plug:
         return self._plugs[name] if name in self._plugs else None
@@ -764,7 +782,7 @@ def main():
                            help='makes the given variable available to the deployment manifest')
     argparser.add_argument('--var-file', action=VariablesFileAction, metavar='FILE', dest='context',
                            help='makes the variables in the given file available to the deployment manifest')
-    argparser.add_argument('manifest', help='the deployment manifest to execute.')
+    argparser.add_argument('manifests', nargs='+', help='the deployment manifest to execute.')
     argparser.add_argument('-p', '--plan', action='store_true', dest='plan', help="print deployment plan and exit")
     argparser.add_argument('-y', '--yes', action='store_true', dest='assume_yes',
                            help="don't ask for confirmation before executing the deployment plan.")
@@ -778,11 +796,10 @@ def main():
             log(f"Context: {json.dumps(context.data, indent=2)}")
 
         # load manifest
-        manifest: Manifest = Manifest(context=context, manifest_file=args.manifest)
+        manifest: Manifest = Manifest(context=context, manifest_files=args.manifests)
 
         # build the deployment plan, display, and potentially execute it
-        work_path = Path(f"/deployster/work/{os.path.basename(args.manifest)}")
-        plan: Plan = Plan(work_dir=work_path.resolve(), manifest=manifest)
+        plan: Plan = Plan(work_dir=Path(f"/deployster/work/deployment"), manifest=manifest)
         plan.bootstrap(args.pull)
         plan.resolve()
         plan.display()
