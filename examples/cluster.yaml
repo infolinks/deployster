@@ -2,6 +2,9 @@ plugs:
   gcloud:
     path: {{ gcloud_path }}
     read_only: false
+  kube:
+    path: {{ kube_path }}
+    read_only: false
 
 resources:
 
@@ -65,36 +68,3 @@ resources:
         subjects:
           - kind: User
             name: {{ user_email }}
-
-  namespace:
-    type: infolinks/deployster-k8s-namespace:0.0.0
-    dependencies:
-      cluster: cluster
-    config:
-      manifest:
-        metadata:
-          name: config
-
-  configmap:
-    type: infolinks/deployster-k8s-configmap:0.0.0
-    dependencies:
-      namespace: namespace
-    config:
-      manifest:
-        metadata:
-          name: config1
-        data:
-          key1: value1
-          key2: value2
-
-  secret:
-    type: infolinks/deployster-k8s-secret:0.0.0
-    dependencies:
-      namespace: namespace
-    config:
-      manifest:
-        metadata:
-          name: secret1
-        data:
-          key3: value3
-          key4: value4

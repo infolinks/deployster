@@ -1,0 +1,290 @@
+resources:
+
+  haproxy-namespace:
+    type: infolinks/deployster-k8s-namespace:0.0.0
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: haproxy
+
+  haproxy-secret:
+    type: infolinks/deployster-k8s-secret:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+    config:
+      manifest:
+        metadata:
+          name: default-tls
+        data:
+          cert: |-
+            -----BEGIN CERTIFICATE-----
+            MIIDCDCCAfCgAwIBAgIJAPu/ZBuGJR4WMA0GCSqGSIb3DQEBCwUAMBkxFzAVBgNV
+            BAMMDmRlcGxveXN0ZXIuY29tMB4XDTE3MTEyNTE4MTI0OFoXDTE4MTEyNTE4MTI0
+            OFowGTEXMBUGA1UEAwwOZGVwbG95c3Rlci5jb20wggEiMA0GCSqGSIb3DQEBAQUA
+            A4IBDwAwggEKAoIBAQDQzhn829CZXe1atWMn0xnX1ULkvTXM12vNhcb5Y0Q4rBwk
+            K683knpeKZTnPUfShF7bUPM1WmbRCPYxoYlNSlLBD84FjdmTRVNSNFaKTlZfnUZo
+            bKTREvahHr/6qXIVL/K/Nx4+WYZYTRCSGIqfwkMyTTWnYIUdJ7hp5i6trtMuiY6a
+            TdwvNJLAwbBBxfO9yLjXFdt766GAmoBuhEF8XRosLbz0SfxHHe/f2Tw3SK8Zfsdh
+            JE2aWCBoVr0CL8niMtESyOdpf6OymDuyKoj3TwDK97owWjnLzhhnoXZdWMRTdznU
+            iGUPwYSIvm2D2VEExm5haZlg0zT7Rde1eMq9A0i1AgMBAAGjUzBRMB0GA1UdDgQW
+            BBTh90FWj4o+blZ/XVTmf0IxFHxXlzAfBgNVHSMEGDAWgBTh90FWj4o+blZ/XVTm
+            f0IxFHxXlzAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQDFYz/P
+            Unt2D4CCCsH4HbvvV/0PtME50evNmliq7J0Nt4HTlDSkFEDXRGg1zfcFlsn6ps7/
+            HC3i1PP8BM7voGlDPboZLuxbV+bzxjOCU75ff2SnaV95zqzrdHrP9asHlAwVs+su
+            zRVJmo8B7GmsVgo5BuDX8SOAGxqjQTDKPYTMFxp0r0kxUyqABGBfsUA/DO+KRmnV
+            oTzMbcxBtiSFwRiANyrLQMveqdF8X7l9QygC10PLQUaeQHOA6lxTcFmo03181W7e
+            tszNM+DrcgsDnUNUvbntfCJUI9M5Rm8d5V0+LVlyo9lgMDPUouhp0Mxm9XhljLg3
+            aFOmxCSSSaG/8c8a
+            -----END CERTIFICATE-----
+          key: |-
+            -----BEGIN PRIVATE KEY-----
+            MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDQzhn829CZXe1a
+            tWMn0xnX1ULkvTXM12vNhcb5Y0Q4rBwkK683knpeKZTnPUfShF7bUPM1WmbRCPYx
+            oYlNSlLBD84FjdmTRVNSNFaKTlZfnUZobKTREvahHr/6qXIVL/K/Nx4+WYZYTRCS
+            GIqfwkMyTTWnYIUdJ7hp5i6trtMuiY6aTdwvNJLAwbBBxfO9yLjXFdt766GAmoBu
+            hEF8XRosLbz0SfxHHe/f2Tw3SK8ZfsdhJE2aWCBoVr0CL8niMtESyOdpf6OymDuy
+            Koj3TwDK97owWjnLzhhnoXZdWMRTdznUiGUPwYSIvm2D2VEExm5haZlg0zT7Rde1
+            eMq9A0i1AgMBAAECggEAPqkK7XG9qLiiKO10Axh7keSivWf2hDFFXZi+vEpIx8UG
+            cOhXHZMse6N41ufx7L/ig2hIhANMBYDt+LjkLjiWmu82QT5vQ52zQmEIc1rM2sak
+            wWORFljdgD5tGDjPToJkE3Pj9IwDH+6IgX8x4n12ktrOthrl93jbA5Sa/24OW9FK
+            cRpwkKrE9/xLbvifdppdTgJf01yqhvYP2n9m0KNMHbTN/94PV22BrD2I3z4TbDst
+            RpLlnWB5hAyusMGhEiGguJo5TntgRZHr1wpQPpHW3h72PT4poWsW33tt4uPW1DbQ
+            1DUxGN+FB1fQhiqUInAsQLT5WlsmTQbgkDmvURrE5QKBgQD/Z75+eBbf6PrvbqMo
+            upx8DuvCop1oxgaB6rSxZFaDNgdHW2mdvhrVsXDdM+MxhJgThrJtmQGRNqimGxwz
+            U9LTlNQJlwDpspF3y8KrhmJm197EMJWbi6ixpCQ9Mx54a2yGX7dmJFBR8IZCJrrv
+            LpY4MKLSNZsB5vses+VKj52JMwKBgQDRSpPSdgCBvzkw2zSeyqgKbaZ5W7oNufVp
+            70YJfMK/7NTPK2es6mRp/XmhPsreg2LI0EAfZKQ+nRrBqdQiQTqOVtQ1bbyV08sG
+            sHm1DT2z8cxM/Lrbde9Tfc6CCp0Y3fwH1JfchADTU7OOgy2iRO4/NnLlvaaz9/cV
+            H8w7ykl2dwKBgC5YMOTZ/aybpg0UUl7tnb+VJYqn31BHvp6MbEVUI66jeyajm8KX
+            4F6uWACLjcpKeR3x7yacAQDMnkWl3bQinbru4prq36uIT4UhYC2nsOtgeHe5KSyU
+            ZwP0+O5x/DF1rLelXq4WIMz9jB8sz/beyTtg9+qU94+cziyAEDc7YCapAoGASCJo
+            KJW7PvzlfU1QKZq3qEB6rEFNMwXw6/4oKYTyqqu5/V18ckCnM1DF5yl5SpAGMCh2
+            sVtCsMH9QtqB3vyUbhLHOVMFOK6yvy98A0b5CVhBjhddX96aCjDGSFPYKYX5I8nG
+            PZ7RmgSzUl8sD02qv+bIWx6uokDIzGMVRVZHU6kCgYEA0YcAHI9v3l3VIxcOZY48
+            KbWOEO/kxwlNyxuQ5LsQQlRROAmL4XYVN5YXHr+geU2a/ZnZ2g35RAht7VtjgWR/
+            rqAldJgMVLnPYZ/WsoJcnW0LS1O8gObC0MH47vuur4hwDUrq28vcN51/aJqQS8uo
+            WqkTKUan5rTDjGEfyzSdEFs=
+            -----END PRIVATE KEY-----
+
+  haproxy-default-http-backend-deployment:
+    type: infolinks/deployster-k8s-deployment:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+    config:
+      manifest:
+        metadata:
+          name: default-http-backend
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: default-http-backend
+          template:
+            metadata:
+              labels:
+                app: default-http-backend
+            spec:
+              containers:
+                - name: backend
+                  image: gcr.io/google_containers/defaultbackend:1.4
+                  ports:
+                    - name: http
+                      containerPort: 8080
+
+  haproxy-default-http-backend-service:
+    type: infolinks/deployster-k8s-service:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+      deployment: haproxy-default-http-backend-deployment
+    config:
+      manifest:
+        metadata:
+          name: default-http-backend
+        spec:
+          selector:
+            app: default-http-backend
+          ports:
+            - name: http
+              port: 80
+              targetPort: 80
+            - name: https
+              port: 443
+              targetPort: 443
+          type: NodePort
+
+  haproxy-configmap:
+    type: infolinks/deployster-k8s-configmap:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+    config:
+      manifest:
+        metadata:
+          name: haproxy-config
+        data:
+          # TODO: populate haproxy configmap
+          key1: value1
+          key2: value2
+
+  haproxy-service-account:
+    type: infolinks/deployster-k8s-rbac-service-account:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+    config:
+      manifest:
+        metadata:
+          name: haproxy
+
+  haproxy-cluster-role:
+    type: infolinks/deployster-k8s-rbac-role:0.0.0
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: haproxy-cluster-role
+        rules:
+          - apiGroups: ['']
+            resources: ['configmaps','endpoints','nodes', 'pods', 'secrets']
+            verbs: ['list','watch']
+          - apiGroups: ['']
+            resources: ['nodes']
+            verbs: ['get']
+          - apiGroups: ['']
+            resources: ['services']
+            verbs: ['get','list','watch']
+          - apiGroups: ['extensions']
+            resources: ['ingresses']
+            verbs: ['get','list','watch']
+          - apiGroups: ['']
+            resources: ['events']
+            verbs: ['create','patch']
+          - apiGroups: ['extensions']
+            resources: ['ingresses/status']
+            verbs: ['update']
+
+  haproxy-cluster-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    dependencies:
+      role: haproxy-cluster-role
+    config:
+      manifest:
+        metadata:
+          name: haproxy-cluster-role-binding
+        subjects:
+          - kind: ServiceAccount
+            name: haproxy
+            namespace: haproxy
+
+  haproxy-role:
+    type: infolinks/deployster-k8s-rbac-role:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+    config:
+      manifest:
+        metadata:
+          name: haproxy-role
+        rules:
+          - apiGroups: ['']
+            resources: ['configmaps','pods','secrets','namespaces']
+            verbs: ['get']
+          - apiGroups: ['']
+            resources: ['configmaps']
+            verbs: ['get','update']
+          - apiGroups: ['']
+            resources: ['configmaps']
+            verbs: ['create']
+          - apiGroups: ['']
+            resources: ['endpoints']
+            verbs: ['get','create','update']
+
+  haproxy-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    dependencies:
+      role: haproxy-role
+    config:
+      manifest:
+        metadata:
+          name: haproxy-role-binding
+        subjects:
+          - kind: ServiceAccount
+            name: haproxy
+            namespace: haproxy
+
+  haproxy-ingress-controller-deployment:
+    type: infolinks/deployster-k8s-deployment:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+    config:
+      manifest:
+        metadata:
+          name: haproxy-ingress-controller
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: haproxy-ingress-controller
+          template:
+            metadata:
+              labels:
+                app: haproxy-ingress-controller
+            spec:
+              serviceAccountName: haproxy
+              containers:
+                - name: controller
+                  image: quay.io/jcmoraisjr/haproxy-ingress:v0.4
+                  args:
+                    - --reload-strategy=native
+                    - --default-backend-service=$(POD_NAMESPACE)/default-http-backend
+                    - --default-ssl-certificate=$(POD_NAMESPACE)/default-tls
+                    - --configmap=$(POD_NAMESPACE)/haproxy-config
+                  ports:
+                    - name: http
+                      containerPort: 80
+                    - name: https
+                      containerPort: 443
+                    - name: stat
+                      containerPort: 1936
+                  env:
+                    - name: POD_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.name
+                    - name: POD_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+
+  haproxy-lb-ip:
+    type: infolinks/deployster-gcp-compute-ip-address:0.0.0
+    dependencies:
+      project: project
+    config:
+      name: haproxy-lb-ip
+      region: europe-west1
+
+  haproxy-service:
+    type: infolinks/deployster-k8s-service:0.0.0
+    dependencies:
+      namespace: haproxy-namespace
+      deployment: haproxy-ingress-controller-deployment
+      address: haproxy-lb-ip
+    config:
+      manifest:
+        metadata:
+          name: haproxy-lb
+        spec:
+          selector:
+            app: haproxy-ingress-controller
+          ports:
+            - name: http
+              port: 80
+              targetPort: 80
+            - name: https
+              port: 443
+              targetPort: 443
+            - name: stat
+              port: 1936
+              targetPort: 1936
+          type: LoadBalancer

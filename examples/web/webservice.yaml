@@ -1,79 +1,6 @@
-plugs:
-  gcloud:
-    path: {{ gcloud_path }}
-    read_only: false
-
 resources:
 
-  project:
-    type: infolinks/deployster-gcp-project:0.0.0
-    config:
-      project_id: {{ gcp_project }}
-      organization_id: {{ organization_id }}
-      billing_account_id: {{ billing_account_id }}
-      apis:
-        enabled:
-          - cloudapis.googleapis.com
-          - compute.googleapis.com
-          - container.googleapis.com
-          - storage-component.googleapis.com
-
-  lb-ip-address:
-    type: infolinks/deployster-gcp-compute-ip-address:0.0.0
-    dependencies:
-      project: project
-    config:
-      name: lb-ip
-
-  cluster:
-    type: infolinks/deployster-gcp-gke-cluster:0.0.0
-    dependencies:
-      project: project
-    config:
-      zone: {{ zone }}
-      name: test
-      description: Test cluster.
-      version: 1.8.2-gke.0
-      node_pools:
-        - name: default
-          min_size: 1
-          max_size: 1
-          preemptible: true
-
-  cluster-admin-role:
-    type: infolinks/deployster-k8s-rbac-role:0.0.0
-    readonly: true
-    dependencies:
-      cluster: cluster
-    config:
-      manifest:
-        metadata:
-          name: cluster-admin
-        rules:
-          - apiGroups:
-            - '*'
-            resources:
-            - '*'
-            verbs:
-            - '*'
-          - nonResourceURLs:
-            - '*'
-            verbs:
-            - '*'
-
-  team-cluster-admins-binding:
-    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
-    dependencies:
-      role: cluster-admin-role
-    config:
-      manifest:
-        metadata:
-          name: team-cluster-admins
-        subjects:
-          - kind: User
-            name: {{ user_email }}
-
-  namespace:
+  websvc-namespace:
     type: infolinks/deployster-k8s-namespace:0.0.0
     dependencies:
       cluster: cluster
@@ -82,10 +9,10 @@ resources:
         metadata:
           name: websvc
 
-  deployment:
+  websvc-deployment:
     type: infolinks/deployster-k8s-deployment:0.0.0
     dependencies:
-      namespace: namespace
+      namespace: websvc-namespace
     config:
       manifest:
         metadata:
@@ -123,11 +50,11 @@ resources:
                         fieldRef:
                           fieldPath: metadata.namespace
 
-  service:
+  websvc-service:
     type: infolinks/deployster-k8s-service:0.0.0
     dependencies:
-      namespace: namespace
-      deployment: deployment
+      namespace: websvc-namespace
+      deployment: websvc-deployment
     config:
       manifest:
         metadata:
@@ -140,19 +67,25 @@ resources:
               targetPort: 8080
           type: NodePort
 
-  ingress:
+  websvc-ingress:
     type: infolinks/deployster-k8s-ingress:0.0.0
     dependencies:
-      namespace: namespace
-      service: service
-      address: lb-ip-address
+      namespace: websvc-namespace
+      service: websvc-service
     config:
       manifest:
         metadata:
           name: websvc
+          annotations:
+            kubernetes.io/ingress.class: haproxy
+            kubernetes.io/tls-acme: "true"
         spec:
+          tls:
+            - hosts:
+              - websvc.deployster.online
+              secretName: websvc-tls
           rules:
-          - host: websvc.deployster.com
+          - host: websvc.deployster.online
             http:
               paths:
                 - backend:
