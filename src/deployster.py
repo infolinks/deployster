@@ -15,6 +15,7 @@ from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence,
 
 import jinja2
 import jsonschema
+import re
 import yaml
 from colors import bold, underline, red, italic, faint, yellow, green
 from jinja2 import UndefinedError
@@ -728,6 +729,11 @@ def main():
     log(green(underline(bold(f"Deployster v{version}"))))
     log('')
 
+    context: Context = Context()
+    for file in os.listdir(Path()):
+        if re.match(r'^vars\.(.*\.)?auto\.yaml$', file):
+            context.add_file(Path() / file)
+
     class VariableAction(argparse.Action):
 
         def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None,
@@ -739,10 +745,6 @@ def main():
             super().__init__(option_strings, dest, nargs, const, default, type, choices, required, help, metavar)
 
         def __call__(self, parser, namespace, values, option_string=None):
-            if not hasattr(namespace, self.dest) or not getattr(namespace, self.dest):
-                setattr(namespace, self.dest, Context())
-            context: Context = getattr(namespace, self.dest)
-
             tokens = values.split('=', 1)
             if len(tokens) != 2:
                 raise argparse.ArgumentTypeError(f"bad variable: '{values}'")
@@ -765,9 +767,6 @@ def main():
 
         def __call__(self, parser, namespace, values, option_string=None):
             if os.path.exists(values):
-                if not hasattr(namespace, self.dest) or not getattr(namespace, self.dest):
-                    setattr(namespace, self.dest, Context())
-                context: Context = getattr(namespace, self.dest)
                 context.add_file(values)
             else:
                 warn(yellow(
@@ -791,7 +790,6 @@ def main():
     log('')
 
     try:
-        context: Context = args.context
         if args.verbose:
             log(f"Context: {json.dumps(context.data, indent=2)}")
 

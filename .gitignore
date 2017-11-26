@@ -2,6 +2,5 @@
 /work
 /examples/*.sh
 /examples/work
-*.iml
 *.pyc
 Dockerfile.*.local
