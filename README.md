@@ -387,8 +387,11 @@ TBD.
 - [ ] Support patterns for plug permissions
 - [ ] Resource dependency mechanism improvements
         - [ ] Optional resource dependencies
+                - This can be done today by simply not declaring those
+                resources; however, this also precludes type validation.
         - [ ] Dependency lists (give me a list of dependencies of type X)
 - [ ] Support manifest fragments (ie. inclusion of manifests from other manifests)
+        - [x] Implemented support for passing multiple manifests.
 - [ ] Support auto-included variable files (eg. `context.auto.<*>.yaml`)
 - [ ] Support configurable action timeouts (per action preferably)
         - [x] Already supported by Kubernetes resources
