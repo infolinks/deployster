@@ -1,6 +1,6 @@
 resources:
 
-  namespace:
+  config-namespace:
     type: infolinks/deployster-k8s-namespace:0.0.0
     dependencies:
       cluster: cluster
@@ -12,7 +12,7 @@ resources:
   configmap:
     type: infolinks/deployster-k8s-configmap:0.0.0
     dependencies:
-      namespace: namespace
+      namespace: config-namespace
     config:
       manifest:
         metadata:
@@ -24,7 +24,7 @@ resources:
   secret:
     type: infolinks/deployster-k8s-secret:0.0.0
     dependencies:
-      namespace: namespace
+      namespace: config-namespace
     config:
       manifest:
         metadata:
