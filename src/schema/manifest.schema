@@ -1,7 +1,6 @@
 {
     "type": "object",
     "additionalProperties": false,
-    "required": [ "resources" ],
     "properties": {
         "plugs": {
             "type": "object",

@@ -1,0 +1,4 @@
+FROM infolinks/deployster-dresource:local
+MAINTAINER Arik Kfir <arik@infolinks.com>
+ENTRYPOINT ["/deployster/k8s_service.py"]
+CMD ["init"]

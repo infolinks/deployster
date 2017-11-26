@@ -1,0 +1,4 @@
+FROM infolinks/deployster-dresource:local
+MAINTAINER Arik Kfir <arik@infolinks.com>
+ENTRYPOINT ["/deployster/gcp_compute_ip_address.py"]
+CMD ["init"]

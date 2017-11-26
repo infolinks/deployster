@@ -1,0 +1,93 @@
+resources:
+
+  websvc-namespace:
+    type: infolinks/deployster-k8s-namespace:0.0.0
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: websvc
+
+  websvc-deployment:
+    type: infolinks/deployster-k8s-deployment:0.0.0
+    dependencies:
+      namespace: websvc-namespace
+    config:
+      manifest:
+        metadata:
+          name: websvc
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: websvc
+          template:
+            metadata:
+              labels:
+                app: websvc
+            spec:
+              containers:
+                - image: gcr.io/google_containers/echoserver:1.8
+                  name: echoserver
+                  ports:
+                    - containerPort: 8080
+                  env:
+                    - name: NODE_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: spec.nodeName
+                    - name: POD_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.name
+                    - name: POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+                    - name: POD_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+
+  websvc-service:
+    type: infolinks/deployster-k8s-service:0.0.0
+    dependencies:
+      namespace: websvc-namespace
+      deployment: websvc-deployment
+    config:
+      manifest:
+        metadata:
+          name: websvc
+        spec:
+          selector:
+            app: websvc
+          ports:
+            - port: 80
+              targetPort: 8080
+          type: NodePort
+
+  websvc-ingress:
+    type: infolinks/deployster-k8s-ingress:0.0.0
+    dependencies:
+      namespace: websvc-namespace
+      service: websvc-service
+    config:
+      manifest:
+        metadata:
+          name: websvc
+          annotations:
+            kubernetes.io/ingress.class: haproxy
+            kubernetes.io/tls-acme: "true"
+        spec:
+          tls:
+            - hosts:
+              - websvc.deployster.online
+              secretName: websvc-tls
+          rules:
+          - host: websvc.deployster.online
+            http:
+              paths:
+                - backend:
+                    serviceName: websvc
+                    servicePort: 80

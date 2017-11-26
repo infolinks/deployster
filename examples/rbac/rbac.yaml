@@ -1,0 +1,85 @@
+resources:
+
+  namespace:
+    type: infolinks/deployster-k8s-namespace:0.0.0
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: rbac
+
+  cluster-role:
+    type: infolinks/deployster-k8s-rbac-role:0.0.0
+    dependencies:
+      cluster: cluster
+    config:
+      manifest:
+        metadata:
+          name: test-cluster-role
+        rules:
+          - apiGroups: ['']
+            resources: ['configmaps','pods','secrets','namespaces']
+            verbs: ['get']
+
+  role:
+    type: infolinks/deployster-k8s-rbac-role:0.0.0
+    dependencies:
+      namespace: namespace
+    config:
+      manifest:
+        metadata:
+          name: test-role
+        rules:
+          - apiGroups: ['']
+            resources: ['configmaps','pods','secrets','namespaces']
+            verbs: ['get']
+
+  service-account:
+    type: infolinks/deployster-k8s-rbac-service-account:0.0.0
+    dependencies:
+      namespace: namespace
+    config:
+      manifest:
+        metadata:
+          name: test
+
+  cluster-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    dependencies:
+      role: cluster-role
+    config:
+      manifest:
+        metadata:
+          name: cluster-role-binding
+        subjects:
+          - kind: ServiceAccount
+            name: test
+            namespace: rbac
+
+  local-cluster-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    dependencies:
+      role: cluster-role
+      namespace: namespace
+    config:
+      manifest:
+        metadata:
+          name: local-cluster-role-binding
+        subjects:
+          - kind: ServiceAccount
+            name: test
+            namespace: rbac
+
+  local-role-binding:
+    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    dependencies:
+      role: role
+    config:
+      manifest:
+        metadata:
+          name: local-role-binding
+        subjects:
+          - kind: ServiceAccount
+            name: test
+            namespace: rbac

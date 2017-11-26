@@ -6,6 +6,7 @@ import os
 import pkgutil
 import shutil
 import subprocess
+import termios
 import traceback
 from enum import Enum, unique, auto
 from json import JSONDecodeError
@@ -14,7 +15,6 @@ from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence,
 
 import jinja2
 import jsonschema
-import termios
 import yaml
 from colors import bold, underline, red, italic, faint, yellow, green
 from jinja2 import UndefinedError
@@ -175,7 +175,7 @@ class Action:
     def args(self) -> Sequence[str]:
         return self._args
 
-    def execute(self, work_dir: Path, volumes: Sequence[str] = None, stdin: dict = None):
+    def execute(self, work_dir: Path, volumes: Sequence[str] = None, stdin: dict = None, expect_json=True):
         os.makedirs(str(work_dir), exist_ok=True)
 
         command = ["docker", "run", "-i"]
@@ -221,7 +221,7 @@ class Action:
             raise UserError(f"action '{self.name}' failed with exit code #{process.returncode}:\n{process.stderr}")
 
         # if JSON returned, read, parse & return that
-        elif process.stdout:
+        elif process.stdout and expect_json:
             try:
                 return json.loads(process.stdout)
             except JSONDecodeError as e:
@@ -235,28 +235,46 @@ class Action:
 class Manifest:
     schema = json.loads(pkgutil.get_data('schema', 'manifest.schema'))
 
-    def __init__(self, context: Context, manifest_file: Path) -> None:
+    def __init__(self, context: Context, manifest_files: Sequence[Path]) -> None:
         super().__init__()
-        self._manifest_file: Path = manifest_file
+        self._manifest_files: Sequence[Path] = manifest_files
 
         # read manifest
-        manifest: dict = {}
-        with open(manifest_file, 'r') as f:
-            environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
-            try:
-                manifest = yaml.load(environment.from_string(f.read()).render(context.data))
-            except UndefinedError as e:
-                raise UserError(f"error in '{manifest_file}': {e.message}") from e
+        composite_manifest: dict = {
+            'plugs': {},
+            'resources': {}
+        }
+        for manifest_file in manifest_files:
+            with open(manifest_file, 'r') as f:
+                environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
+                try:
+                    manifest = yaml.load(environment.from_string(f.read()).render(context.data))
+                except UndefinedError as e:
+                    raise UserError(f"error in '{manifest_file}': {e.message}") from e
 
-        # validate manifest against our manifest schema
-        try:
-            jsonschema.validate(manifest, Manifest.schema)
-        except ValidationError as e:
-            raise UserError(f"Manifest '{manifest_file}' failed validation: {e.message}") from e
+            # validate manifest against our manifest schema
+            try:
+                jsonschema.validate(manifest, Manifest.schema)
+            except ValidationError as e:
+                raise UserError(f"Manifest '{manifest_file}' failed validation: {e.message}") from e
+
+            # merge into the composite manifest
+            if 'plugs' in manifest:
+                for plug_name, plug in manifest['plugs'].items():
+                    if plug_name in composite_manifest['plugs']:
+                        raise UserError(f"Duplicate plug found: '{plug_name}'")
+                    else:
+                        composite_manifest['plugs'][plug_name] = plug
+            if 'resources' in manifest:
+                for resource_name, resource in manifest['resources'].items():
+                    if resource_name in composite_manifest['resources']:
+                        raise UserError(f"Duplicate resource found: '{resource_name}'")
+                    else:
+                        composite_manifest['resources'][resource_name] = resource
 
         # parse plugs
         plugs: MutableMapping[str, Plug] = {}
-        for plug_name, plug in (manifest['plugs'] if 'plugs' in manifest else {}).items():
+        for plug_name, plug in (composite_manifest['plugs']).items():
             plugs[plug_name] = Plug(name=plug_name,
                                     path=plug['path'],
                                     readonly=plug['read_only'] if 'read_only' in plug else False,
@@ -266,7 +284,7 @@ class Manifest:
 
         # parse resources
         resources: MutableMapping[str, Resource] = {}
-        for resource_name, resource in (manifest['resources'] if 'resources' in manifest else {}).items():
+        for resource_name, resource in (composite_manifest['resources']).items():
             resources[resource_name] = \
                 Resource(name=resource_name,
                          type=resource['type'],
@@ -276,8 +294,8 @@ class Manifest:
         self._resources = resources
 
     @property
-    def manifest_file(self) -> Path:
-        return self._manifest_file
+    def manifest_files(self) -> Sequence[Path]:
+        return self._manifest_files
 
     def plug(self, name) -> Plug:
         return self._plugs[name] if name in self._plugs else None
@@ -354,17 +372,20 @@ class ResourceState:
     def properties(self) -> dict:
         return self._properties
 
-    def get_as_dependency(self, include_properties: bool = True) -> dict:
+    def get_as_dependency(self) -> dict:
         resolver = self._resource_state_provider
+        if self._dependencies is None:
+            dependencies = {}
+        else:
+            dependencies = {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
+
         data = {
             'name': self.resource.name,
             'type': self.resource.type,
             'config': self.resource.config,
-            'dependencies': {
-                k: resolver(v.name).get_as_dependency(include_properties) for k, v in self._dependencies.items()
-            }
+            'dependencies': dependencies
         }
-        if include_properties:
+        if self.properties is not None:
             data['properties'] = self.properties
         return data
 
@@ -376,15 +397,21 @@ class ResourceState:
                             f"{process.stderr}")
 
     def initialize(self) -> None:
+        # build resource dependencies; NOTE that we ARE NOT validating the resource's required resources here, since
+        # we do not yet know them - the 'init' action will provide back a list of such required resources, and we'll
+        # validate that indeed those are present in the list.
+        dependencies: MutableMapping[str, Resource] = {}
+        for alias, source_resource_name in self.resource.dependencies.items():
+            if source_resource_name not in self.manifest.resources:
+                raise UserError(f"resource '{source_resource_name}' (dependency of '{self.resource.name}') is missing.")
+            else:
+                dependencies[alias] = self.manifest.resource(source_resource_name)
+        self._dependencies: Mapping[str, Resource] = dependencies
+
+        # initialize the resource by invoking the 'init' action (ie. the resource's Docker image's default entrypoint)
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
-
-        result = init_action.execute(work_dir=self._work_dir / init_action.name,
-                                     stdin={
-                                         'name': self.resource.name,
-                                         'type': self.resource.type,
-                                         'config': self.resource.config
-                                     })
+        result = init_action.execute(work_dir=self._work_dir / init_action.name, stdin=self.get_as_dependency())
         self._type_label: str = result['label']
 
         # validate manifest against our manifest schema
@@ -414,29 +441,21 @@ class ResourceState:
                 plugs[container_path] = plug
         self._plugs: Mapping[str, Plug] = plugs
 
-        # collect required resources, failing if any resource is missing
-        dependencies: MutableMapping[str, Resource] = {}
-        for alias, type in (result['required_resources'] if 'required_resources' in result else {}).items():
-            if alias not in self.resource.dependencies:
-                raise UserError(f"dependency '{alias}' is missing for resource '{self.resource.name}' ({type})")
-            type = type.split(':', 1)[0] if type.find(':') >= 0 else type
+        # validate that all required resources were provided
+        for alias, required_type in (result['required_resources'] if 'required_resources' in result else {}).items():
+            if alias not in self._dependencies:
+                raise UserError(f"dependency '{alias}' (of type '{type}') must be provided")
+            else:
+                resource = self._dependencies[alias]
 
-            source_resource_name = self.resource.dependencies[alias]
-            if source_resource_name not in self.manifest.resources:
-                raise UserError(f"resource '{source_resource_name}' required by '{self.resource.name}' does not exist.")
-
-            source_resource = self.manifest.resource(source_resource_name)
-
-            source_resource_type = source_resource.type.split(':', 1)[0] \
-                if source_resource.type.find(':') >= 0 else source_resource.type
-            if source_resource_type != type:
+            required_type = required_type.split(':', 1)[0] if required_type.find(':') >= 0 else required_type
+            resource_type = resource.type.split(':', 1)[0] if resource.type.find(':') >= 0 else resource.type
+            if required_type != resource_type:
                 raise UserError(
-                    f"incorrect type for dependency '{source_resource_name}' of '{self.resource.name}', must be of "
-                    f"type '{type}', but that resource is of type '{source_resource.type}'.")
+                    f"incorrect type for dependency '{alias}', must be of type '{required_type}', but that resource "
+                    f"is of type '{resource_type}'.")
 
-            dependencies[alias] = source_resource
-        self._dependencies: Mapping[str, Resource] = dependencies
-
+        # save the 'state' action
         self._state_action: Action = \
             Action.from_json(data=result['state_action'],
                              default_name='state', default_description=f"Resolve state of '{self.resource.name}'",
@@ -460,7 +479,7 @@ class ResourceState:
                 self._actions: Sequence[Action] = []
                 return
             else:
-                dependencies[dependency_alias] = dependency_state.get_as_dependency(include_properties=False)
+                dependencies[dependency_alias] = dependency_state.get_as_dependency()
 
         # execute state action
         if not stealth:
@@ -528,10 +547,8 @@ class ResourceState:
         if self.status == ResourceStatus.MISSING and len(self.actions) == 0:
             self.resolve(force=True, stealth=True)
             if self.status == ResourceStatus.VALID:
-                log(yellow(bold(f"WARNING: this resource was considered MISSING because one or more of its "
-                                f"         dependencies was missing; now that its dependencies have been resolved, "
-                                f"         it seems this resource is now VALID - this is probably a bug in the "
-                                f"         '{self.resource.type}' resource image.")))
+                log(f"No action necessary for '{self.resource.name}' (already {bold('VALID')})")
+                log('')
                 return
 
         for action in self._actions:
@@ -547,7 +564,8 @@ class ResourceState:
                     'type': self.resource.type,
                     'config': self.resource.config,
                     'dependencies': {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
-                })
+                },
+                expect_json=False)
             unindent()
 
         # refresh to receive updated properties
@@ -612,7 +630,7 @@ class Plan:
         self.clean_work_dir()
         if pull:
             for state in self._resource_states.values():
-                log(f":point_right: Pulling Docker image for resource '{bold(state.resource.name)}'...")
+                log(f":point_right: Pulling Docker image '{bold(state.resource.type)}'...")
                 indent()
                 state.pull()
                 unindent()
@@ -693,7 +711,7 @@ class Plan:
 
         indent()
         for state in [state for state in self._deployment_sequence if state.status != ResourceStatus.VALID]:
-            log(f"{state.icon} {state.resource.name} ({state.resource.type})")
+            log(f"{state.icon} {state.resource.name} ({faint(italic(state.resource.type))})")
             log('')
             indent()
             state.execute()
@@ -764,7 +782,7 @@ def main():
                            help='makes the given variable available to the deployment manifest')
     argparser.add_argument('--var-file', action=VariablesFileAction, metavar='FILE', dest='context',
                            help='makes the variables in the given file available to the deployment manifest')
-    argparser.add_argument('manifest', help='the deployment manifest to execute.')
+    argparser.add_argument('manifests', nargs='+', help='the deployment manifest to execute.')
     argparser.add_argument('-p', '--plan', action='store_true', dest='plan', help="print deployment plan and exit")
     argparser.add_argument('-y', '--yes', action='store_true', dest='assume_yes',
                            help="don't ask for confirmation before executing the deployment plan.")
@@ -778,11 +796,10 @@ def main():
             log(f"Context: {json.dumps(context.data, indent=2)}")
 
         # load manifest
-        manifest: Manifest = Manifest(context=context, manifest_file=args.manifest)
+        manifest: Manifest = Manifest(context=context, manifest_files=args.manifests)
 
         # build the deployment plan, display, and potentially execute it
-        work_path = Path(f"/deployster/work/{os.path.basename(args.manifest)}")
-        plan: Plan = Plan(work_dir=work_path.resolve(), manifest=manifest)
+        plan: Plan = Plan(work_dir=Path(f"/deployster/work/deployment"), manifest=manifest)
         plan.bootstrap(args.pull)
         plan.resolve()
         plan.display()

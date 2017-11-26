@@ -1,7 +1,7 @@
 import argparse
 import json
 from abc import ABC, abstractmethod
-from typing import Mapping, Sequence, Any, Callable
+from typing import Mapping, Sequence, Any, Callable, MutableSequence
 
 
 def action(fun):
@@ -55,6 +55,7 @@ class DAction:
         return data
 
 
+# noinspection PyTypeChecker
 class DResource(ABC):
     def __init__(self, data: dict) -> None:
         super().__init__()
@@ -62,6 +63,7 @@ class DResource(ABC):
         self._resource_name = data['name']
         self._resource_type = data['type']
         self._resource_config: dict = data['config']
+        self._resource_dependencies: dict = data['dependencies'] if 'dependencies' in data else None
         self._resource_properties = data['properties'] if 'properties' in data else None
 
     @property
@@ -81,18 +83,26 @@ class DResource(ABC):
         return self._resource_config
 
     @property
+    def resource_dependencies(self) -> Mapping[str, dict]:
+        return self._resource_dependencies
+
+    @property
     def resource_properties(self) -> dict:
         return self._resource_properties
 
-    def resource_dependency(self, name: str) -> dict:
-        if 'dependencies' not in self._data:
-            raise Exception(f"illegal state: dependency lookup cannot be used during resource initialization")
+    def has_dependency(self, name: str, required_type: str = None) -> bool:
+        return name in self.resource_dependencies \
+               and (required_type is None or self.resource_dependencies['type'] == required_type)
 
-        dependencies_data: dict = self._data['dependencies']
-        if name not in dependencies_data:
-            raise Exception(f"illegal state: dependency '{name}' was not provided")
+    def get_resource_dependency(self, name: str, required_type: str = None) -> dict:
+        if self.has_dependency(name=name, required_type=required_type):
+            return self.resource_dependencies[name]
+        else:
+            type = required_type if required_type is not None else 'Any'
+            raise Exception(f"illegal state: could not find dependency '{name}' of type '{type}'")
 
-        return dependencies_data[name]
+    def get_dependency_type(self, name: str) -> str:
+        return self.get_resource_dependency(name)['type']
 
     @property
     def resource_required_plugs(self) -> Mapping[str, str]:
@@ -148,9 +158,16 @@ class DResource(ABC):
         if actual_properties:
             actions: Sequence[DAction] = self.infer_actions_from_actual_properties(actual_properties=actual_properties)
             if actions:
-                print(json.dumps({'status': 'STALE', 'actions': [action.to_dict() for action in actions]}, indent=2))
+                print(json.dumps({
+                    'status': 'STALE',
+                    'actions': [action.to_dict() for action in actions],
+                    'staleProperties': actual_properties
+                }, indent=2))
             else:
-                print(json.dumps({'status': 'VALID', 'properties': actual_properties}, indent=2))
+                print(json.dumps({
+                    'status': 'VALID',
+                    'properties': actual_properties
+                }, indent=2))
         else:
             print(json.dumps({
                 'status': 'MISSING',
@@ -177,3 +194,44 @@ class DResource(ABC):
 
         args = argparser.parse_args()
         self.execute_action(args.action_name, args.action_method, args)
+
+
+def collect_differences(desired: Any, actual: Any,
+                        path: MutableSequence[str] = None, diffs: MutableSequence[str] = None):
+    diffs = [] if diffs is None else diffs
+    path = [] if path is None else path
+    if (desired is not None and actual is None) or (desired is None and actual is not None):
+        diffs.append(".".join(path))
+    elif desired is None and actual is None:
+        pass
+    elif type(desired) != type(actual):
+        diffs.append(".".join(path))
+    elif desired is not None and actual is not None:
+        if isinstance(desired, dict):
+            for key, desired_value in desired.items():
+                path.append(key)
+                try:
+                    if actual is None or key not in actual:
+                        diffs.append(".".join(path))
+                        continue
+                    actual_value = actual[key]
+                    collect_differences(desired_value, actual_value, path, diffs)
+                finally:
+                    path.pop()
+
+        elif isinstance(desired, list):
+            if len(desired) != len(actual):
+                diffs.append(".".join(path))
+            else:
+                for index, desired_value in enumerate(desired):
+                    actual_value = actual[index]
+                    path.append(f"[{index}]")
+                    try:
+                        collect_differences(desired_value, actual_value, path, diffs)
+                    finally:
+                        path.pop()
+        elif desired != actual:
+            diffs.append(".".join(path))
+    else:
+        raise Exception(f"illegal state")
+    return diffs

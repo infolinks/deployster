@@ -44,7 +44,7 @@ class GkeCluster(DResource):
     @property
     def project(self) -> GcpProject:
         if self._project is None:
-            self._project: GcpProject = GcpProject(self.resource_dependency('project'))
+            self._project: GcpProject = GcpProject(self.get_resource_dependency('project'))
         return self._project
 
     @property
@@ -73,15 +73,13 @@ class GkeCluster(DResource):
         command = f"gcloud container clusters get-credentials {self.name} " \
                   f"                                --project {self.project.project_id} " \
                   f"                                --zone {self.zone}"
-        process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if process.returncode != 0:
-            print(f"failed authenticating to cluster: {process.stderr}", file=sys.stderr)
-            exit(process.returncode)
+        subprocess.run(command, check=True, shell=True)
 
     @property
     def resource_required_plugs(self) -> Mapping[str, str]:
         return {
-            "gcloud": "/root/.config/gcloud"
+            "gcloud": "/root/.config/gcloud",
+            "kube": "/root/.kube"
         }
 
     @property
@@ -94,7 +92,7 @@ class GkeCluster(DResource):
     def resource_config_schema(self) -> Mapping[str, dict]:
         return {
             "type": "object",
-            "required": ["zone", "name"],
+            "required": ["zone", "name", "description"],
             "additionalProperties": False,
             "properties": {
                 "zone": {
@@ -175,6 +173,8 @@ class GkeCluster(DResource):
                 raise
 
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
+        self.authenticate()
+
         actions: MutableSequence[DAction] = []
         actual_cluster = actual_properties
 
@@ -500,7 +500,9 @@ class GkeCluster(DResource):
         wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
                                                     zone=self.zone,
                                                     operation=operation,
-                                                    timeout=900)
+                                                    timeout=60 * 15)
+
+        self.authenticate()
 
     @action
     def update_cluster_master_version(self, args):
@@ -509,7 +511,10 @@ class GkeCluster(DResource):
                                                                   zone=self.zone,
                                                                   clusterId=self.name,
                                                                   body={'masterVersion': self.version}).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
     @action
     def disable_master_authorized_networks(self, args):
@@ -524,7 +529,10 @@ class GkeCluster(DResource):
                                                                           }
                                                                       }
                                                                   }).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
     @action
     def disable_legacy_abac(self, args):
@@ -533,7 +541,10 @@ class GkeCluster(DResource):
                                                                       zone=self.zone,
                                                                       clusterId=self.name,
                                                                       body={'enabled': False}).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
     @action
     def enable_monitoring_service(self, args):
@@ -543,7 +554,10 @@ class GkeCluster(DResource):
             zone=self.zone,
             clusterId=self.name,
             body={'monitoringService': "monitoring.googleapis.com"}).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
     @action
     def enable_logging_service(self, args):
@@ -553,7 +567,10 @@ class GkeCluster(DResource):
             zone=self.zone,
             clusterId=self.name,
             body={'loggingService': "logging.googleapis.com"}).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
     @action
     def set_addon_status(self, args):
@@ -567,7 +584,10 @@ class GkeCluster(DResource):
                                                                           addon: {'disabled': status == 'disabled'}
                                                                       }
                                                                   }).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
     @action
     def create_node_pool(self, args):
@@ -602,7 +622,7 @@ class GkeCluster(DResource):
         wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
                                                     zone=self.zone,
                                                     operation=operation,
-                                                    timeout=900)
+                                                    timeout=60 * 15)
 
     @action
     def update_node_pool_version(self, args):
@@ -613,7 +633,7 @@ class GkeCluster(DResource):
         wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
                                                     zone=self.zone,
                                                     operation=operation,
-                                                    timeout=900)
+                                                    timeout=60 * 15)
 
     @action
     def enable_node_pool_autorepair(self, args):
@@ -624,7 +644,7 @@ class GkeCluster(DResource):
         wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
                                                     zone=self.zone,
                                                     operation=operation,
-                                                    timeout=900)
+                                                    timeout=60 * 15)
 
     @action
     def disable_node_pool_autoupgrade(self, args):
@@ -635,7 +655,7 @@ class GkeCluster(DResource):
         wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
                                                     zone=self.zone,
                                                     operation=operation,
-                                                    timeout=900)
+                                                    timeout=60 * 15)
 
     @action
     def configure_node_pool_autoscaling(self, args):
@@ -654,7 +674,10 @@ class GkeCluster(DResource):
                     'maxNodeCount': max_size
                 }
             }).execute()
-        wait_for_container_projects_zonal_operation(project_id=self.project.project_id, zone=self.zone, operation=op)
+        wait_for_container_projects_zonal_operation(project_id=self.project.project_id,
+                                                    zone=self.zone,
+                                                    operation=op,
+                                                    timeout=60 * 15)
 
 
 def main():
