@@ -45,49 +45,40 @@ class GcpProject(DResource):
     @property
     def resource_config_schema(self) -> dict:
         return {
-            "label": "Project",
-            "required_plugs": {
-                "gcloud": "/root/.config/gcloud"
-            },
-            "config_schema": {
-                "type": "object",
-                "required": ["project_id"],
-                "additionalProperties": False,
-                "properties": {
-                    "project_id": {
-                        "type": "string",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"
-                    },
-                    "organization_id": {
-                        "type": "integer"
-                    },
-                    "billing_account_id": {
-                        "type": "string"
-                    },
-                    "apis": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "enabled": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "uniqueItems": True
-                                }
-                            },
-                            "disabled": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "uniqueItems": True
-                                }
+            "type": "object",
+            "required": ["project_id"],
+            "additionalProperties": False,
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"
+                },
+                "organization_id": {
+                    "type": "integer"
+                },
+                "billing_account_id": {
+                    "type": "string"
+                },
+                "apis": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "enabled": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "uniqueItems": True
+                            }
+                        },
+                        "disabled": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "uniqueItems": True
                             }
                         }
                     }
                 }
-            },
-            "state_action": {
-                "entrypoint": "/deployster/gcp/project/state.py"
             }
         }
 
@@ -116,7 +107,7 @@ class GcpProject(DResource):
                 'enabled': get_project_enabled_apis(project_id=self.project_id)
             }
 
-            return projects[0]
+            return project
 
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
