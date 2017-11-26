@@ -17,7 +17,7 @@ class K8sResource(DResource):
         super().__init__(data)
 
         cfg = self.resource_config
-        self._timeout: int = cfg['timeout'] if 'timeout' in cfg else 60
+        self._timeout: int = cfg['timeout'] if 'timeout' in cfg else 60 * 5
         self._timeout_interval: int = cfg['timeout_interval'] if 'timeout_interval' in cfg else 5
 
     @property
@@ -63,7 +63,8 @@ class K8sResource(DResource):
     @property
     def resource_required_plugs(self) -> Mapping[str, str]:
         return {
-            "gcloud": "/root/.config/gcloud"
+            "gcloud": "/root/.config/gcloud",
+            "kube": "/root/.kube"
         }
 
     @property
@@ -114,7 +115,7 @@ class K8sResource(DResource):
 
     def discover_actual_properties(self):
         process = subprocess.run(f"{self.kubectl_command('get')} --ignore-not-found=true --output=json",
-                                 shell=True, check=True, stdout=PIPE, stderr=PIPE)
+                                 shell=True, check=True, stdout=PIPE)
         return json.loads(process.stdout) if process.stdout else None
 
     def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
@@ -214,8 +215,3 @@ class K8sResource(DResource):
                        check=True,
                        timeout=self.timeout,
                        shell=True)
-
-    def execute_action(self, action_name: str, action_method: Callable[..., Any], args: argparse.Namespace) -> None:
-        if action_name != 'init':
-            self.cluster.authenticate()
-        super().execute_action(action_name, action_method, args)

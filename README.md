@@ -400,7 +400,7 @@ TBD.
         - Parallel execution paths
 - [ ] Change all GCP resources to accept a service account JSON file _instead_ of a `gcloud` plug
         - Avoid having a user's `gcloud` directory having `root`-owned files
-- [ ] GKE cluster resource should require a `kube` plug into which it will write authenticated `kubectl` configuration
+- [x] GKE cluster resource should require a `kube` plug into which it will write authenticated `kubectl` configuration
         - This plug should then be provided to all other Kubernetes resources
         - This will enable making Kubernetes resources GKE-agnostic, and work on any Kubernetes cluster
         - Will boost performance a bit by avoiding re-authentication for each resource
