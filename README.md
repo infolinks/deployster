@@ -46,17 +46,17 @@ directory for some simplistic examples of how to use Deployster.
 
 Deployster mechanics is built around three main components:
 
-- Resource Types: each resource type is essentially a Docker image that
-implements a simple contract that allows receiving configuration,
+- **Resource Types**: each resource type is essentially a Docker image
+that implements a simple contract that allows receiving configuration,
 querying the resource state, and performing an action.
 
-- Manifest: a YAML document written by the deployer or developer, that
-describes _what_ the final state should be. It's Deployster's job to use
-this manifest to _discover_ the current state, and then plan the set of
-actions that will migrate it to the _desired_ state as described in the
-manifest.
+- **Manifest**: a YAML document written by the deployer or developer,
+that describes _what_ the final state should be. It's Deployster's job
+to use this manifest to _discover_ the current state, and then plan the
+set of actions that will migrate it to the _desired_ state as described
+in the manifest.
 
-- Context: a separate set of variables (inferred from command-line
+- **Context**: a separate set of variables (inferred from command-line
 variables and/or YAML or JSON documents) augmenting the manifest with
 dynamic values, allowing you to use the same manifest in different
 environments or scenarios. For example, the manifest may specify that
