@@ -239,24 +239,24 @@ See [built-in resource types](docs/BUILTIN_RESOURCES.md).
 - [ ] Support marking resources as deleted; useful to have Deployster ensure a certain resource DOES NOT exist
 - [x] Support patterns for plug permissions
 - [ ] Resource dependency mechanism improvements
-            - [x] Optional resource dependencies
-            - This can be done today by simply not declaring those
-            resources; however, this also precludes type validation.
-            - [ ] Dependency lists (give me a list of dependencies of type X)
+    - [x] Optional resource dependencies
+    - This can be done today by simply not declaring those
+    resources; however, this also precludes type validation.
+    - [ ] Dependency lists (give me a list of dependencies of type X)
 - [x] Support accepting multiple manifests
 - [x] Support auto-included variable files
-            - [x] From current directory (`./vars.[*.]auto.yaml`)
-            - [x] From user's home directory (`~/.deployster/vars.[*.]auto.yaml`)
+    - [x] From current directory (`./vars.[*.]auto.yaml`)
+    - [x] From user's home directory (`~/.deployster/vars.[*.]auto.yaml`)
 - [ ] Support configurable action timeouts (per action preferably)
-            - [x] Already supported by Kubernetes resources
+    - [x] Already supported by Kubernetes resources
 - [ ] Support rollback actions
 - [ ] Potential performance improvements:
-        - Parallel execution paths
+    - Parallel execution paths
 - [x] Change all GCP resources to accept a service account JSON file _instead_ of a `gcloud` plug
 - [x] GKE cluster resource should require a `kube` plug into which it will write authenticated `kubectl` configuration
-            - This plug should then be provided to all other Kubernetes resources
-            - This will enable making Kubernetes resources GKE-agnostic, and work on any Kubernetes cluster
-            - Will boost performance a bit by avoiding re-authentication for each resource
+    - This plug should then be provided to all other Kubernetes resources
+    - This will enable making Kubernetes resources GKE-agnostic, and work on any Kubernetes cluster
+    - Will boost performance a bit by avoiding re-authentication for each resource
 - [x] Unify cluster roles and namespace roles (and their bindings)
 - [ ] Log operation timing (per resource, per phase(init/discovery/execution), and total)
 - [ ] Setup a test which performs a full deployment to a throwaway project, sends test requests, and tears down.
