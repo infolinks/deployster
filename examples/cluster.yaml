@@ -12,7 +12,7 @@ plugs:
 resources:
 
   test-project:
-    type: infolinks/deployster-gcp-project:0.0.0
+    type: infolinks/deployster-gcp-project:{{ deployster_version }}
     config:
       project_id: {{ gcp_project }}
       organization_id: {{ organization_id }}
@@ -25,7 +25,7 @@ resources:
           - storage-component.googleapis.com
 
   test-cluster:
-    type: infolinks/deployster-gcp-gke-cluster:0.0.0
+    type: infolinks/deployster-gcp-gke-cluster:{{ deployster_version }}
     dependencies:
       project: test-project
     config:
@@ -40,7 +40,7 @@ resources:
           preemptible: true
 
   cluster-admin-role:
-    type: infolinks/deployster-k8s-rbac-role:0.0.0
+    type: infolinks/deployster-k8s-rbac-role:{{ deployster_version }}
     readonly: true
     dependencies:
       cluster: test-cluster
@@ -56,12 +56,12 @@ resources:
             verbs: ['*']
 
   test-administrator-user:
-    type: infolinks/deployster-k8s-rbac-user:0.0.0
+    type: infolinks/deployster-k8s-rbac-user:{{ deployster_version }}
     config:
       name: {{ test_admin_user }}
 
   test-administrator-binding:
-    type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
+    type: infolinks/deployster-k8s-rbac-role-binding:{{ deployster_version }}
     dependencies:
       role: cluster-admin-role
       user: test-administrator-user

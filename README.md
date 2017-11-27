@@ -30,10 +30,11 @@ midnight :)
     - Will support _Rollbacks_ which will enable you to more easily
     recover from accidental roll-outs.
 
-## Examples
+## Quick start
 
-Examples are available under the `examples` directory - please have a
-look!
+Follow the short [quick-start guide](docs/QUICK-START.md) to get up &
+running. We recommend you also take a look at the [examples](examples/)
+directory for some simplistic examples of how to use Deployster.
 
 ## Architecture
 
