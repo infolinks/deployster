@@ -1,4 +1,5 @@
 FROM infolinks/deployster-dresource:local
 MAINTAINER Arik Kfir <arik@infolinks.com>
+ENV GOOGLE_APPLICATION_CREDENTIALS=/deployster/service-account.json
 ENTRYPOINT ["/deployster/gcp_gke_cluster.py"]
 CMD ["init"]

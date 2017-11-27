@@ -1,7 +1,7 @@
 FROM infolinks/cloud-sdk:178.0.0-alpine
 MAINTAINER Arik Kfir <arik@infolinks.com>
 RUN apk --no-cache --update add jq tree bash python3 py3-pip && \
-    pip3 install google-api-python-client ansicolors && \
+    pip3 install PyYAML google-api-python-client ansicolors && \
     gcloud components install kubectl
 ENV PYTHONPATH "/deployster:$PYTHONPATH"
 WORKDIR /deployster/

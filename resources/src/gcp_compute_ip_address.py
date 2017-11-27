@@ -2,26 +2,33 @@
 
 import json
 import sys
-from typing import Sequence, Mapping
+from typing import Sequence
 
 from googleapiclient.errors import HttpError
 
-from dresources import DResource, DAction, action
+from dresources import DAction, action
+from gcp import GcpResource
 from gcp_project import GcpProject
 from gcp_services import get_compute, wait_for_compute_region_operation, wait_for_compute_global_operation
 
 
-class GcpIpAddress(DResource):
+class GcpIpAddress(GcpResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._project: GcpProject = None
+        self.add_dependency(name='project', type='infolinks/deployster-gcp-project', optional=False, factory=GcpProject)
+        self.config_schema.update({
+            "required": ["name"],
+            "additionalProperties": False,
+            "properties": {
+                "region": {"type": "string"},
+                "name": {"type": "string"}
+            }
+        })
 
     @property
     def project(self) -> GcpProject:
-        if self._project is None:
-            self._project: GcpProject = GcpProject(self.get_resource_dependency('project'))
-        return self._project
+        return self.get_dependency('project')
 
     @property
     def region(self) -> str:
@@ -36,35 +43,7 @@ class GcpIpAddress(DResource):
         if self.resource_properties is not None and 'address' in self.resource_properties:
             return self.resource_properties['address']
         else:
-            raise Exception(f"address not available")
-
-    @property
-    def resource_required_plugs(self) -> Mapping[str, str]:
-        return {
-            "gcloud": "/root/.config/gcloud"
-        }
-
-    @property
-    def resource_required_resources(self) -> Mapping[str, str]:
-        return {
-            "project": "infolinks/deployster-gcp-project"
-        }
-
-    @property
-    def resource_config_schema(self) -> dict:
-        return {
-            "type": "object",
-            "required": ["name"],
-            "additionalProperties": False,
-            "properties": {
-                "region": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        }
+            raise Exception(f"actual IP address not available")
 
     def discover_actual_properties(self):
         try:
@@ -80,7 +59,11 @@ class GcpIpAddress(DResource):
             else:
                 raise
 
-    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
+    def get_actions_when_missing(self) -> Sequence[DAction]:
+        type = "global" if self.region is None else "regional"
+        return [DAction(name=f"create", description=f"Create {type} IP address called '{self.name}'")]
+
+    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
         # addresses either exist or do not exist - there are no properties to update in a GCP regional address
         # therefor if we got to this point (address exists) just return an empty list of actions (nothing to do)
         # we do validate, however, that the found address is regional if resource is given a region, or alternatively,
@@ -91,11 +74,6 @@ class GcpIpAddress(DResource):
             raise Exception(f"illegal state: expecting regional IP address, but found a global IP address instead")
         else:
             return []
-
-    @property
-    def actions_for_missing_status(self) -> Sequence[DAction]:
-        type = "global" if self.region is None else "regional"
-        return [DAction(name=f"create", description=f"Create {type} IP address called '{self.name}'")]
 
     @action
     def create(self, args):

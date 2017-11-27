@@ -1,14 +1,17 @@
 plugs:
-  gcloud:
-    path: {{ gcloud_path }}
-    read_only: false
+  gcp-service-account:
+    path: {{ gcp_service_account_json_file }}
+    read_only: true
+    resource_types:
+      - '^infolinks/.+'
+
   kube:
     path: {{ kube_path }}
     read_only: false
 
 resources:
 
-  project:
+  test-project:
     type: infolinks/deployster-gcp-project:0.0.0
     config:
       project_id: {{ gcp_project }}
@@ -21,10 +24,10 @@ resources:
           - container.googleapis.com
           - storage-component.googleapis.com
 
-  cluster:
+  test-cluster:
     type: infolinks/deployster-gcp-gke-cluster:0.0.0
     dependencies:
-      project: project
+      project: test-project
     config:
       zone: {{ zone }}
       name: test
@@ -40,31 +43,29 @@ resources:
     type: infolinks/deployster-k8s-rbac-role:0.0.0
     readonly: true
     dependencies:
-      cluster: cluster
+      cluster: test-cluster
     config:
       manifest:
         metadata:
           name: cluster-admin
         rules:
-          - apiGroups:
-            - '*'
-            resources:
-            - '*'
-            verbs:
-            - '*'
-          - nonResourceURLs:
-            - '*'
-            verbs:
-            - '*'
+          - apiGroups: ['*']
+            resources: ['*']
+            verbs: ['*']
+          - nonResourceURLs: ['*']
+            verbs: ['*']
 
-  team-cluster-admins-binding:
+  test-administrator-user:
+    type: infolinks/deployster-k8s-rbac-user:0.0.0
+    config:
+      name: {{ test_admin_user }}
+
+  test-administrator-binding:
     type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
     dependencies:
       role: cluster-admin-role
+      user: test-administrator-user
     config:
       manifest:
         metadata:
-          name: team-cluster-admins
-        subjects:
-          - kind: User
-            name: {{ user_email }}
+          name: test-administrator-binding

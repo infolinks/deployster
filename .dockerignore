@@ -6,5 +6,6 @@
 /*.iml
 /*.md
 /*.sh
+/*-sa*.json
 *.pyc
 /LICENSE

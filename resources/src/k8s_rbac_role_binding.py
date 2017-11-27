@@ -9,65 +9,79 @@ from dresources import action, DAction, collect_differences
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
-from k8s_rbac_role import K8sRole
+from k8s_rbac_group import K8sRbacGroup
+from k8s_rbac_role import K8sRbacRole
+from k8s_rbac_service_account import K8sRbacServiceAccount
+from k8s_rbac_user import K8sRbacUser
 
 
 class K8sRoleBinding(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        # TODO: dependency type validation
-        self._role: K8sRole = K8sRole(self.get_resource_dependency('role'))
-        self._cluster = self._role.cluster
-
-        # set subjects
-        self._subjects: Sequence[dict] = self.k8s_manifest["subjects"]
-        for subject in self._subjects:
-            if 'kind' not in subject:
-                raise Exception(f"missing 'kind' property for subject: {json.dumps(subject)}")
-            elif subject['kind'] != 'ServiceAccount' and 'apiGroup' not in subject:
-                subject['apiGroup'] = 'rbac.authorization.k8s.io'
-
-        # set role, namespace & kind according to provided dependencies
-        if self._role.k8s_kind == 'Role':
-            self._kind = 'RoleBinding'
-
-            # referencing a 'Role' means that we must be in the same namespace; the 'namespace' dependency not allowed
-            if self.has_dependency('namespace'):
-                raise Exception(
-                    f"illegal config: cannot provide 'namespace' dependency when referencing non-cluster roles")
-
-            self._namespace: K8sNamespace = self._role.namespace
-            self._required_resources = {"role": "infolinks/deployster-k8s-rbac-role"}
-
-        elif self._role.k8s_kind == 'ClusterRole':
-            self._kind = 'ClusterRoleBinding'
-            if self.has_dependency('namespace'):
-                self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
-                self._required_resources = {
-                    "role": "infolinks/deployster-k8s-rbac-role",
-                    "namespace": "infolinks/deployster-k8s-namespace"
-                }
-                if self._role.cluster.name != self._namespace.cluster.name:
-                    raise Exception(f"illegal config: namespace & role dependencies must belong to the same cluster")
-            else:
-                self._namespace: K8sNamespace = None
-                self._required_resources = {"role": "infolinks/deployster-k8s-rbac-role"}
-
-        else:
-            raise Exception(f"illegal state: role '{self._role.name}' is of unsupported kind '{self._role.k8s_kind}'")
+        self.add_dependency(name='namespace',
+                            type='infolinks/deployster-k8s-namespace',
+                            optional=True,
+                            factory=K8sNamespace)
+        self.add_dependency(name='role',
+                            type='infolinks/deployster-k8s-rbac-role',
+                            optional=False,
+                            factory=K8sRbacRole)
+        self.add_dependency(name='user',
+                            type='infolinks/deployster-k8s-rbac-user',
+                            optional=True,
+                            factory=K8sRbacUser)
+        self.add_dependency(name='group',
+                            type='infolinks/deployster-k8s-rbac-group',
+                            optional=True,
+                            factory=K8sRbacGroup)
+        self.add_dependency(name='service-account',
+                            type='infolinks/deployster-k8s-rbac-service-account',
+                            optional=True,
+                            factory=K8sRbacServiceAccount)
 
     @property
     def cluster(self) -> GkeCluster:
-        return self._cluster
+        return self.role.cluster
 
     @property
     def namespace(self) -> K8sNamespace:
-        return self._namespace
+        role: K8sRbacRole = self.get_dependency('role')
+        namespace: K8sNamespace = self.get_dependency('namespace')
+        if role.k8s_kind == 'Role':
+            if namespace:
+                # fail because the namespace MUST be derived from the role when role is a namespaced role
+                raise Exception(f"illegal config: namespace must be derived from role, because it is a namespaced "
+                                f"role. remove the 'namespace' dependency.")
+            else:
+                return role.namespace
+        elif role.k8s_kind == 'ClusterRole':
+            return namespace
+        else:
+            raise Exception(f"illegal state: unknown role type '{role.k8s_kind}'")
 
     @property
-    def role(self) -> K8sRole:
-        return self._role
+    def role(self) -> K8sRbacRole:
+        return self.get_dependency('role')
+
+    @property
+    def subject(self) -> Mapping[str, str]:
+        user: K8sRbacUser = self.get_dependency('user')
+        group: K8sRbacGroup = self.get_dependency('group')
+        svc_acc: K8sRbacServiceAccount = self.get_dependency('service-account')
+        subjects = [dep for dep in [user, group, svc_acc] if dep is not None]
+        if len(subjects) > 1:
+            raise Exception(
+                f"illegal config: only one of 'user', 'group' or 'service-account' dependencies may be provided")
+        elif user:
+            return {'kind': user.k8s_kind, 'name': user.name}
+        elif group:
+            return {'kind': group.k8s_kind, 'name': group.name}
+        elif svc_acc:
+            return {'kind': svc_acc.k8s_kind, 'name': svc_acc.name, 'namespace': svc_acc.namespace.name}
+        else:
+            raise Exception(
+                f"illegal config: one of 'user', 'group' or 'service-account' dependencies must be provided")
 
     @property
     def k8s_api_group(self) -> str:
@@ -79,45 +93,37 @@ class K8sRoleBinding(K8sResource):
 
     @property
     def k8s_kind(self) -> str:
-        return self._kind
+        role: K8sRbacRole = self.get_dependency('role')
+        namespace: K8sNamespace = self.get_dependency('namespace')
+        if role.k8s_kind == 'Role':
+            if namespace:
+                # fail because the namespace MUST be derived from the role when role is a namespaced role
+                raise Exception(f"illegal config: namespace must be derived from role, because it is a namespaced "
+                                f"role. remove the 'namespace' dependency.")
+            else:
+                return 'RoleBinding'
+        elif role.k8s_kind == 'ClusterRole':
+            if namespace:
+                return 'RoleBinding'
+            else:
+                return 'ClusterRoleBinding'
+        else:
+            raise Exception(f"illegal state: unknown role type '{role.k8s_kind}'")
 
-    @property
-    def subjects(self) -> Sequence[dict]:
-        return self._subjects
+    def get_actions_when_missing(self) -> Sequence[DAction]:
+        # call 'self.subject' just so it validates that a subject was provided (instead of failon creation)
+        # noinspection PyUnusedLocal
+        subject = self.subject
+        return super().get_actions_when_missing()
 
-    @property
-    def resource_required_resources(self) -> Mapping[str, str]:
-        return self._required_resources
-
-    @property
-    def k8s_manifest_schema(self) -> dict:
-        schema: dict = super().k8s_manifest_schema
-        schema['properties'].update({
-            'subjects': {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "apiGroup": {"type": "string"},
-                        "kind": {"type": "string"},
-                        "name": {"type": "string"},
-                        "namespace": {"type": "string"}
-                    }
-                }
-            }
-        })
-        return schema
-
-    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
-        actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
+    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = super().get_actions_when_existing(actual_properties)
 
         actual_roleref = actual_properties['roleRef']
         if self.role.name != actual_roleref['name'] or self.role.k8s_kind != actual_roleref['kind']:
             actions.append(DAction(name="update-role-ref", description=f"Update role reference"))
 
-        subject_diffs = collect_differences(self.subjects, actual_properties['subjects'])
-        if subject_diffs:
-            print(f"Found the following subject differences:\n{subject_diffs}", file=sys.stderr)
+        if collect_differences([self.subject], actual_properties['subjects']):
             actions.append(DAction(name="update-subjects", description=f"Update subjects"))
 
         return actions
@@ -129,7 +135,7 @@ class K8sRoleBinding(K8sResource):
             'kind': self.role.k8s_kind,
             'name': self.role.name
         }
-        manifest['subjects'] = self.subjects
+        manifest['subjects'] = [self.subject]
         return manifest
 
     @action
@@ -157,7 +163,7 @@ class K8sRoleBinding(K8sResource):
         patch = json.dumps([{
             "op": "replace",
             "path": "/subjects",
-            "value": self.subjects
+            "value": [self.subject]
         }])
         subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
                        check=True,
