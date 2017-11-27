@@ -3,16 +3,44 @@
 import argparse
 import json
 import sys
-from typing import Sequence, MutableSequence, Mapping
+from typing import Sequence, MutableSequence
 
 from googleapiclient.discovery import build
 
-from dresources import DResource, DAction, action
+from dresources import DAction, action
+from gcp import GcpResource
 from gcp_services import get_resource_manager, get_billing, wait_for_resource_manager_operation, \
     get_service_management, wait_for_service_manager_operation, get_project_enabled_apis
 
 
-class GcpProject(DResource):
+class GcpProject(GcpResource):
+
+    def __init__(self, data: dict) -> None:
+        super().__init__(data)
+        self.config_schema.update({
+            "type": "object",
+            "required": ["project_id"],
+            "additionalProperties": False,
+            "properties": {
+                "project_id": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"},
+                "organization_id": {"type": "integer"},
+                "billing_account_id": {"type": "string"},
+                "apis": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "enabled": {
+                            "type": "array",
+                            "items": {"type": "string", "uniqueItems": True}
+                        },
+                        "disabled": {
+                            "type": "array",
+                            "items": {"type": "string", "uniqueItems": True}
+                        }
+                    }
+                }
+            }
+        })
 
     @property
     def project_id(self) -> str:
@@ -36,52 +64,6 @@ class GcpProject(DResource):
         apis: dict = self.resource_config['apis'] if 'apis' in self.resource_config else {}
         return apis['disabled'] if 'disabled' in apis else None
 
-    @property
-    def resource_required_plugs(self) -> Mapping[str, str]:
-        return {
-            "gcloud": "/root/.config/gcloud"
-        }
-
-    @property
-    def resource_config_schema(self) -> dict:
-        return {
-            "type": "object",
-            "required": ["project_id"],
-            "additionalProperties": False,
-            "properties": {
-                "project_id": {
-                    "type": "string",
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"
-                },
-                "organization_id": {
-                    "type": "integer"
-                },
-                "billing_account_id": {
-                    "type": "string"
-                },
-                "apis": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "enabled": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "uniqueItems": True
-                            }
-                        },
-                        "disabled": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "uniqueItems": True
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
     def discover_actual_properties(self):
         filter: str = f"name:{self.project_id}"
         result: dict = get_resource_manager().projects().list(filter=filter).execute()
@@ -103,13 +85,25 @@ class GcpProject(DResource):
             else:
                 project['billing_account_id']: str = None
 
-            project['apis']: dict = {
-                'enabled': get_project_enabled_apis(project_id=self.project_id)
-            }
+            project['apis']: dict = {'enabled': get_project_enabled_apis(project_id=self.project_id)}
 
             return project
 
-    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
+    def get_actions_when_missing(self) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = [
+            DAction(name=f"create-project", description=f"Create GCP project '{self.project_id}'"),
+            DAction(name='set-billing-account',
+                    description=f"Set billing account of '{self.project_id}' to '{self.billing_account_id}'"),
+        ]
+        if self.enabled_apis:
+            for api_name in [api_name for api_name in self.enabled_apis]:
+                actions.append(
+                    DAction(name=f"enable-api-{api_name}",
+                            description=f"Enable API '{api_name}' for '{self.project_id}'",
+                            args=['enable_api', api_name]))
+        return actions
+
+    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
 
         actual_parent: dict = actual_properties['parent'] if 'parent' in actual_properties else {}
@@ -150,21 +144,6 @@ class GcpProject(DResource):
 
         return actions
 
-    @property
-    def actions_for_missing_status(self) -> Sequence[DAction]:
-        actions: MutableSequence[DAction] = [
-            DAction(name=f"create-project", description=f"Create project '{self.project_id}'"),
-            DAction(name='set-billing-account',
-                    description=f"Set billing account of '{self.project_id}' to '{self.billing_account_id}'"),
-        ]
-        if self.enabled_apis:
-            for api_name in [api_name for api_name in self.enabled_apis]:
-                actions.append(
-                    DAction(name=f"enable-api-{api_name}",
-                            description=f"Enable API '{api_name}' for '{self.project_id}'",
-                            args=['enable_api', api_name]))
-        return actions
-
     def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
         super().define_action_args(action, argparser)
         if action == 'disable_api':
@@ -175,36 +154,27 @@ class GcpProject(DResource):
     @action
     def set_organization(self, args):
         if args: pass
-        if self.organization_id:
-            parent = {
-                'type': 'organization',
-                'id': str(self.organization_id)
-            }
-        else:
-            parent = None
-
         cloud_resource_manager = build(serviceName='cloudresourcemanager', version='v1')
-        result = cloud_resource_manager.projects().update(projectId=self.project_id, body={"parent": parent}).execute()
+        body = {'parent': {'type': 'organization', 'id': str(self.organization_id)} if self.organization_id else None}
+        result = cloud_resource_manager.projects().update(projectId=self.project_id, body={body}).execute()
         wait_for_resource_manager_operation(result)
 
     @action
     def set_billing_account(self, args):
         if args: pass
-        get_billing().projects().updateBillingInfo(
-            name='projects/' + self.project_id,
-            body={"billingAccountName": f"billingAccounts/{self.billing_account_id}" if self.billing_account_id else ""}
-        ).execute()
+        body = {"billingAccountName": f"billingAccounts/{self.billing_account_id}" if self.billing_account_id else ""}
+        get_billing().projects().updateBillingInfo(name='projects/' + self.project_id, body=body).execute()
 
     @action
     def disable_api(self, args):
-        op = get_service_management().services().disable(serviceName=args.api,
-                                                         body={'consumerId': f"project:{self.project_id}"}).execute()
+        body = {'consumerId': f"project:{self.project_id}"}
+        op = get_service_management().services().disable(serviceName=args.api, body=body).execute()
         wait_for_service_manager_operation(op)
 
     @action
     def enable_api(self, args):
-        op = get_service_management().services().enable(serviceName=args.api,
-                                                        body={'consumerId': f"project:{self.project_id}"}).execute()
+        body = {'consumerId': f"project:{self.project_id}"}
+        op = get_service_management().services().enable(serviceName=args.api, body=body).execute()
         wait_for_service_manager_operation(op)
 
     @action

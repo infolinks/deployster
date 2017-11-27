@@ -1,6 +1,5 @@
 /.python3
-/work
-/examples/*.sh
 /examples/work
+/work
 *.pyc
 Dockerfile.*.local

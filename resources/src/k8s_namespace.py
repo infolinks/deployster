@@ -2,7 +2,6 @@
 
 import json
 import sys
-from typing import Mapping
 
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
@@ -12,12 +11,14 @@ class K8sNamespace(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        # TODO: dependency type validation
-        self._cluster: GkeCluster = GkeCluster(self.get_resource_dependency('cluster'))
+        self.add_dependency(name='cluster',
+                            type='infolinks/deployster-gcp-gke-cluster',
+                            optional=False,
+                            factory=GkeCluster)
 
     @property
     def cluster(self) -> GkeCluster:
-        return self._cluster
+        return self.get_dependency('cluster')
 
     @property
     def k8s_api_group(self) -> str:
@@ -30,12 +31,6 @@ class K8sNamespace(K8sResource):
     @property
     def k8s_kind(self) -> str:
         return "Namespace"
-
-    @property
-    def resource_required_resources(self) -> Mapping[str, str]:
-        return {
-            "cluster": "infolinks/deployster-gcp-gke-cluster"
-        }
 
 
 def main():

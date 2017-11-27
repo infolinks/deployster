@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import pkgutil
+import re
 import shutil
 import subprocess
 import termios
@@ -11,11 +12,10 @@ import traceback
 from enum import Enum, unique, auto
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence, Any
+from typing import Sequence, Mapping, MutableMapping, Callable, MutableSequence, Any, Pattern
 
 import jinja2
 import jsonschema
-import re
 import yaml
 from colors import bold, underline, red, italic, faint, yellow, green
 from jinja2 import UndefinedError
@@ -49,6 +49,16 @@ class Context:
     @property
     def data(self) -> dict:
         return self._data
+
+    def display(self)->None:
+        log(bold(":paperclip: " + underline("Context:")))
+        log('')
+        indent()
+        largest_name_length: int = len(max(list(self.data.keys()), key=lambda key: len(key)))
+        for name, value in self.data.items():
+            log(f":point_right: {name.ljust(largest_name_length,'.')}..: {bold(value)}")
+        unindent()
+        log('')
 
 
 class Resource:
@@ -95,8 +105,8 @@ class Plug:
         self._name: str = name
         self._path: Path = Path(os.path.expanduser(path=path))
         self._readonly: bool = readonly
-        self._resource_names: Sequence[str] = allowed_resource_names
-        self._resource_types: Sequence[str] = allowed_resource_types
+        self._resource_name_patterns: Sequence[Pattern] = [re.compile(name) for name in allowed_resource_names]
+        self._resource_type_patterns: Sequence[Pattern] = [re.compile(type) for type in allowed_resource_types]
 
     @property
     def name(self) -> str:
@@ -111,23 +121,24 @@ class Plug:
         return self._readonly
 
     @property
-    def resource_names(self) -> Sequence[str]:
-        return self._resource_names
+    def resource_name_patterns(self) -> Sequence[str]:
+        return [re.pattern for re in self._resource_name_patterns]
 
     @property
-    def resource_types(self) -> Sequence[str]:
-        return self._resource_types
+    def resource_type_patterns(self) -> Sequence[str]:
+        return [re.pattern for re in self._resource_type_patterns]
 
     def allowed_for(self, resource: Resource) -> bool:
-        if resource.name in self.resource_names:
-            return True
-
-        resource_type = resource.type.split(':', 1)[0] if resource.type.find(':') >= 0 else resource.type
-        valid_resource_types = [type.split(':', 1)[0] if type.find(':') >= 0 else type for type in self.resource_types]
-        if resource_type in valid_resource_types:
-            return True
-        else:
-            return len(self.resource_names) == 0 and len(self.resource_types) == 0
+        for pattern in self._resource_name_patterns:
+            if pattern.match(resource.name):
+                # matched a name pattern; allowed!
+                return True
+        for pattern in self._resource_type_patterns:
+            if pattern.match(resource.type):
+                # matched a type pattern; allowed!
+                return True
+        # only allowed if this plug allows everything (ie. no name patterns and no type patterns)
+        return not self._resource_name_patterns and not self._resource_type_patterns
 
 
 class Action:
@@ -275,7 +286,7 @@ class Manifest:
 
         # parse plugs
         plugs: MutableMapping[str, Plug] = {}
-        for plug_name, plug in (composite_manifest['plugs']).items():
+        for plug_name, plug in composite_manifest['plugs'].items():
             plugs[plug_name] = Plug(name=plug_name,
                                     path=plug['path'],
                                     readonly=plug['read_only'] if 'read_only' in plug else False,
@@ -285,7 +296,7 @@ class Manifest:
 
         # parse resources
         resources: MutableMapping[str, Resource] = {}
-        for resource_name, resource in (composite_manifest['resources']).items():
+        for resource_name, resource in composite_manifest['resources'].items():
             resources[resource_name] = \
                 Resource(name=resource_name,
                          type=resource['type'],
@@ -293,6 +304,32 @@ class Manifest:
                          config=resource['config'] if 'config' in resource else {},
                          dependencies=resource['dependencies'] if 'dependencies' in resource else {})
         self._resources = resources
+
+    def display_plugs(self) -> None:
+        log(bold(":paperclip: " + underline("Plugs:")))
+        log('')
+        indent()
+        for name, value in self.plugs.items():
+            log(f":point_right: {name}: {bold(value.path)}")
+            if value.resource_name_patterns:
+                indent()
+                log(f"Resource name patterns:")
+                indent()
+                for pattern in value.resource_name_patterns:
+                    log(pattern)
+                unindent()
+                unindent()
+            if value.resource_type_patterns:
+                indent()
+                log(f"Resource type patterns:")
+                indent()
+                for pattern in value.resource_type_patterns:
+                    log(pattern)
+                unindent()
+                unindent()
+
+        unindent()
+        log('')
 
     @property
     def manifest_files(self) -> Sequence[Path]:
@@ -338,7 +375,6 @@ class ResourceState:
         self._actions: Sequence[Action] = None
         self._properties: dict = None
         self._resource_state_provider = resource_state_provider
-        self._type_label: str = None
 
         os.makedirs(str(self._work_dir), exist_ok=True)
 
@@ -398,22 +434,15 @@ class ResourceState:
                             f"{process.stderr}")
 
     def initialize(self) -> None:
-        # build resource dependencies; NOTE that we ARE NOT validating the resource's required resources here, since
-        # we do not yet know them - the 'init' action will provide back a list of such required resources, and we'll
-        # validate that indeed those are present in the list.
-        dependencies: MutableMapping[str, Resource] = {}
+        # validate that all dependencies provided to this resource indeed exist
         for alias, source_resource_name in self.resource.dependencies.items():
             if source_resource_name not in self.manifest.resources:
                 raise UserError(f"resource '{source_resource_name}' (dependency of '{self.resource.name}') is missing.")
-            else:
-                dependencies[alias] = self.manifest.resource(source_resource_name)
-        self._dependencies: Mapping[str, Resource] = dependencies
 
         # initialize the resource by invoking the 'init' action (ie. the resource's Docker image's default entrypoint)
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
         result = init_action.execute(work_dir=self._work_dir / init_action.name, stdin=self.get_as_dependency())
-        self._type_label: str = result['label']
 
         # validate manifest against our manifest schema
         try:
@@ -431,23 +460,60 @@ class ResourceState:
 
         # collect required plugs, failing if any plug is missing
         plugs: MutableMapping[str, Plug] = {}
-        for plug_name, container_path in (result['required_plugs'] if 'required_plugs' in result else {}).items():
+        for plug_name, plug_spec in (result['plugs'] if 'plugs' in result else {}).items():
+            container_path = plug_spec['container_path']
+            optional = plug_spec['optional'] if 'optional' in plug_spec else False
+            require_writable = plug_spec['writable'] if 'writable' in plug_spec else True
+
             if plug_name not in self.manifest.plugs:
-                raise UserError(f"resource '{self.resource.name}' requires missing plug '{plug_name}'")
+                if optional:
+                    log(f"Requested {bold('optional')} plug '{plug_name}' does not exist")
+                    continue
+                else:
+                    raise UserError(f"resource '{self.resource.name}' requires missing plug '{plug_name}'")
 
             plug = self.manifest.plug(plug_name)
             if not plug.allowed_for(self.resource):
-                raise UserError(f"plug '{plug_name}' is not allowed for resource '{self.resource.name}'")
-            else:
-                plugs[container_path] = plug
+                if optional:
+                    log(f"Requested {bold('optional')} plug '{plug_name}' is not allowed for '{self.resource.name}'")
+                    continue
+                else:
+                    raise UserError(f"plug '{plug_name}' is not allowed for resource '{self.resource.name}'")
+
+            if require_writable and plug.readonly:
+                if optional:
+                    log(f"Requested {bold('optional')} plug '{plug_name}' with write access, but this plug is readonly")
+                    continue
+                else:
+                    raise UserError(f"plug '{plug_name}' is read-only, but resource '{self.resource.name}' "
+                                    f"requires the plug to be writable")
+
+            plugs[container_path] = plug
         self._plugs: Mapping[str, Plug] = plugs
 
-        # validate that all required resources were provided
-        for alias, required_type in (result['required_resources'] if 'required_resources' in result else {}).items():
-            if alias not in self._dependencies:
-                raise UserError(f"dependency '{alias}' (of type '{type}') must be provided")
+        allowed_dependencies: Mapping[str, Any] = result['dependencies'] if 'dependencies' in result else {}
+        actual_dependencies: Mapping[str, Resource] = \
+            {alias: self.manifest.resource(name) for alias, name in self.resource.dependencies.items()}
+
+        # validate that all dependencies actually provided to this resource are allowed (according to the init result)
+        unknown_dependencies = actual_dependencies.keys() - allowed_dependencies.keys()
+        if unknown_dependencies:
+            deps = ",".join(unknown_dependencies)
+            raise UserError(f"resource '{self.resource.name}' does not accept dependencies: '{deps}'")
+
+        # validate all declared dependencies are satisifed in the manifest for this resource
+        self._dependencies: MutableMapping[str, Resource] = {}
+        for alias, dependency_info in allowed_dependencies.items():
+            required_type = dependency_info['type']
+            optional = dependency_info['optional'] if 'optional' in dependency_info else False
+
+            if alias not in actual_dependencies:
+                if optional:
+                    continue
+                else:
+                    raise UserError(f"required dependency '{alias}' (of type '{type}') must be provided")
             else:
-                resource = self._dependencies[alias]
+                resource = actual_dependencies[alias]
 
             required_type = required_type.split(':', 1)[0] if required_type.find(':') >= 0 else required_type
             resource_type = resource.type.split(':', 1)[0] if resource.type.find(':') >= 0 else resource.type
@@ -455,6 +521,8 @@ class ResourceState:
                 raise UserError(
                     f"incorrect type for dependency '{alias}', must be of type '{required_type}', but that resource "
                     f"is of type '{resource_type}'.")
+            else:
+                self._dependencies[alias] = resource
 
         # save the 'state' action
         self._state_action: Action = \
@@ -556,7 +624,6 @@ class ResourceState:
             log(f":wrench: {action.description} ({action.name})")
             log('')
             indent()
-            # TODO: stream stderr/stdout from the action to deployster console (we don't expect JSON from this action)
             action.execute(
                 work_dir=self._work_dir / action.name,
                 volumes=[f"{p.path}:{cpath}:{'ro' if p.readonly else 'rw'}" for cpath, p in self._plugs.items()],
@@ -730,9 +797,12 @@ def main():
     log('')
 
     context: Context = Context()
-    for file in os.listdir(Path()):
+    for file in os.listdir(os.path.expanduser('~/.deployster')):
         if re.match(r'^vars\.(.*\.)?auto\.yaml$', file):
-            context.add_file(Path() / file)
+            context.add_file(os.path.expanduser('~/.deployster/' + file))
+    for file in os.listdir('.'):
+        if re.match(r'^vars\.(.*\.)?auto\.yaml$', file):
+            context.add_file('./' + file)
 
     class VariableAction(argparse.Action):
 
@@ -790,11 +860,11 @@ def main():
     log('')
 
     try:
-        if args.verbose:
-            log(f"Context: {json.dumps(context.data, indent=2)}")
+        context.display()
 
         # load manifest
         manifest: Manifest = Manifest(context=context, manifest_files=args.manifests)
+        manifest.display_plugs()
 
         # build the deployment plan, display, and potentially execute it
         plan: Plan = Plan(work_dir=Path(f"/deployster/work/deployment"), manifest=manifest)

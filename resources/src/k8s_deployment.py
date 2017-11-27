@@ -3,7 +3,7 @@
 import json
 import subprocess
 import sys
-from typing import Mapping, MutableSequence, Sequence
+from typing import MutableSequence, Sequence
 
 from dresources import DAction, collect_differences, action
 from gcp_gke_cluster import GkeCluster
@@ -15,8 +15,17 @@ class K8sDeployment(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        # TODO: dependency type validation
-        self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
+        self.add_dependency(name='namespace',
+                            type='infolinks/deployster-k8s-namespace',
+                            optional=False,
+                            factory=K8sNamespace)
+        self.config_schema['properties']['manifest']['required'].append('spec')
+        self.config_schema['properties']['manifest']['properties'].update({
+            'spec': {
+                "type": "object",
+                "additionalProperties": True
+            }
+        })
 
     @property
     def cluster(self) -> GkeCluster:
@@ -24,7 +33,7 @@ class K8sDeployment(K8sResource):
 
     @property
     def namespace(self) -> K8sNamespace:
-        return self._namespace
+        return self.get_dependency('namespace')
 
     @property
     def k8s_api_group(self) -> str:
@@ -40,35 +49,16 @@ class K8sDeployment(K8sResource):
 
     @property
     def spec(self) -> dict:
-        return self.k8s_manifest['spec'] if 'spec' in self.k8s_manifest else None
+        return self.k8s_manifest['spec']
 
-    @property
-    def resource_required_resources(self) -> Mapping[str, str]:
-        return {
-            "namespace": "infolinks/deployster-k8s-namespace"
-        }
-
-    @property
-    def k8s_manifest_schema(self) -> dict:
-        schema: dict = super().k8s_manifest_schema
-        schema['required'].append('spec')
-        schema['properties'].update({
-            'spec': {
-                "type": "object",
-                "additionalProperties": True
-            }
-        })
-        return schema
-
-    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
-        actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
+    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = super().get_actions_when_existing(actual_properties)
         diffs = collect_differences(self.spec, actual_properties['spec'])
         if diffs:
-            print(f"Found the following differences:\n{diffs}", file=sys.stderr)
             actions.append(DAction(name="update-spec", description=f"Update specification"))
         return actions
 
-    def is_available(self, actual_properties: dict):
+    def check_availability(self, actual_properties: dict):
         if 'status' not in actual_properties:
             return False
 

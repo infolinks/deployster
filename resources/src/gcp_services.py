@@ -93,7 +93,6 @@ def wait_for_compute_region_operation(project_id, region, operation, timeout=60)
         counter = counter + interval
 
         result = operations_service.get(project=project_id, region=region, operation=operation['name']).execute()
-        print(json.dumps(result, indent=2), file=sys.stderr)
 
         if 'status' in result and result['status'] == 'DONE':
             if 'error' in result:
@@ -114,7 +113,6 @@ def wait_for_compute_global_operation(project_id, operation, timeout=60):
         counter = counter + interval
 
         result = operations_service.get(project=project_id, operation=operation['name']).execute()
-        print(json.dumps(result, indent=2), file=sys.stderr)
 
         if 'status' in result and result['status'] == 'DONE':
             if 'error' in result:
@@ -135,7 +133,6 @@ def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=60):
         counter = counter + interval
 
         result = operations_service.get(project=project_id, zone=zone, operation=operation['name']).execute()
-        print(json.dumps(result, indent=2), file=sys.stderr)
 
         if 'status' in result and result['status'] == 'DONE':
             if 'error' in result:
@@ -156,7 +153,6 @@ def wait_for_container_projects_zonal_operation(project_id, zone, operation, tim
         counter = counter + interval
 
         result = operations_service.get(projectId=project_id, zone=zone, operationId=operation['name']).execute()
-        print(json.dumps(result, indent=2), file=sys.stderr)
 
         if 'status' in result and result['status'] == 'DONE':
             if 'error' in result:

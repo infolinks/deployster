@@ -3,10 +3,9 @@
 import json
 import subprocess
 import sys
-from typing import Mapping, MutableSequence, Sequence
+from typing import MutableSequence, Sequence
 
 from dresources import DAction, collect_differences, action
-from gcp_compute_ip_address import GcpIpAddress
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
 from k8s_namespace import K8sNamespace
@@ -16,21 +15,17 @@ class K8sIngress(K8sResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._namespace: K8sNamespace = K8sNamespace(self.get_resource_dependency('namespace'))
-        self._address: GcpIpAddress = GcpIpAddress(self.get_resource_dependency('address')) \
-            if self.has_dependency('address') else None
-
-        if self._address is not None:
-            if 'manifest' not in self.resource_config: self.resource_config['manifest'] = {}
-            manifest = self.resource_config['manifest']
-
-            if 'metadata' not in manifest: manifest['metadata'] = {}
-            metadata = manifest['metadata']
-
-            if 'annotations' not in metadata: metadata['annotations'] = {}
-            annotations = metadata['annotations']
-
-            annotations['kubernetes.io/ingress.global-static-ip-name'] = self._address.name
+        self.add_dependency(name='namespace',
+                            type='infolinks/deployster-k8s-namespace',
+                            optional=False,
+                            factory=K8sNamespace)
+        self.config_schema['properties']['manifest']['required'].append('spec')
+        self.config_schema['properties']['manifest']['properties'].update({
+            'spec': {
+                "type": "object",
+                "additionalProperties": True
+            }
+        })
 
     @property
     def cluster(self) -> GkeCluster:
@@ -38,7 +33,7 @@ class K8sIngress(K8sResource):
 
     @property
     def namespace(self) -> K8sNamespace:
-        return self._namespace
+        return self.get_dependency('namespace')
 
     @property
     def k8s_api_group(self) -> str:
@@ -54,37 +49,16 @@ class K8sIngress(K8sResource):
 
     @property
     def spec(self) -> dict:
-        return self.k8s_manifest['spec'] if 'spec' in self.k8s_manifest else None
+        return self.k8s_manifest['spec']
 
-    @property
-    def resource_required_resources(self) -> Mapping[str, str]:
-        return {
-            "namespace": "infolinks/deployster-k8s-namespace"
-        }
-
-    @property
-    def k8s_manifest_schema(self) -> dict:
-        schema: dict = super().k8s_manifest_schema
-        schema['required'].append('spec')
-        schema['properties'].update({
-            'spec': {
-                "type": "object",
-                "additionalProperties": True
-            }
-        })
-        return schema
-
-    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
-        actions: MutableSequence[DAction] = super().infer_actions_from_actual_properties(actual_properties)
-        diffs = collect_differences(self.spec, actual_properties['spec'])
-        if diffs:
-            print(f"Found the following differences:\n{diffs}", file=sys.stderr)
+    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = super().get_actions_when_existing(actual_properties)
+        if collect_differences(self.spec, actual_properties['spec']):
             actions.append(DAction(name="update-spec", description=f"Update specification"))
         return actions
 
-    def is_available(self, actual_properties: dict):
-        # TODO: wait for LetsEncrypt to store the TLS?
-
+    def check_availability(self, actual_properties: dict):
+        # TODO: check if kube-lego is installed, and if so - wait for LetsEncrypt to generate the TLS certificate
         if 'status' not in actual_properties:
             return False
 
@@ -106,41 +80,7 @@ class K8sIngress(K8sResource):
     def update_spec(self, args):
         if args: pass
 
-        # get current spec
-        actual_manifest = self.discover_actual_properties()
-
-        # we specifically replace selected parts inside 'spec', because LetsEncrypt will store an additional value in
-        # the 'spec' - the "tls" property, which we want to leave as is.
-        patch = []
-
-        # replace or remove the 'backend' section
-        if 'tls' in self.spec:
-            if 'tls' in actual_manifest['spec']:
-                patch.append({"op": "replace", "path": "/spec/tls", "value": self.spec['tls']})
-            else:
-                patch.append({"op": "add", "path": "/spec/tls", "value": self.spec['tls']})
-        elif 'tls' in actual_manifest['spec']:
-            patch.append({"op": "remove", "path": "/spec/tls"})
-
-        # replace or remove the 'backend' section
-        if 'backend' in self.spec:
-            if 'backend' in actual_manifest['spec']:
-                patch.append({"op": "replace", "path": "/spec/backend", "value": self.spec['backend']})
-            else:
-                patch.append({"op": "add", "path": "/spec/backend", "value": self.spec['backend']})
-        elif 'backend' in actual_manifest['spec']:
-            patch.append({"op": "remove", "path": "/spec/backend"})
-
-        # replace or remove the 'rules' section
-        if 'rules' in self.spec:
-            if 'rules' in actual_manifest['spec']:
-                patch.append({"op": "replace", "path": "/spec/rules", "value": self.spec['rules']})
-            else:
-                patch.append({"op": "add", "path": "/spec/rules", "value": self.spec['rules']})
-        elif 'rules' in actual_manifest['spec']:
-            patch.append({"op": "remove", "path": "/spec/rules"})
-
-        # patch it
+        patch = json.dumps([{"op": "replace", "path": "/spec", "value": self.spec}])
         subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
                        check=True,
                        timeout=self.timeout,

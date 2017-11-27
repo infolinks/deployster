@@ -4,11 +4,14 @@ import argparse
 import json
 import subprocess
 import sys
+from subprocess import PIPE, CompletedProcess
 from typing import Mapping, Sequence, MutableSequence
 
+import yaml
 from googleapiclient.errors import HttpError
 
-from dresources import DResource, DAction, action
+from dresources import DAction, action
+from gcp import GcpResource
 from gcp_project import GcpProject
 from gcp_services import get_container, wait_for_container_projects_zonal_operation
 
@@ -21,31 +24,53 @@ DEFAULT_OAUTH_SCOPES = [
 ]
 
 
-# TODO: we should automatically create cluster-role-binding for administrators (maybe K8sClusterRoleBinding manually?)
-
-
-class InvalidStatusError(Exception):
-
-    def __init__(self, message, *args: object) -> None:
-        super().__init__(*args)
-        self._message = message
-
-    @property
-    def message(self):
-        return self._message
-
-
-class GkeCluster(DResource):
+class GkeCluster(GcpResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
-        self._project: GcpProject = None
+        self.add_dependency(name='project', type='infolinks/deployster-gcp-project', optional=False, factory=GcpProject)
+        self.add_plug(name='kube', container_path='/root/.kube', optional=False, writable=True)
+        self.config_schema.update({
+            "type": "object",
+            "required": ["zone", "name", "description", "node_pools"],
+            "additionalProperties": False,
+            "properties": {
+                "zone": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "version": {"type": "string"},
+                "node_pools": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {
+                            "name": {"type": "string"},
+                            "min_size": {"type": "integer"},
+                            "max_size": {"type": "integer"},
+                            "service_account": {"type": "string"},
+                            "oauth_scopes": {
+                                "type": "array",
+                                "items": {"type": "string", "uniqueItems": True}
+                            },
+                            "preemptible": {"type": "boolean"},
+                            "machine_type": {"type": "string"},
+                            "disk_size_gb": {"type": "integer"},
+                            "tags": {
+                                "type": "array",
+                                "items": {"type": "string", "uniqueItems": True}
+                            },
+                            "metadata": {"type": "object"},
+                            "labels": {"type": "object"}
+                        }
+                    }
+                }
+            }
+        })
 
     @property
     def project(self) -> GcpProject:
-        if self._project is None:
-            self._project: GcpProject = GcpProject(self.get_resource_dependency('project'))
-        return self._project
+        return self.get_dependency('project')
 
     @property
     def zone(self) -> str:
@@ -65,100 +90,41 @@ class GkeCluster(DResource):
 
     @property
     def node_pools(self) -> Sequence[dict]:
-        return self.resource_config['node_pools'] if 'node_pools' in self.resource_config else []
+        return self.resource_config['node_pools']
 
     def authenticate(self) -> None:
-        # TODO: authenticate using cluster.masterAuth.<clusterCaCertificate|clientCertificate|clientKey>
-        #       see "kubectl options", we can use "--certificate-authority", "--client-certificate", "--client-key"
-        command = f"gcloud container clusters get-credentials {self.name} " \
-                  f"                                --project {self.project.project_id} " \
-                  f"                                --zone {self.zone}"
+        # TODO: build our own kubectl config file using the cluster info (ca, certificate, etc)
+
+        # since this is a GKE cluster resource, we can use 'gcloud' to authenticate
+        # future non-GKE cluster resources will probably use kubectl's --certificate-authority, --client-certificate, &
+        # --client-key instead. See "kubectl options" for more information.
+
+        cluster_name = self.name
+        project_id = self.project.project_id
+        sa_plug = self.get_plug('gcp-service-account')
+
+        # first, make gcloud use our service account
+        command = f"gcloud auth activate-service-account --key-file={sa_plug.container_path}"
         subprocess.run(command, check=True, shell=True)
 
-    @property
-    def resource_required_plugs(self) -> Mapping[str, str]:
-        return {
-            "gcloud": "/root/.config/gcloud",
-            "kube": "/root/.kube"
-        }
+        # now authenticate to the cluster, saving the authentication information into the 'kube' plug (because it is
+        # mounted under "/root/.kube" which is automatically picked up by 'kubectl' in dependant resources)
+        command = f"gcloud container clusters get-credentials {cluster_name} --project {project_id} --zone {self.zone}"
+        subprocess.run(command, check=True, shell=True)
 
-    @property
-    def resource_required_resources(self) -> Mapping[str, str]:
-        return {
-            "project": "infolinks/deployster-gcp-project"
-        }
+        # extract our service account's GCP access token
+        process = subprocess.run(f"gcloud auth print-access-token", check=True, shell=True, stdout=PIPE)
+        access_token: str = process.stdout.decode('utf-8').strip()
 
-    @property
-    def resource_config_schema(self) -> Mapping[str, dict]:
-        return {
-            "type": "object",
-            "required": ["zone", "name", "description"],
-            "additionalProperties": False,
-            "properties": {
-                "zone": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                },
-                "node_pools": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["name"],
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "min_size": {
-                                "type": "integer"
-                            },
-                            "max_size": {
-                                "type": "integer"
-                            },
-                            "service_account": {
-                                "type": "string"
-                            },
-                            "oauth_scopes": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "uniqueItems": True
-                                }
-                            },
-                            "preemptible": {
-                                "type": "boolean"
-                            },
-                            "machine_type": {
-                                "type": "string"
-                            },
-                            "disk_size_gb": {
-                                "type": "integer"
-                            },
-                            "tags": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "uniqueItems": True
-                                }
-                            },
-                            "metadata": {
-                                "type": "object"
-                            },
-                            "labels": {
-                                "type": "object"
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        # read the kubectl configuration file to memory for modification
+        with open(self.get_plug('kube').container_path + '/config', 'r') as stream:
+            config = yaml.load(stream)
+
+        # update the user object to use the gcloud access token instead of GCP helper, then write back to the file
+        with open(self.get_plug('kube').container_path + '/config', 'w') as stream:
+            del config['users'][0]['user']['auth-provider']
+            config['users'][0]['user']['token'] = access_token
+            stream.write(yaml.dump(config))
 
     def discover_actual_properties(self):
         clusters_service = get_container().projects().zones().clusters()
@@ -172,25 +138,26 @@ class GkeCluster(DResource):
             else:
                 raise
 
-    def infer_actions_from_actual_properties(self, actual_properties: dict) -> Sequence[DAction]:
-        self.authenticate()
+    def get_actions_when_missing(self) -> Sequence[DAction]:
+        return [DAction(name=f"create-cluster", description=f"Create cluster '{self.name}'")]
 
+    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
         actual_cluster = actual_properties
 
         # validate cluster is RUNNING
         if actual_cluster['status'] != "RUNNING":
-            raise InvalidStatusError(f"Cluster exists, but not running ('{actual_cluster['status']}')")
+            raise Exception(f"Cluster exists, but not running ('{actual_cluster['status']}')")
 
         # validate cluster primary zone & locations
         actual_cluster_zone: str = actual_cluster['zone']
         actual_cluster_locations: Sequence[str] = actual_cluster['locations']
         if self.zone != actual_cluster_zone:
-            raise InvalidStatusError(
+            raise Exception(
                 f"Cluster primary zone is '{actual_cluster_zone}' instead of '{self.zone}'. "
                 f"Updating this is not allowed in GKE APIs unfortunately.")
         elif [self.zone] != actual_cluster_locations:
-            raise InvalidStatusError(
+            raise Exception(
                 f"Cluster locations are '{actual_cluster_locations}' instead of '{[self.zone]}'. "
                 f"Updating this is not allowed in GKE APIs unfortunately.")
 
@@ -202,7 +169,7 @@ class GkeCluster(DResource):
                 DAction(name='update-cluster-master-version',
                         description=f"Update master version for cluster '{self.name}'"))
         if self.version != actual_cluster_node_version:
-            raise InvalidStatusError(
+            raise Exception(
                 f"Cluster node version is '{actual_cluster_node_version}' instead of '{self.version}'. "
                 f"Updating this is not allowed in GKE APIs unfortunately.")
 
@@ -268,8 +235,8 @@ class GkeCluster(DResource):
 
         # ensure alpha features are DISABLED
         if 'enableKubernetesAlpha' in actual_cluster and actual_cluster["enableKubernetesAlpha"]:
-            raise InvalidStatusError(f"Cluster alpha features are enabled instead of disabled. "
-                                     f"Updating this is not allowed in GKE APIs unfortunately.")
+            raise Exception(f"Cluster alpha features are enabled instead of disabled. "
+                            f"Updating this is not allowed in GKE APIs unfortunately.")
 
         # validate node pools state
         for pool in self.node_pools:
@@ -292,7 +259,7 @@ class GkeCluster(DResource):
 
             # ensure the node pool is RUNNING
             if actual_pool['status'] != "RUNNING":
-                raise InvalidStatusError(f"Node pool '{pool_name}' exists, but not running ('{actual_pool['status']}')")
+                raise Exception(f"Node pool '{pool_name}' exists, but not running ('{actual_pool['status']}')")
 
             # validate node pool version
             if self.version != actual_pool["version"]:
@@ -347,7 +314,7 @@ class GkeCluster(DResource):
             actual_service_account: str = node_config[
                 'serviceAccount'] if 'serviceAccount' in node_config else 'default'
             if desired_service_account != actual_service_account:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' service account is '{actual_service_account}' instead of "
                     f"'{desired_service_account}' (updating service account is not allowed in GKE APIs unfortunately)")
 
@@ -356,7 +323,7 @@ class GkeCluster(DResource):
                 pool['oauth_scopes'] if 'oauth_scopes' in pool else DEFAULT_OAUTH_SCOPES
             actual_oauth_scopes: Sequence[str] = node_config["oauthScopes"] if 'oauthScopes' in node_config else []
             if desired_oauth_scopes != actual_oauth_scopes:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' OAuth scopes are '{actual_oauth_scopes}' instead of "
                     f"'{desired_oauth_scopes}' (updating OAuth scopes is not allowed in GKE APIs unfortunately)")
 
@@ -365,18 +332,18 @@ class GkeCluster(DResource):
             actual_preemptible: bool = node_config['preemptible'] if 'preemptible' in node_config else False
             if desired_preemptible != actual_preemptible:
                 if desired_preemptible:
-                    raise InvalidStatusError(f"Node pool '{pool_name}' uses preemptibles, though it shouldn't be. "
-                                             f"Updating this is not allowed in GKE APIs unfortunately.")
+                    raise Exception(f"Node pool '{pool_name}' uses preemptibles, though it shouldn't be. "
+                                    f"Updating this is not allowed in GKE APIs unfortunately.")
                 else:
-                    raise InvalidStatusError(f"Node pool '{pool_name}' should be using preemptibles, though it isn't. "
-                                             f"Updating this is not allowed in GKE APIs unfortunately.")
+                    raise Exception(f"Node pool '{pool_name}' should be using preemptibles, though it isn't. "
+                                    f"Updating this is not allowed in GKE APIs unfortunately.")
 
             # validate machine type
             desired_machine_type: str = pool[
                 'machine_type'] if 'machine_type' in pool else 'n1-standard-1'
             actual_machine_type: str = node_config["machineType"] if "machineType" in node_config else 'n1-standard-1'
             if desired_machine_type != actual_machine_type:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' uses '{actual_machine_type}' instead of '{desired_machine_type}'. "
                     f"Updating this is not allowed in GKE APIs unfortunately.")
 
@@ -384,7 +351,7 @@ class GkeCluster(DResource):
             desired_disk_size_gb: int = pool['disk_size_gb'] if 'disk_size_gb' in pool else 20
             actual_disk_size_gb: int = node_config["diskSizeGb"] if "diskSizeGb" in node_config else 100
             if desired_disk_size_gb != actual_disk_size_gb:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' allocates {actual_disk_size_gb}GB disk space instead of "
                     f"{desired_disk_size_gb}GB. Updating this is not allowed in GKE APIs unfortunately.")
 
@@ -392,7 +359,7 @@ class GkeCluster(DResource):
             desired_tags: Sequence[str] = pool['tags'] if 'tags' in pool else []
             actual_tags: Sequence[str] = node_config["tags"] if "tags" in node_config else []
             if desired_tags != actual_tags:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' network tags are '{actual_tags}' instead of '{desired_tags}'. "
                     f"Updating this is not allowed in GKE APIs unfortunately.")
 
@@ -400,7 +367,7 @@ class GkeCluster(DResource):
             desired_metadata: Mapping[str, str] = pool['metadata'] if 'metadata' in pool else {}
             actual_metadata: Mapping[str, str] = node_config["metadata"] if "metadata" in node_config else {}
             if desired_metadata != actual_metadata:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' GCE metadata is '{actual_metadata}' instead of '{desired_metadata}'. "
                     f"Updating this is not allowed in GKE APIs unfortunately.")
 
@@ -408,14 +375,15 @@ class GkeCluster(DResource):
             desired_labels: Mapping[str, str] = pool['labels'] if 'labels' in pool else {}
             actual_labels: Mapping[str, str] = node_config["labels"] if "labels" in node_config else {}
             if desired_labels != actual_labels:
-                raise InvalidStatusError(
+                raise Exception(
                     f"Node pool '{pool_name}' Kubernetes labels are '{actual_labels}' instead of '{desired_labels}'. "
                     f"Updating this is not allowed in GKE APIs unfortunately.")
-        return actions
 
-    @property
-    def actions_for_missing_status(self) -> Sequence[DAction]:
-        return [DAction(name=f"create-cluster", description=f"Create cluster '{self.name}'")]
+        if not actions:
+            # if no actions returned, we are VALID - create authentication for dependant resources
+            self.authenticate()
+
+        return actions
 
     def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
         super().define_action_args(action, argparser)
@@ -436,17 +404,24 @@ class GkeCluster(DResource):
             argparser.add_argument('min-size', type=int, metavar='MIN-SIZE', help="minimum size of nodes in the pool")
             argparser.add_argument('max-size', type=int, metavar='MAX-SIZE', help="maximum size of nodes in the pool")
 
-    @property
-    def version_valid(self) -> bool:
-        config = get_container().projects().zones().getServerconfig(projectId=self.project.project_id,
-                                                                    zone=self.zone).execute()
-        return self.version in config['validNodeVersions'] and self.version in config['validMasterVersions']
+    def is_version_master_valid(self, version) -> bool:
+        config = get_container().projects().zones().getServerconfig(
+            projectId=self.project.project_id, zone=self.zone).execute()
+        return version in config['validNodeVersions'] and self.version in config['validMasterVersions']
+
+    def is_version_node_valid(self, version) -> bool:
+        config = get_container().projects().zones().getServerconfig(
+            projectId=self.project.project_id, zone=self.zone).execute()
+        return version in config['validNodeVersions'] and self.version in config['validNodeVersions']
 
     @action
     def create_cluster(self, args):
         if args: pass
-        if not self.version_valid:
-            print(f"version '{self.version}' is not supported as a master or node version in GKE", file=sys.stderr)
+        if not self.is_version_master_valid(self.version):
+            print(f"version '{self.version}' is not supported as a master version in GKE", file=sys.stderr)
+            exit(1)
+        elif not self.is_version_node_valid(self.version):
+            print(f"version '{self.version}' is not supported as a node version in GKE", file=sys.stderr)
             exit(1)
 
         def build_node_pool(pool: dict):
@@ -502,11 +477,12 @@ class GkeCluster(DResource):
                                                     operation=operation,
                                                     timeout=60 * 15)
 
-        self.authenticate()
-
     @action
     def update_cluster_master_version(self, args):
         if args: pass
+        if not self.is_version_master_valid(self.version):
+            print(f"version '{self.version}' is not supported as a master version in GKE", file=sys.stderr)
+            exit(1)
         op = get_container().projects().zones().clusters().master(projectId=self.project.project_id,
                                                                   zone=self.zone,
                                                                   clusterId=self.name,
@@ -594,6 +570,10 @@ class GkeCluster(DResource):
         pool_name: str = args.pool
         pool: dict = next(pool for pool in self.node_pools if pool['name'] == pool_name)
 
+        if not self.is_version_node_valid(self.version):
+            print(f"version '{self.version}' is not supported as a node version in GKE", file=sys.stderr)
+            exit(1)
+
         min_node_count = pool['min_size'] if 'min_size' in pool else 1
         pool_config = {
             "name": pool_name,
@@ -627,6 +607,9 @@ class GkeCluster(DResource):
     @action
     def update_node_pool_version(self, args):
         pool_name: str = args.pool
+        if not self.is_version_node_valid(self.version):
+            print(f"version '{self.version}' is not supported as a node version in GKE", file=sys.stderr)
+            exit(1)
         operation = get_container().projects().zones().clusters().nodePools().update(
             projectId=self.project.project_id, zone=self.zone, clusterId=self.name, nodePoolId=pool_name,
             body={"nodeVersion": self.version}).execute()

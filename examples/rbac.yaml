@@ -1,18 +1,18 @@
 resources:
 
-  namespace:
+  rbac-namespace:
     type: infolinks/deployster-k8s-namespace:0.0.0
     dependencies:
-      cluster: cluster
+      cluster: test-cluster
     config:
       manifest:
         metadata:
           name: rbac
 
-  cluster-role:
+  test-cluster-role:
     type: infolinks/deployster-k8s-rbac-role:0.0.0
     dependencies:
-      cluster: cluster
+      cluster: test-cluster
     config:
       manifest:
         metadata:
@@ -22,10 +22,10 @@ resources:
             resources: ['configmaps','pods','secrets','namespaces']
             verbs: ['get']
 
-  role:
+  test-role:
     type: infolinks/deployster-k8s-rbac-role:0.0.0
     dependencies:
-      namespace: namespace
+      namespace: rbac-namespace
     config:
       manifest:
         metadata:
@@ -35,51 +35,42 @@ resources:
             resources: ['configmaps','pods','secrets','namespaces']
             verbs: ['get']
 
-  service-account:
+  test-service-account:
     type: infolinks/deployster-k8s-rbac-service-account:0.0.0
     dependencies:
-      namespace: namespace
+      namespace: rbac-namespace
     config:
       manifest:
         metadata:
-          name: test
+          name: test-service-account
 
   cluster-role-binding:
     type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
     dependencies:
-      role: cluster-role
+      role: test-cluster-role
+      service-account: test-service-account
     config:
       manifest:
         metadata:
           name: cluster-role-binding
-        subjects:
-          - kind: ServiceAccount
-            name: test
-            namespace: rbac
 
   local-cluster-role-binding:
     type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
     dependencies:
-      role: cluster-role
-      namespace: namespace
+      role: test-cluster-role
+      namespace: rbac-namespace
+      service-account: test-service-account
     config:
       manifest:
         metadata:
           name: local-cluster-role-binding
-        subjects:
-          - kind: ServiceAccount
-            name: test
-            namespace: rbac
 
   local-role-binding:
     type: infolinks/deployster-k8s-rbac-role-binding:0.0.0
     dependencies:
-      role: role
+      role: test-role
+      service-account: test-service-account
     config:
       manifest:
         metadata:
           name: local-role-binding
-        subjects:
-          - kind: ServiceAccount
-            name: test
-            namespace: rbac

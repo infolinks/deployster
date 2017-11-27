@@ -3,7 +3,7 @@ resources:
   websvc-namespace:
     type: infolinks/deployster-k8s-namespace:0.0.0
     dependencies:
-      cluster: cluster
+      cluster: test-cluster
     config:
       manifest:
         metadata:
@@ -54,7 +54,6 @@ resources:
     type: infolinks/deployster-k8s-service:0.0.0
     dependencies:
       namespace: websvc-namespace
-      deployment: websvc-deployment
     config:
       manifest:
         metadata:
@@ -71,19 +70,11 @@ resources:
     type: infolinks/deployster-k8s-ingress:0.0.0
     dependencies:
       namespace: websvc-namespace
-      service: websvc-service
     config:
       manifest:
         metadata:
           name: websvc
-          annotations:
-            kubernetes.io/ingress.class: haproxy
-            kubernetes.io/tls-acme: "true"
         spec:
-          tls:
-            - hosts:
-              - websvc.deployster.online
-              secretName: websvc-tls
           rules:
           - host: websvc.deployster.online
             http:

@@ -3,32 +3,32 @@ resources:
   config-namespace:
     type: infolinks/deployster-k8s-namespace:0.0.0
     dependencies:
-      cluster: cluster
+      cluster: test-cluster
     config:
       manifest:
         metadata:
           name: config
 
-  configmap:
+  test-configmap:
     type: infolinks/deployster-k8s-configmap:0.0.0
     dependencies:
       namespace: config-namespace
     config:
       manifest:
         metadata:
-          name: config1
+          name: test-configmap
         data:
           key1: value1
           key2: value2
 
-  secret:
+  test-secret:
     type: infolinks/deployster-k8s-secret:0.0.0
     dependencies:
       namespace: config-namespace
     config:
       manifest:
         metadata:
-          name: secret1
+          name: test-secret
         data:
           key3: value3
           key4: value4
