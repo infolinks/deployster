@@ -117,7 +117,7 @@ class K8sRbacRole(K8sResource):
         return actions
 
     @action
-    def update_role_rules(self, args):
+    def update_rules(self, args):
         if args: pass
 
         patch = json.dumps([{"op": "replace", "path": "/rules", "value": self.rules}])
