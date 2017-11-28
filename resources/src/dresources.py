@@ -253,7 +253,7 @@ class DResource(ABC):
 
         This is in essence the actual state of the resource, but is only available if previously calculated by this
         resource, and subsequently provided by Deployster."""
-        return self._info.config
+        return self._info.properties
 
     def get_plug(self, name: str) -> DPlug:
         return self._plugs[name]
