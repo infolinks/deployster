@@ -16,7 +16,6 @@ from gcp_project import GcpProject
 from gcp_services import get_container, wait_for_container_projects_zonal_operation
 
 DEFAULT_OAUTH_SCOPES = [
-    # TODO: others default OAuth scopes?
     "https://www.googleapis.com/auth/compute",
     "https://www.googleapis.com/auth/devstorage.read_only",
     "https://www.googleapis.com/auth/logging.write",
