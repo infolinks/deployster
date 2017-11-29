@@ -4,7 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
-from subprocess import PIPE, CompletedProcess
+from subprocess import PIPE
 from typing import Mapping, Sequence, MutableSequence
 
 import yaml
@@ -92,39 +92,53 @@ class GkeCluster(GcpResource):
     def node_pools(self) -> Sequence[dict]:
         return self.resource_config['node_pools']
 
-    def authenticate(self) -> None:
-        # TODO: build our own kubectl config file using the cluster info (ca, certificate, etc)
-
-        # since this is a GKE cluster resource, we can use 'gcloud' to authenticate
-        # future non-GKE cluster resources will probably use kubectl's --certificate-authority, --client-certificate, &
-        # --client-key instead. See "kubectl options" for more information.
-
-        cluster_name = self.name
-        project_id = self.project.project_id
+    def authenticate(self, properties: dict) -> None:
+        # generate a kubectl config file using the cluster properties and the service account's access token
         sa_plug = self.get_plug('gcp-service-account')
 
         # first, make gcloud use our service account
         command = f"gcloud auth activate-service-account --key-file={sa_plug.container_path}"
         subprocess.run(command, check=True, shell=True)
 
-        # now authenticate to the cluster, saving the authentication information into the 'kube' plug (because it is
-        # mounted under "/root/.kube" which is automatically picked up by 'kubectl' in dependant resources)
-        command = f"gcloud container clusters get-credentials {cluster_name} --project {project_id} --zone {self.zone}"
-        subprocess.run(command, check=True, shell=True)
-
         # extract our service account's GCP access token
         process = subprocess.run(f"gcloud auth print-access-token", check=True, shell=True, stdout=PIPE)
         access_token: str = process.stdout.decode('utf-8').strip()
 
-        # read the kubectl configuration file to memory for modification
-        with open(self.get_plug('kube').container_path + '/config', 'r') as stream:
-            config = yaml.load(stream)
-
         # update the user object to use the gcloud access token instead of GCP helper, then write back to the file
+        cluster_full_id = f"gke_{self.project.project_id}_{self.zone}_{self.name}"
         with open(self.get_plug('kube').container_path + '/config', 'w') as stream:
-            del config['users'][0]['user']['auth-provider']
-            config['users'][0]['user']['token'] = access_token
-            stream.write(yaml.dump(config))
+            stream.write(yaml.dump({
+                'apiVersion': 'v1',
+                'kind': 'Config',
+                'preferences': {},
+                'clusters': [
+                    {
+                        'name': cluster_full_id,
+                        'cluster': {
+                            'certificate-authority-data': properties['masterAuth']['clusterCaCertificate'],
+                            'server': f"https://{properties['endpoint']}"
+                        }
+                    }
+                ],
+                'users': [
+                    {
+                        'name': cluster_full_id,
+                        'user': {
+                            'token': access_token
+                        }
+                    }
+                ],
+                'contexts': [
+                    {
+                        'name': cluster_full_id,
+                        'context': {
+                            'cluster': cluster_full_id,
+                            'user': cluster_full_id
+                        }
+                    }
+                ],
+                'current-context': cluster_full_id
+            }))
 
     def discover_actual_properties(self):
         clusters_service = get_container().projects().zones().clusters()
@@ -381,7 +395,7 @@ class GkeCluster(GcpResource):
 
         if not actions:
             # if no actions returned, we are VALID - create authentication for dependant resources
-            self.authenticate()
+            self.authenticate(properties=actual_properties)
 
         return actions
 
