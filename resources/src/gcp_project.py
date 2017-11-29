@@ -7,6 +7,7 @@ from typing import Sequence, MutableSequence
 
 import time
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from dresources import DAction, action
 from gcp import GcpResource
@@ -80,11 +81,17 @@ class GcpProject(GcpResource):
         else:
             project = projects[0]
 
-            actual_billing: dict = get_billing().projects().getBillingInfo(name=f"projects/{self.project_id}").execute()
-            if 'billingAccountName' in actual_billing:
-                project['billing_account_id']: str = actual_billing['billingAccountName'][len('billingAccounts/'):]
-            else:
-                project['billing_account_id']: str = None
+            try:
+                actual_billing: dict = get_billing().projects().getBillingInfo(name=f"projects/{self.project_id}").execute()
+                if 'billingAccountName' in actual_billing:
+                    project['billing_account_id']: str = actual_billing['billingAccountName'][len('billingAccounts/'):]
+                else:
+                    project['billing_account_id']: str = None
+            except HttpError as e:
+                if e.resp.status == 404:
+                    project['billing_account_id']: str = None
+                else:
+                    raise
 
             project['apis']: dict = {'enabled': get_project_enabled_apis(project_id=self.project_id)}
 
