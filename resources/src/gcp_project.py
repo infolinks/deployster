@@ -5,6 +5,7 @@ import json
 import sys
 from typing import Sequence, MutableSequence
 
+import time
 from googleapiclient.discovery import build
 
 from dresources import DAction, action
@@ -171,11 +172,31 @@ class GcpProject(GcpResource):
         op = get_service_management().services().disable(serviceName=args.api, body=body).execute()
         wait_for_service_manager_operation(op)
 
+        # poll until actually enabled
+        timeout = 60
+        interval = 3
+        waited = 0
+        while waited < timeout and args.api in get_project_enabled_apis(project_id=self.project_id):
+            time.sleep(interval)
+            waited += interval
+        if waited >= interval:
+            raise Exception(f"Timed out while waiting for API '{args.api}' to enable.")
+
     @action
     def enable_api(self, args):
         body = {'consumerId': f"project:{self.project_id}"}
         op = get_service_management().services().enable(serviceName=args.api, body=body).execute()
         wait_for_service_manager_operation(op)
+
+        # poll until actually enabled
+        timeout = 60
+        interval = 3
+        waited = 0
+        while waited < timeout and args.api not in get_project_enabled_apis(project_id=self.project_id):
+            time.sleep(interval)
+            waited += interval
+        if waited >= interval:
+            raise Exception(f"Timed out while waiting for API '{args.api}' to enable.")
 
     @action
     def create_project(self, args):
