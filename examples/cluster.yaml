@@ -1,28 +1,9 @@
 plugs:
-  gcp-service-account:
-    path: {{ gcp_service_account_json_file }}
-    read_only: true
-    resource_types:
-      - '^infolinks/.+'
-
   kube:
     path: {{ kube_path }}
     read_only: false
 
 resources:
-
-  test-project:
-    type: infolinks/deployster-gcp-project:{{ deployster_version }}
-    config:
-      project_id: {{ gcp_project }}
-      organization_id: {{ organization_id }}
-      billing_account_id: {{ billing_account_id }}
-      apis:
-        enabled:
-          - cloudapis.googleapis.com
-          - compute.googleapis.com
-          - container.googleapis.com
-          - storage-component.googleapis.com
 
   test-cluster:
     type: infolinks/deployster-gcp-gke-cluster:{{ deployster_version }}
