@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import datetime
 import json
 import os
 import pkgutil
@@ -50,7 +51,7 @@ class Context:
     def data(self) -> dict:
         return self._data
 
-    def display(self)->None:
+    def display(self) -> None:
         log(bold(":paperclip: " + underline("Context:")))
         log('')
         indent()
@@ -206,8 +207,11 @@ class Action:
         if self.args:
             command.extend(self.args)
 
+        # generate timestamp
+        timestamp = datetime.datetime.utcnow().isoformat("T") + "Z"
+
         # save stdin state file
-        with open(work_dir / 'stdin.json', 'w') as f:
+        with open(work_dir / f"stdin-{timestamp}.json", 'w') as f:
             f.write(json.dumps(stdin if stdin else {}, indent=2))
 
         # execute
@@ -217,12 +221,12 @@ class Action:
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # save stdout & stderr state files
-        with open(work_dir / 'stdout.json', 'w') as f:
+        with open(work_dir / f"stdout-{timestamp}.json", 'w') as f:
             try:
                 f.write(json.dumps(json.loads(process.stdout if process.stdout else '{}'), indent=2))
             except:
                 f.write(process.stdout if process.stdout else '{}')
-        with open(work_dir / 'stderr.json', 'w') as f:
+        with open(work_dir / f"stderr-{timestamp}.json", 'w') as f:
             try:
                 f.write(json.dumps(json.loads(process.stderr if process.stderr else '{}'), indent=2))
             except:
@@ -374,6 +378,7 @@ class ResourceState:
         self._status: ResourceStatus = None
         self._actions: Sequence[Action] = None
         self._properties: dict = None
+        self._staleProperties: dict = None
         self._resource_state_provider = resource_state_provider
 
         os.makedirs(str(self._work_dir), exist_ok=True)
@@ -424,6 +429,8 @@ class ResourceState:
         }
         if self.properties is not None:
             data['properties'] = self.properties
+        if self._staleProperties is not None:
+            data['staleProperties'] = self._staleProperties
         return data
 
     def pull(self) -> None:
@@ -592,6 +599,7 @@ class ResourceState:
                             f"{status}. Read-only resources are blocked from being updated, therefor this "
                             f"deployment plan is aborted.")
         else:
+            self._staleProperties: dict = result['staleProperties'] if 'staleProperties' in result else {}
             self._status: ResourceStatus = status
 
             actions: list = []
@@ -621,18 +629,13 @@ class ResourceState:
                 return
 
         for action in self._actions:
-            log(f":wrench: {action.description} ({action.name})")
+            log(f":wrench: {action.description} ({italic(faint(action.name))})")
             log('')
             indent()
             action.execute(
                 work_dir=self._work_dir / action.name,
                 volumes=[f"{p.path}:{cpath}:{'ro' if p.readonly else 'rw'}" for cpath, p in self._plugs.items()],
-                stdin={
-                    'name': self.resource.name,
-                    'type': self.resource.type,
-                    'config': self.resource.config,
-                    'dependencies': {k: resolver(v.name).get_as_dependency() for k, v in self._dependencies.items()}
-                },
+                stdin=self.get_as_dependency(),
                 expect_json=False)
             unindent()
 
