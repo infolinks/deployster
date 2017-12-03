@@ -188,10 +188,16 @@ class Action:
     def args(self) -> Sequence[str]:
         return self._args
 
-    def execute(self, work_dir: Path, volumes: Sequence[str] = None, stdin: dict = None, expect_json=True):
+    def execute(self,
+                workspace_dir: Path,
+                work_dir: Path,
+                volumes: Sequence[str] = None,
+                stdin: dict = None,
+                expect_json=True):
         os.makedirs(str(work_dir), exist_ok=True)
 
         command = ["docker", "run", "-i"]
+        command.extend(["--volume", f"{workspace_dir}:/deployster/workspace"])
 
         # setup volumes
         if volumes:
@@ -222,30 +228,46 @@ class Action:
 
         # save stdout & stderr state files
         with open(work_dir / f"stdout-{timestamp}.json", 'w') as f:
-            try:
-                f.write(json.dumps(json.loads(process.stdout if process.stdout else '{}'), indent=2))
-            except:
-                f.write(process.stdout if process.stdout else '{}')
+            if expect_json:
+                if process.stdout:
+                    try:
+                        f.write(json.dumps(json.loads(process.stdout), indent=2))
+                    except:
+                        f.write(process.stdout)
+                else:
+                    f.write('')
+            else:
+                if process.stdout:
+                    f.write(process.stdout)
+                else:
+                    f.write('')
         with open(work_dir / f"stderr-{timestamp}.json", 'w') as f:
-            try:
-                f.write(json.dumps(json.loads(process.stderr if process.stderr else '{}'), indent=2))
-            except:
-                f.write(process.stderr if process.stderr else '{}')
+            if process.stderr:
+                f.write(process.stderr)
+            else:
+                f.write('')
 
         # validate exit-code, fail if non-zero
         if process.returncode != 0:
             raise UserError(f"action '{self.name}' failed with exit code #{process.returncode}:\n{process.stderr}")
 
-        # if JSON returned, read, parse & return that
-        elif process.stdout and expect_json:
-            try:
-                return json.loads(process.stdout)
-            except JSONDecodeError as e:
-                raise UserError(f"action '{self.name}' provided invalid JSON:\n{process.stdout}") from e
+        # process provided output
+        elif process.stdout:
+            if expect_json:
+                try:
+                    return json.loads(process.stdout)
+                except JSONDecodeError as e:
+                    raise UserError(f"action '{self.name}' provided invalid JSON:\n{process.stdout}") from e
+            else:
+                return process.stdout.decode('utf-8')
 
-        # otherwise, return an empty dictionary
+        # otherwise, if JSON expected, fail (empty response & JSON expected)
+        elif expect_json:
+            raise UserError(f"protocol error: action '{self.name}' expected to provide JSON, but was empty.")
+
+        # otherwise, no response
         else:
-            return {}
+            return None
 
 
 class Manifest:
@@ -253,6 +275,7 @@ class Manifest:
 
     def __init__(self, context: Context, manifest_files: Sequence[Path]) -> None:
         super().__init__()
+        self._context = context
         self._manifest_files: Sequence[Path] = manifest_files
 
         # read manifest
@@ -308,6 +331,10 @@ class Manifest:
                          config=resource['config'] if 'config' in resource else {},
                          dependencies=resource['dependencies'] if 'dependencies' in resource else {})
         self._resources = resources
+
+    @property
+    def context(self) -> Context:
+        return self._context
 
     def display_plugs(self) -> None:
         log(bold(":paperclip: " + underline("Plugs:")))
@@ -449,7 +476,10 @@ class ResourceState:
         # initialize the resource by invoking the 'init' action (ie. the resource's Docker image's default entrypoint)
         init_action = Action(name='init', description=f"Initialize '{self.resource.name}'",
                              image=self.resource.type, entrypoint=None, args=None)
-        result = init_action.execute(work_dir=self._work_dir / init_action.name, stdin=self.get_as_dependency())
+        workspace_dir = Path(self.manifest.context.data['_dir'])
+        result = init_action.execute(workspace_dir=workspace_dir,
+                                     work_dir=self._work_dir / init_action.name,
+                                     stdin=self.get_as_dependency())
 
         # validate manifest against our manifest schema
         try:
@@ -563,7 +593,9 @@ class ResourceState:
             indent()
 
         # execute the resource state action
+        workspace_dir = Path(self.manifest.context.data['_dir'])
         result = self._state_action.execute(
+            workspace_dir=workspace_dir,
             work_dir=self._work_dir / self._state_action.name,
             volumes=[f"{plug.path}:{cpath}:{'ro' if plug.readonly else 'rw'}" for cpath, plug in self._plugs.items()],
             stdin={
@@ -617,8 +649,6 @@ class ResourceState:
             unindent()
 
     def execute(self) -> None:
-        resolver: Callable[[str], ResourceState] = self._resource_state_provider
-
         # if this resource was marked as MISSING because (during planning) one or more of its dependencies was MISSING,
         # it's now time to refresh our status, since by now, our dependencies should have been created.
         if self.status == ResourceStatus.MISSING and len(self.actions) == 0:
@@ -632,7 +662,10 @@ class ResourceState:
             log(f":wrench: {action.description} ({italic(faint(action.name))})")
             log('')
             indent()
+            # TODO: action execution should print stderr/stdout back
+            workspace_dir = Path(self.manifest.context.data['_dir'])
             action.execute(
+                workspace_dir=workspace_dir,
                 work_dir=self._work_dir / action.name,
                 volumes=[f"{p.path}:{cpath}:{'ro' if p.readonly else 'rw'}" for cpath, p in self._plugs.items()],
                 stdin=self.get_as_dependency(),
