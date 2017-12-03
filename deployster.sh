@@ -14,4 +14,5 @@ docker run ${DOCKER_FLAGS} \
            -v $(pwd)/work:/deployster/work \
            -v /var/run/docker.sock:/var/run/docker.sock \
            infolinks/deployster:${DEPLOYSTER_VERSION} \
+           --var _dir=$(pwd) \
            $@

@@ -1,0 +1,24 @@
+FROM ubuntu:17.10
+MAINTAINER Arik Kfir <arik@infolinks.com>
+
+###[ FROM dresource IMAGE: ]############################################################################################
+RUN apt-get update && apt-get install -y apt-utils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl jq tree python3 python3-pip && rm -rf /var/lib/apt/lists/* && \
+    pip3 install PyYAML google-api-python-client ansicolors
+ENV PYTHONPATH "/deployster/lib:$PYTHONPATH"
+WORKDIR /deployster/workspace/
+COPY src/dresources.py /deployster/lib/
+
+###[ FROM gcp IMAGE: ]##################################################################################################
+ENV GOOGLE_APPLICATION_CREDENTIALS=/deployster/service-account.json
+COPY src/gcp.py src/gcp_services.py /deployster/lib/
+
+###[ FROM gcp_cloud_sql IMAGE: ]########################################################################################
+RUN pip3 install PyMySQL && \
+    curl "https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64" -o /usr/local/bin/cloud_sql_proxy && \
+    chmod +x /usr/local/bin/cloud_sql_proxy && \
+    apt-get update && apt-get install -y mysql-client && rm -rf /var/lib/apt/lists/*
+COPY src/gcp_cloud_sql.py src/gcp_project.py /deployster/lib/
+RUN chmod +x /deployster/lib/gcp_cloud_sql.py
+ENTRYPOINT ["/deployster/lib/gcp_cloud_sql.py"]
+CMD ["init"]

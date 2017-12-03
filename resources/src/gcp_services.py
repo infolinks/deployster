@@ -1,11 +1,14 @@
 import json
-import sys
 from time import sleep
 from typing import Sequence
 
 from googleapiclient.discovery import build
 
 services = {}
+
+
+def region_from_zone(zone: str) -> str:
+    return zone[0:zone.rfind('-')]
 
 
 def get_service(service_name, version):
@@ -25,6 +28,10 @@ def get_billing():
 
 def get_resource_manager():
     return get_service('cloudresourcemanager', 'v1')
+
+
+def get_sql():
+    return get_service('sqladmin', 'v1beta4')
 
 
 def get_iam():
@@ -83,7 +90,7 @@ def wait_for_service_manager_operation(result):
                 raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
 
 
-def wait_for_compute_region_operation(project_id, region, operation, timeout=60):
+def wait_for_compute_region_operation(project_id, region, operation, timeout=300):
     operations_service = get_compute().regionOperations()
 
     interval = 5
@@ -103,7 +110,7 @@ def wait_for_compute_region_operation(project_id, region, operation, timeout=60)
             raise Exception(f"Timed out waiting for Google Compute regional operation: {json.dumps(result,indent=2)}")
 
 
-def wait_for_compute_global_operation(project_id, operation, timeout=60):
+def wait_for_compute_global_operation(project_id, operation, timeout=300):
     operations_service = get_compute().globalOperations()
 
     interval = 5
@@ -123,7 +130,7 @@ def wait_for_compute_global_operation(project_id, operation, timeout=60):
             raise Exception(f"Timed out waiting for Google Compute global operation: {json.dumps(result,indent=2)}")
 
 
-def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=60):
+def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=300):
     operations_service = get_compute().zoneOperations()
 
     interval = 5
@@ -143,7 +150,7 @@ def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=60):
             raise Exception(f"Timed out waiting for Google Compute zonal operation: {json.dumps(result,indent=2)}")
 
 
-def wait_for_container_projects_zonal_operation(project_id, zone, operation, timeout=60):
+def wait_for_container_projects_zonal_operation(project_id, zone, operation, timeout=300):
     operations_service = get_container().projects().zones().operations()
 
     interval = 5
@@ -160,4 +167,25 @@ def wait_for_container_projects_zonal_operation(project_id, zone, operation, tim
             else:
                 return result
         if counter >= timeout:
-            raise Exception(f"Timed out waiting for Google Compute zonal operation: {json.dumps(result,indent=2)}")
+            raise Exception(
+                f"Timed out waiting for Google Kubernetes Engine zonal operation: {json.dumps(result,indent=2)}")
+
+
+def wait_for_sql_operation(project_id, operation, timeout=60 * 30):
+    operations_service = get_sql().operations()
+
+    interval = 5
+    counter = 0
+    while True:
+        sleep(interval)
+        counter = counter + interval
+
+        result = operations_service.get(project=project_id, operation=operation['name']).execute()
+
+        if 'status' in result and result['status'] == 'DONE':
+            if 'error' in result:
+                raise Exception("ERROR: %s" % json.dumps(result['error']))
+            else:
+                return result
+        if counter >= timeout:
+            raise Exception(f"Timed out waiting for Google Cloud SQL operation: {json.dumps(result,indent=2)}")

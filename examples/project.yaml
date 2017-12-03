@@ -1,0 +1,20 @@
+plugs:
+  gcp-service-account:
+    path: {{ gcp_service_account_json_file }}
+    read_only: true
+    resource_types:
+      - '^infolinks/.+'
+
+resources:
+
+  test-project:
+    type: infolinks/deployster-gcp-project:{{ deployster_version }}
+    config:
+      project_id: {{ gcp_project }}
+      organization_id: {{ organization_id }}
+      billing_account_id: {{ billing_account_id }}
+      apis:
+        enabled:
+          - cloudapis.googleapis.com
+          - compute.googleapis.com
+          - container.googleapis.com

@@ -1,0 +1,3 @@
+FROM infolinks/deployster-dresource:local
+ENV GOOGLE_APPLICATION_CREDENTIALS=/deployster/service-account.json
+COPY src/gcp.py src/gcp_services.py /deployster/lib/
