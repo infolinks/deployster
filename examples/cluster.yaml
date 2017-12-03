@@ -6,7 +6,7 @@ plugs:
 resources:
 
   test-cluster:
-    type: infolinks/deployster-gcp-gke-cluster:{{ deployster_version }}
+    type: infolinks/deployster-gcp-gke-cluster:{{ _version }}
     dependencies:
       project: test-project
     config:
@@ -21,7 +21,7 @@ resources:
           preemptible: true
 
   cluster-admin-role:
-    type: infolinks/deployster-k8s-rbac-role:{{ deployster_version }}
+    type: infolinks/deployster-k8s-rbac-role:{{ _version }}
     readonly: true
     dependencies:
       cluster: test-cluster
@@ -37,12 +37,12 @@ resources:
             verbs: ['*']
 
   test-administrator-user:
-    type: infolinks/deployster-k8s-rbac-user:{{ deployster_version }}
+    type: infolinks/deployster-k8s-rbac-user:{{ _version }}
     config:
       name: {{ test_admin_user }}
 
   test-administrator-binding:
-    type: infolinks/deployster-k8s-rbac-role-binding:{{ deployster_version }}
+    type: infolinks/deployster-k8s-rbac-role-binding:{{ _version }}
     dependencies:
       role: cluster-admin-role
       user: test-administrator-user

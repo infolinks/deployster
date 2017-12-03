@@ -79,7 +79,7 @@ cd deployster/examples
 Now lets run one of the manifests:
 
 ```bash
-../deployster.sh --var deployster_version=latest ./cluster.yaml
+../deployster.sh ./cluster.yaml
 ```
 
 ## Notes

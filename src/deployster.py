@@ -833,6 +833,7 @@ def main():
     log('')
 
     context: Context = Context()
+    context.add_variable("_version", version)
     for file in os.listdir(os.path.expanduser('~/.deployster')):
         if re.match(r'^vars\.(.*\.)?auto\.yaml$', file):
             context.add_file(os.path.expanduser('~/.deployster/' + file))
