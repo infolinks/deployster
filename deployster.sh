@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # default deployster version to "latest" unless supplied as environment variable already
+[[ "${DEPLOYSTER_VERSION}" == "" ]] && DEPLOYSTER_VERSION="${DVERSION}"
 [[ "${DEPLOYSTER_VERSION}" == "" ]] && DEPLOYSTER_VERSION="latest"
 
 # set Docker flags
