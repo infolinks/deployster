@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-
+import argparse
 import json
+import os
+import subprocess
 import sys
 import time
+from abc import ABC, abstractmethod
 from copy import deepcopy
+from pprint import pprint
 from typing import Mapping, Sequence, MutableSequence
+
+import pymysql
+from googleapiclient.errors import HttpError
+from pymysql.connections import Connection
 
 from dresources import DAction, action
 from gcp import GcpResource
@@ -13,38 +21,436 @@ from gcp_services import get_sql, region_from_zone, wait_for_sql_operation, get_
     get_service_management, wait_for_service_manager_operation
 
 
+class Condition(ABC):
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__()
+        self._condition_factory: ConditionFactory = condition_factory
+        self._data = data
+
+    @property
+    def condition_factory(self):
+        return self._condition_factory
+
+    @property
+    def data(self) -> dict:
+        return self._data
+
+    @abstractmethod
+    def evaluate(self, connection: Connection) -> bool:
+        raise Exception(f"not implemented")
+
+
+class AnyMissingSchemaCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "schemas"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^ANY_SCHEMA_MISSING$"
+                },
+                "schemas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string"}
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT SCHEMA_NAME FROM SCHEMATA")
+            existing_schemas = [row['SCHEMA_NAME'] for row in cursor.fetchall()]
+            required_schemas = self._data['schemas']
+            missing_schemas = [schema for schema in required_schemas if schema not in existing_schemas]
+            return True if missing_schemas else False
+
+
+class AnyMissingTableCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "tables"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^ANY_TABLE_MISSING$"
+                },
+                "tables": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^.+\\..+$"
+                    }
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES")
+            existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in cursor.fetchall()]
+            required_tables = self._data['tables']
+            missing_tables = [table for table in required_tables if table not in existing_tables]
+            return True if missing_tables else False
+
+
+class NoSchemaMissingCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "schemas"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^NO_SCHEMA_MISSING$"
+                },
+                "schemas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string"}
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT SCHEMA_NAME FROM SCHEMATA")
+            existing_schema_names = [row['SCHEMA_NAME'] for row in cursor.fetchall()]
+            required_schemas = self._data['schemas']
+            missing_schema_names = [required_schema
+                                    for required_schema in required_schemas
+                                    if required_schema not in existing_schema_names]
+            return False if missing_schema_names else True
+
+
+class NoTableMissingCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "tables"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^NO_TABLE_MISSING$"
+                },
+                "tables": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^.+\\..+$"
+                    }
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES")
+            existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in cursor.fetchall()]
+            required_tables = self._data['tables']
+            missing_tables = [table for table in required_tables if table not in existing_tables]
+            return False if missing_tables else True
+
+
+class ExpectedRowCountCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "sql", "rows-expected"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^EXPECTED_ROW_COUNT$"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "rows-expected": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        with connection.cursor() as cursor:
+            cursor.execute(self.data['sql'])
+            row_count = len([row for row in cursor.fetchall()])
+            return row_count == self.data['rows-expected']
+
+
+class AllCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "conditions"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^ALL$"
+                },
+                "conditions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/CONDITION"
+                    }
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        for condition_data in self.data['conditions']:
+            condition = self.condition_factory.create_condition(condition_data)
+            if not condition.evaluate(connection):
+                return False
+        return True
+
+
+class AnyCondition(Condition):
+
+    @staticmethod
+    def config_schema() -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["if", "conditions"],
+            "properties": {
+                "if": {
+                    "type": "string",
+                    "pattern": "^ANY$"
+                },
+                "conditions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/CONDITION"
+                    }
+                }
+            }
+        }
+
+    def __init__(self, condition_factory, data: dict) -> None:
+        super().__init__(condition_factory, data)
+
+    def evaluate(self, connection: Connection) -> bool:
+        for condition_data in self.data['conditions']:
+            condition = self.condition_factory.create_condition(condition_data)
+            if condition.evaluate(connection):
+                return True
+        return False
+
+
+CONDITION_TYPES = {
+    'ANY_SCHEMA_MISSING': AnyMissingSchemaCondition,
+    'ANY_TABLE_MISSING': AnyMissingTableCondition,
+    'NO_SCHEMA_MISSING': NoSchemaMissingCondition,
+    'NO_TABLE_MISSING': NoTableMissingCondition,
+    'EXPECTED_ROW_COUNT': ExpectedRowCountCondition,
+    'ALL': AllCondition,
+    'ANY': AnyCondition
+}
+
+
+class ConditionFactory:
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def create_condition(self, data: dict) -> Condition:
+        if 'if' not in data:
+            raise Exception(f"illegal config: missing 'if' property in {json.dumps(data)}")
+        condition_type = data['if']
+        if condition_type in CONDITION_TYPES:
+            return CONDITION_TYPES[condition_type](self, data)
+        else:
+            raise Exception(f"illegal config: unsupported condition '{condition_type}'. Available conditions "
+                            f"are: {CONDITION_TYPES.keys()}")
+
+    def create_conditions(self, conditions_data: Sequence[dict]) -> Sequence[Condition]:
+        return [self.create_condition(cdata) for cdata in conditions_data]
+
+
+class Script:
+
+    def __init__(self, name: str, paths: Sequence[str], conditions: Sequence[Condition]) -> None:
+        super().__init__()
+        self._name = name
+        self._paths: Sequence[str] = paths
+        self._conditions: Sequence[Condition] = conditions
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def paths(self) -> Sequence[str]:
+        return self._paths
+
+    @property
+    def conditions(self) -> Sequence[Condition]:
+        return self._conditions
+
+    def should_execute(self, connection: Connection) -> bool:
+        if len(self._conditions) == 0:
+            return True
+
+        for condition in self._conditions:
+            if condition.evaluate(connection=connection):
+                return True
+        return False
+
+    def execute(self, username: str, password: str) -> None:
+        for path in self._paths:
+            command = \
+                f"/usr/bin/mysql --user={username} --password={password} --host=127.0.0.1 information_schema < {path}"
+            subprocess.run(command, shell=True, check=True)
+
+
+class ScriptEvaluator:
+
+    def __init__(self, sql_resource) -> None:
+        super().__init__()
+        self._project_id: str = sql_resource.project.project_id
+        self._region: str = sql_resource.region
+        self._instance: str = sql_resource.name
+        self._db_username: str = 'root'
+        self._db_password: str = sql_resource.root_password
+        self._proxy_process: subprocess.Popen = None
+        self._connection: Connection = None
+
+        condition_factory: ConditionFactory = ConditionFactory()
+        self._scripts: Sequence[Script] = \
+            [Script(name=data['name'],
+                    paths=data['paths'],
+                    conditions=condition_factory.create_conditions(data['when']))
+             for data in sql_resource.scripts]
+
+    @property
+    def scripts(self) -> Sequence[Script]:
+        return self._scripts
+
+    def get_script(self, name: str) -> Script:
+        return next(script for script in self.scripts if script.name == name)
+
+    def get_scripts_to_execute(self) -> Sequence[Script]:
+        if self._connection is None:
+            raise Exception(
+                f"illegal state: connection not available (did you invoke ScriptEvaluator outside 'with' context?)")
+        else:
+            return [script for script in self._scripts if script.should_execute(self._connection)]
+
+    def execute_scripts(self, scripts: Sequence[Script]) -> None:
+        if self._connection is None:
+            raise Exception(
+                f"illegal state: connection not available (did you invoke ScriptEvaluator outside 'with' context?)")
+        else:
+            for script in scripts:
+                script.execute(username=self._db_username, password=self._db_password)
+
+    def __enter__(self):
+
+        op = get_sql().users().update(project=self._project_id, instance=self._instance, host='%', name='root', body={
+            'password': self._db_password
+        }).execute()
+        wait_for_sql_operation(project_id=self._project_id, operation=op)
+
+        self._proxy_process: subprocess.Popen = \
+            subprocess.Popen([f'/usr/local/bin/cloud_sql_proxy',
+                              f'-instances={self._project_id}:{self._region}:{self._instance}=tcp:3306',
+                              f'-credential_file=/deployster/service-account.json'])
+        try:
+            self._proxy_process.wait(2)
+            raise Exception(f"could not start Cloud SQL Proxy!")
+        except subprocess.TimeoutExpired:
+            pass
+
+        print(f"Connecting to MySQL...", file=sys.stderr)
+        self._connection: Connection = pymysql.connect(host='localhost',
+                                                       port=3306,
+                                                       user=self._db_username,
+                                                       password=self._db_password,
+                                                       db='INFORMATION_SCHEMA',
+                                                       charset='utf8mb4',
+                                                       cursorclass=pymysql.cursors.DictCursor)
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            self._connection.close()
+        finally:
+            self._proxy_process.terminate()
+
+
 class GcpCloudSql(GcpResource):
 
     def __init__(self, data: dict) -> None:
         super().__init__(data)
         self.add_dependency(name='project', type='infolinks/deployster-gcp-project', optional=False, factory=GcpProject)
+
+        # build definitions for condition types
+        condition_definitions = {}
+        for alias, factory in CONDITION_TYPES.items():
+            condition_definitions[alias] = factory.config_schema()
+        condition_definitions['CONDITION'] = {
+            "oneOf": [{"$ref": f"#/definitions/{alias}"} for alias in condition_definitions.keys()]
+        }
+
+        # build full list of all definitions
+        definitions = {}
+        definitions.update(condition_definitions)
+
+        # create the configuration schema
         self.config_schema.update({
             "type": "object",
-            "required": ["zone", "name", "machine-type"],
+            "required": ["zone", "name", "machine-type", "root-password"],
             "additionalProperties": False,
+            "definitions": definitions,
             "properties": {
                 "zone": {"type": "string"},
                 "name": {"type": "string"},
-                "machine-type": {
-                    "type": "string",
-                    "enum": [
-                        "db-f1-micro",
-                        "db-g1-small",
-                        "db-n1-standard-1",
-                        "db-n1-standard-2",
-                        "db-n1-standard-4",
-                        "db-n1-standard-8",
-                        "db-n1-standard-16",
-                        "db-n1-standard-32",
-                        "db-n1-standard-64",
-                        "db-n1-highmem-2",
-                        "db-n1-highmem-4",
-                        "db-n1-highmem-8",
-                        "db-n1-highmem-16",
-                        "db-n1-highmem-32",
-                        "db-n1-highmem-64",
-                    ]
-                },
+                "machine-type": {"type": "string"},
                 "backup": {
                     "type": "object",
                     "additionalProperties": False,
@@ -137,9 +543,36 @@ class GcpCloudSql(GcpResource):
                     "patternProperties": {
                         ".+": {"type": "string"}
                     }
+                },
+                "root-password": {
+                    "type": "string",
+                    "pattern": ".+"
+                },
+                "scripts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["name", "paths", "when"],
+                        "properties": {
+                            "name": {"type": "string"},
+                            "paths": {
+                                "type": "array",
+                                "minItems": 1,
+                                "uniqueItems": True,
+                                "items": {"type": "string"}
+                            },
+                            "when": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {"$ref": "#/definitions/CONDITION"}
+                            }
+                        }
+                    }
                 }
             }
         })
+        pprint(self.config_schema, stream=sys.stderr)
 
     @property
     def project(self) -> GcpProject:
@@ -148,6 +581,10 @@ class GcpCloudSql(GcpResource):
     @property
     def zone(self) -> str:
         return self.resource_config['zone']
+
+    @property
+    def region(self) -> str:
+        return region_from_zone(self.zone)
 
     @property
     def name(self) -> str:
@@ -201,7 +638,7 @@ class GcpCloudSql(GcpResource):
                 elif maintenance['day'] == 'Sunday':
                     maintenance['day'] = 7
                 else:
-                    raise Exception(f"illegal maintenance day encountered: {maintenance['day']}")
+                    raise Exception(f"illegal config: unknown maintenance day encountered: {maintenance['day']}")
             return maintenance
         else:
             # noinspection PyTypeChecker
@@ -215,48 +652,76 @@ class GcpCloudSql(GcpResource):
     def labels(self) -> Mapping[str, str]:
         return self.resource_config["labels"] if "labels" in self.resource_config else None
 
+    @property
+    def scripts(self) -> Sequence[dict]:
+        return self.resource_config['scripts'] if 'scripts' in self.resource_config else None
+
+    @property
+    def root_password(self) -> str:
+        return self.resource_config['root-password'] if 'root-password' in self.resource_config else None
+
     def discover_actual_properties(self):
         sql = get_sql()
-
+        allowed_tiers = \
+            {tier['tier']: tier
+             for tier in sql.tiers().list(project=self.project.project_id).execute()['items']
+             if tier['tier'].startswith('db-')}
         allowed_flags = \
             {flag['name']: flag for flag in sql.flags().list(databaseVersion='MYSQL_5_7').execute()['items']}
         for desired_flag in self.flags:
             desired_name = desired_flag['name']
             if desired_name not in allowed_flags:
-                raise Exception(f"flag '{desired_name}' is not a supported MySQL 5.7 flag.")
+                raise Exception(f"illegal config: flag '{desired_name}' is not a supported MySQL 5.7 flag.")
 
             allowed_flag = allowed_flags[desired_name]
             flag_type = allowed_flag['type']
             if flag_type == 'NONE':
                 if 'value' in desired_flag:
-                    raise Exception(f"flag '{desired_name}' does not accept values.")
+                    raise Exception(f"illegal config: flag '{desired_name}' does not accept values.")
 
             elif flag_type == 'INTEGER':
                 if 'value' not in desired_flag:
-                    raise Exception(f"flag '{desired_name}' requires a value.")
+                    raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
                 try:
                     int_value = int(desired_flag['value'])
                 except ValueError as e:
-                    raise Exception(f"flag '{desired_name}' value must be an integer") from e
+                    raise Exception(f"illegal config: flag '{desired_name}' value must be an integer") from e
 
                 if 'minValue' in allowed_flag and int_value < int(allowed_flag['minValue']):
-                    raise Exception(f"flag '{desired_name}' value must be greater than {allowed_flag['minValue']}")
+                    min_value = allowed_flag['minValue']
+                    raise Exception(f"illegal config: flag '{desired_name}' value must be greater than {min_value}")
                 if 'maxValue' in allowed_flag and int_value > int(allowed_flag['maxValue']):
-                    raise Exception(f"flag '{desired_name}' value must not be greater than {allowed_flag['maxValue']}")
+                    max_value = allowed_flag['maxValue']
+                    raise Exception(f"illegal config: flag '{desired_name}' value must not be greater than {max_value}")
 
             elif flag_type == 'STRING':
                 if 'value' not in desired_flag:
-                    raise Exception(f"flag '{desired_name}' requires a value.")
+                    raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
                 elif 'allowedStringValues' in allowed_flag:
                     allowed_values = allowed_flag['allowedStringValues']
                     if desired_flag['value'] not in allowed_values:
-                        raise Exception(f"flag '{desired_name}' value must be one of: {allowed_values}")
+                        raise Exception(f"illegal config: flag '{desired_name}' value must be one of: {allowed_values}")
 
             elif flag_type == 'BOOLEAN':
                 if 'value' not in desired_flag:
-                    raise Exception(f"flag '{desired_name}' requires a value.")
+                    raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
                 elif desired_flag['value'] not in ['yes', 'no']:
-                    raise Exception(f"flag '{desired_name}' value must be 'on' or 'off'.")
+                    raise Exception(f"illegal config: flag '{desired_name}' value must be 'on' or 'off'.")
+
+        # validate machine-type against allowed tiers (tier=machine-type in Cloud SQL lingo)
+        desired_tier = self.machine_type
+        if desired_tier not in allowed_tiers:
+            raise Exception(f"illegal config: unsupported")
+        tier = allowed_tiers[desired_tier]
+        if self.region not in tier['region']:
+            raise Exception(f"illegal config: machine-type '{desired_tier}' is not supported in "
+                            f"region '{self.region}'")
+
+        # validate all paths in given scripts exist
+        for script in self.scripts:
+            for path in script['paths']:
+                if not os.path.exists(path):
+                    raise Exception(f"illegal config: could not find script '{path}'")
 
         # if the SQL Admin API is not enabled, there can be no SQL instances; we will, however, have to enable
         # that API for the project later on.
@@ -283,7 +748,8 @@ class GcpCloudSql(GcpResource):
 
         actions.append(DAction(name=f"create-sql-instance", description=f"Create SQL instance '{self.name}'"))
 
-        # TODO: support data initializer scripts (ignore script "conditions" here, since database will be fresh)
+        # no need to evaluate scripts, since instance does not yet exist; the create action will do it once it creates
+        # the instance successfully
 
         return actions
 
@@ -294,13 +760,13 @@ class GcpCloudSql(GcpResource):
 
         # validate instance is RUNNING
         if actual['state'] != "RUNNABLE":
-            raise Exception(f"Instance exists, but not running ('{actual['state']}')")
+            raise Exception(f"illegal state: instance exists, but not running ('{actual['state']}')")
 
         # validate instance region
-        desired_region = region_from_zone(self.zone)
-        if actual['region'] != desired_region:
-            raise Exception(f"SQL instance is in region '{actual['region']}' instead of '{desired_region}'. "
-                            f"Unfortunately, changing SQL instances regions is not allowed in Google Cloud SQL.")
+        if actual['region'] != self.region:
+            raise Exception(
+                f"illegal config: SQL instance is in region '{actual['region']}' instead of '{self.region}'. "
+                f"Unfortunately, changing SQL instances regions is not allowed in Google Cloud SQL.")
 
         # validate instance preferred zone
         if actual_settings['locationPreference']['zone'] != self.zone:
@@ -439,9 +905,21 @@ class GcpCloudSql(GcpResource):
                     actions.append(DAction(name='update-labels', description=f"Update SQL instance user-labels"))
                     break
 
-        # TODO: support data initializer scripts (for each script attach "conditions" that decide if they should run)
+        # check for scripts that need to be executed
+        if self.scripts:
+            with ScriptEvaluator(sql_resource=self) as evaluator:
+                for script in evaluator.get_scripts_to_execute():
+                    actions.append(
+                        DAction(name='execute-script',
+                                description=f"Execute '{script.name}' SQL scripts",
+                                args=['execute_scripts', script.name]))
 
         return actions
+
+    def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
+        super().define_action_args(action, argparser)
+        if action == 'execute_scripts':
+            argparser.add_argument('scripts', nargs='+')
 
     @action
     def enable_sqladmin_api(self, args):
@@ -461,7 +939,7 @@ class GcpCloudSql(GcpResource):
                 time.sleep(interval)
                 waited += interval
             if waited >= interval:
-                raise Exception(f"Timed out while waiting for SQL Admin API to enable.")
+                raise Exception(f"illegal state: Timed out while waiting for SQL Admin API to enable.")
 
     @action
     def create_sql_instance(self, args) -> None:
@@ -470,7 +948,7 @@ class GcpCloudSql(GcpResource):
             "name": self.name,
             "settings": {
                 "tier": self.machine_type,  # https://cloud.google.com/sql/pricing#2nd-gen-instance-pricing
-                "dataDiskSizeGb": self.data_disk_size_gb or 10,
+                "dataDiskSizeGb": str(self.data_disk_size_gb or 10),
                 "dataDiskType": self.data_disk_type or "PD_SSD",
                 "databaseFlags": self.flags or [],
                 "ipConfiguration": {
@@ -485,13 +963,7 @@ class GcpCloudSql(GcpResource):
                 "userLabels": self.labels or {}
             },
             "databaseVersion": "MYSQL_5_7",
-            # "failoverReplica": {
-            #     "name": self.name + '-failover',
-            # },
-            "region": region_from_zone(self.zone),
-            # "replicaConfiguration": {
-            #     "failoverTarget": True,
-            # }
+            "region": self.region,
         }
         settings = body['settings']
 
@@ -508,10 +980,35 @@ class GcpCloudSql(GcpResource):
         if self.storage_auto_resize is not None:
             settings['storageAutoResize'] = self.storage_auto_resize['enabled']
             if self.storage_auto_resize['enabled'] and 'limit' in self.storage_auto_resize:
-                settings['storageAutoResizeLimit'] = self.storage_auto_resize['limit']
+                settings['storageAutoResizeLimit'] = str(self.storage_auto_resize['limit'])
 
-        op = get_sql().instances().insert(project=self.project.project_id, body=body).execute()
-        wait_for_sql_operation(self.project.project_id, op)
+        # create instance
+        try:
+            op = get_sql().instances().insert(project=self.project.project_id, body=body).execute()
+            wait_for_sql_operation(self.project.project_id, op)
+        except HttpError as e:
+            status = e.resp.status
+            if status == 409:
+                raise Exception(f"failed creating SQL instance, possibly due to instance name reuse (you can't "
+                                f"reuse an instance name for a week after its deletion)") from e
+
+        # set 'root' password
+        op = get_sql().users().update(project=self.project.project_id, instance=self.name, host='%', body={
+            'name': 'root',
+            'password': self.root_password
+        }).execute()
+        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+
+        # check for scripts that need to be executed
+        if self.scripts:
+            with ScriptEvaluator(sql_resource=self) as evaluator:
+                evaluator.execute_scripts(scripts=evaluator.get_scripts_to_execute())
+
+    @action
+    def execute_scripts(self, args) -> None:
+        with ScriptEvaluator(sql_resource=self) as evaluator:
+            scripts: Sequence[Script] = [evaluator.get_script(script_name) for script_name in args.scripts]
+            evaluator.execute_scripts(scripts=scripts)
 
     @action
     def update_zone(self, args) -> None:

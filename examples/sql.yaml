@@ -6,7 +6,8 @@ resources:
       project: test-project
     config:
       zone: {{ zone }}
-      name: test
+      name: test3
+      root-password: ugahchakablue
       machine-type: db-f1-micro
       backup:
         enabled: False
@@ -31,4 +32,32 @@ resources:
       labels:
         arik: kfir
         jack: knife
+      scripts:
 
+        # DDL script generating the schema.
+        # Will run if ANY SCHEMA is missing:
+        - name: schema
+          paths:
+            - ./sql/schema.sql
+          when:
+            - if: ANY_SCHEMA_MISSING
+              schemas:
+                - testing
+            - if: ANY_TABLE_MISSING
+              tables:
+                - testing.testing
+
+        # DML script for generating initial data.
+        # Will run if NO SCHEMA is missing:
+        - name: initial_data
+          paths:
+            - ./sql/data.sql
+          when:
+            - if: ANY
+              conditions:
+                - if: ANY_SCHEMA_MISSING
+                  schemas:
+                    - testing
+                - if: EXPECTED_ROW_COUNT
+                  rows-expected: 0
+                  sql: SELECT * FROM testing.testing

@@ -1,6 +1,6 @@
 plugs:
   kube:
-    path: {{ kube_path }}
+    path: {{ dir }}/work/kube
     read_only: false
 
 resources:
