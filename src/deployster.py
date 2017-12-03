@@ -38,10 +38,11 @@ class Context:
 
     def add_file(self, path: str) -> None:
         with open(path, 'r') as stream:
-            if path.endswith('.json'):
-                source = json.loads(stream)
-            else:
-                source = yaml.load(stream)
+            environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
+            try:
+                source = yaml.load(environment.from_string(stream.read()).render(self.data))
+            except UndefinedError as e:
+                raise UserError(f"error in '{path}': {e.message}") from e
             util.merge_into(self._data, source)
 
     def add_variable(self, key: str, value: str) -> None:
@@ -285,6 +286,7 @@ class Manifest:
         }
         for manifest_file in manifest_files:
             with open(manifest_file, 'r') as f:
+                # TODO: load JSON manifests too (no reason why not, just use 'json.loads')
                 environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
                 try:
                     manifest = yaml.load(environment.from_string(f.read()).render(context.data))
