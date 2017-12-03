@@ -1,7 +1,7 @@
 resources:
 
   test-sql:
-    type: infolinks/deployster-gcp-cloud-sql:{{ deployster_version }}
+    type: infolinks/deployster-gcp-cloud-sql:{{ _version }}
     dependencies:
       project: test-project
     config:
