@@ -27,14 +27,14 @@ for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
     IMAGE_NAME=$(echo "${dockerfile}" | sed "s/.*\/Dockerfile\.\(.\+\)$/\1/g")
     IMAGE_NAME=${IMAGE_NAME//_/-}
     echo "Building Docker image '${TAG_PREFIX}-${IMAGE_NAME}:${TAG}'..." >&2
-    docker build -q --tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" --file "${dockerfile}.local" "${RESOURCES_HOME}"
+    docker build --tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" --file "${dockerfile}.local" "${RESOURCES_HOME}"
 done
 
 # build deployster image
 echo "Building Docker image '${TAG_PREFIX}:${TAG}'..." >&2
-docker build -q --build-arg "VERSION=${TAG}" \
-                --tag "${TAG_PREFIX}:${TAG}" \
-                --file "${DEPLOYSTER_HOME}/Dockerfile" "${DEPLOYSTER_HOME}"
+docker build --build-arg "VERSION=${TAG}" \
+             --tag "${TAG_PREFIX}:${TAG}" \
+             --file "${DEPLOYSTER_HOME}/Dockerfile" "${DEPLOYSTER_HOME}"
 
 # push images (if asked to)
 if [[ "${PUSH}" == "push" ]]; then
