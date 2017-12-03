@@ -260,7 +260,7 @@ class Action:
                 except JSONDecodeError as e:
                     raise UserError(f"action '{self.name}' provided invalid JSON:\n{process.stdout}") from e
             else:
-                return process.stdout.decode('utf-8')
+                return process.stdout
 
         # otherwise, if JSON expected, fail (empty response & JSON expected)
         elif expect_json:
