@@ -1,0 +1,3 @@
+FROM infolinks/deployster-dresource:local
+RUN gcloud components install kubectl
+COPY src/k8s.py src/gcp_gke_cluster.py /deployster/lib/
