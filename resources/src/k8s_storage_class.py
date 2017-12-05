@@ -86,11 +86,11 @@ class K8sStorageClass(K8sResource):
         actual_provisioner = actual_properties['provisioner'] if 'provisioner' in actual_properties else None
         actual_reclaim_policy = actual_properties['reclaimPolicy'] if 'reclaimPolicy' in actual_properties else None
 
-        if self.allow_volume_expansion != actual_allow_volume_expansion \
-                or self.mount_options != actual_mount_options \
-                or self.parameters != actual_parameters \
-                or self.provisioner != actual_provisioner \
-                or self.reclaim_policy != actual_reclaim_policy:
+        if self.allow_volume_expansion is not None and self.allow_volume_expansion != actual_allow_volume_expansion \
+                or self.mount_options is not None and self.mount_options != actual_mount_options \
+                or self.parameters is not None and self.parameters != actual_parameters \
+                or self.provisioner is not None and self.provisioner != actual_provisioner \
+                or self.reclaim_policy is not None and self.reclaim_policy != actual_reclaim_policy:
             actions.append(DAction(name="update", description=f"Update storage class"))
 
         return actions
