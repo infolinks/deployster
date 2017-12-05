@@ -23,13 +23,7 @@ from jinja2 import UndefinedError
 from jsonschema import ValidationError
 
 import util
-from util import ask, log, warn, err, indent, unindent
-
-
-class UserError(Exception):
-    def __init__(self, message) -> None:
-        super().__init__(message)
-        self.message = message
+from util import ask, log, warn, err, indent, unindent, UserError
 
 
 class Context:

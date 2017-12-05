@@ -7,6 +7,12 @@ import emoji
 from colors import *
 
 
+class UserError(Exception):
+    def __init__(self, message) -> None:
+        super().__init__(message)
+        self.message = message
+
+
 def merge(*args):
     return merge_into({}, args)
 
