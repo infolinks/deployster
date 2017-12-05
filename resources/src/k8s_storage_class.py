@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-
 import json
 import subprocess
 import sys
 from typing import MutableSequence, Sequence
 
-from dresources import DAction, collect_differences, action
+from dresources import DAction, action
 from gcp_gke_cluster import GkeCluster
 from k8s import K8sResource
-from k8s_namespace import K8sNamespace
 
 
 class K8sStorageClass(K8sResource):
@@ -19,11 +17,26 @@ class K8sStorageClass(K8sResource):
                             type='infolinks/deployster-gcp-gke-cluster',
                             optional=False,
                             factory=GkeCluster)
-        self.config_schema['properties']['manifest']['required'].append('spec')
+        self.config_schema['properties']['manifest']['required'].append('provisioner')
         self.config_schema['properties']['manifest']['properties'].update({
-            'spec': {
+            'allowVolumeExpansion': {
+                "type": "boolean"
+            },
+            'mountOptions': {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            'parameters': {
                 "type": "object",
                 "additionalProperties": True
+            },
+            'provisioner': {
+                "type": "string"
+            },
+            'reclaimPolicy': {
+                "type": "string"
             }
         })
 
@@ -44,25 +57,61 @@ class K8sStorageClass(K8sResource):
         return "StorageClass"
 
     @property
-    def spec(self) -> dict:
-        return self.k8s_manifest['spec']
+    def allow_volume_expansion(self) -> bool:
+        return self.k8s_manifest['allowVolumeExpansion'] if 'allowVolumeExpansion' in self.k8s_manifest else None
+
+    @property
+    def mount_options(self) -> Sequence[str]:
+        return self.k8s_manifest['mountOptions'] if 'mountOptions' in self.k8s_manifest else None
+
+    @property
+    def parameters(self) -> dict:
+        return self.k8s_manifest['parameters'] if 'parameters' in self.k8s_manifest else None
+
+    @property
+    def provisioner(self) -> str:
+        return self.k8s_manifest['provisioner'] if 'provisioner' in self.k8s_manifest else None
+
+    @property
+    def reclaim_policy(self) -> str:
+        return self.k8s_manifest['reclaimPolicy'] if 'reclaimPolicy' in self.k8s_manifest else None
 
     def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = super().get_actions_when_existing(actual_properties)
-        diffs = collect_differences(self.spec, actual_properties['spec'])
-        if diffs:
-            actions.append(DAction(name="update-spec", description=f"Update specification"))
+
+        actual_allow_volume_expansion = \
+            actual_properties['allowVolumeExpansion'] if 'allowVolumeExpansion' in actual_properties else None
+        actual_mount_options = actual_properties['mountOptions'] if 'mountOptions' in actual_properties else None
+        actual_parameters = actual_properties['parameters'] if 'parameters' in actual_properties else None
+        actual_provisioner = actual_properties['provisioner'] if 'provisioner' in actual_properties else None
+        actual_reclaim_policy = actual_properties['reclaimPolicy'] if 'reclaimPolicy' in actual_properties else None
+
+        if self.allow_volume_expansion != actual_allow_volume_expansion \
+                or self.mount_options != actual_mount_options \
+                or self.parameters != actual_parameters \
+                or self.provisioner != actual_provisioner \
+                or self.reclaim_policy != actual_reclaim_policy:
+            actions.append(DAction(name="update", description=f"Update storage class"))
+
         return actions
 
     @action
-    def update_spec(self, args):
+    def update(self, args):
         if args: pass
 
-        patch = json.dumps([{"op": "replace", "path": "/spec", "value": self.spec}])
-        subprocess.run(f"{self.kubectl_command('patch')} --type=json --patch='{patch}'",
+        subprocess.run(f"kubectl apply -f -",
+                       input=json.dumps(self.build_creation_manifest()),
+                       encoding='utf-8',
                        check=True,
                        timeout=self.timeout,
                        shell=True)
+
+        if not self.wait_for_availability():
+            print(f"{self.k8s_kind} '{self.name}' was not patched successfully.\n"
+                  f"Use this command to find out more:\n"
+                  f"    {self.kubectl_command('get')}",
+                  file=sys.stderr)
+            exit(1)
 
 
 def main():
