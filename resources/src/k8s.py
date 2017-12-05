@@ -12,6 +12,8 @@ from dresources import DAction, action, DResource
 from gcp_gke_cluster import GkeCluster
 
 
+# TODO: update subclasses to check availability in custom actions!
+
 class K8sResource(DResource):
 
     def __init__(self, data: dict) -> None:
