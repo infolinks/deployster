@@ -46,7 +46,7 @@ class K8sStorageClass(K8sResource):
 
     @property
     def k8s_api_group(self) -> str:
-        return "storage"
+        return "storage.k8s.io"
 
     @property
     def k8s_api_version(self) -> str:
