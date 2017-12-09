@@ -26,11 +26,15 @@ done
 for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
     IMAGE_NAME=$(echo "${dockerfile}" | sed "s/.*\/Dockerfile\.\(.\+\)$/\1/g")
     IMAGE_NAME=${IMAGE_NAME//_/-}
+    echo ""
+    echo ""
     echo "Building Docker image '${TAG_PREFIX}-${IMAGE_NAME}:${TAG}'..." >&2
     docker build --tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" --file "${dockerfile}.local" "${RESOURCES_HOME}"
 done
 
 # build deployster image
+echo ""
+echo ""
 echo "Building Docker image '${TAG_PREFIX}:${TAG}'..." >&2
 docker build --build-arg "VERSION=${TAG}" \
              --tag "${TAG_PREFIX}:${TAG}" \
