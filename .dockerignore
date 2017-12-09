@@ -10,5 +10,6 @@
 /*.md
 /*.sh
 /*-sa*.json
-*.pyc
 /LICENSE
+/src/__pycache__
+/tests/__pycache__
