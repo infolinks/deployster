@@ -1,0 +1,63 @@
+resources:
+
+  test-ip-address:
+    type: infolinks/deployster-gcp-ip-address:{{ _version }}
+    dependencies:
+      project: test-project
+    config:
+      zone: {{ zone }}
+      name: test3
+      root-password: ugahchakablue
+      machine-type: db-f1-micro
+      backup:
+        enabled: False
+        # time: 01:00
+      data-disk-size-gb: 30
+      data-disk-type: PD_HDD
+      flags: []
+      require-ssl: false
+      authorized-networks:
+        - name: arik-coffeehouse
+          value: '31.168.217.84/32'
+          expirationTime: '2018-11-15T16:19:00.094Z'
+        - name: arik-home
+          value: '81.218.196.247/32'
+          expirationTime: '2018-11-14T16:19:00.094Z'
+      maintenance:
+        day: Monday
+        hour: 19
+      storage-auto-resize:
+        enabled: true
+        limit: 100
+      labels:
+        arik: kfir
+        jack: knife
+      scripts:
+
+        # DDL script generating the schema.
+        # Will run if ANY SCHEMA is missing:
+        - name: schema
+          paths:
+            - ./sql/schema.sql
+          when:
+            - if: ANY_SCHEMA_MISSING
+              schemas:
+                - testing
+            - if: ANY_TABLE_MISSING
+              tables:
+                - testing.testing
+
+        # DML script for generating initial data.
+        # Will run if NO SCHEMA is missing:
+        - name: initial_data
+          paths:
+            - ./sql/data.sql
+          when:
+            - if: ANY
+              conditions:
+                - if: ANY_SCHEMA_MISSING
+                  schemas:
+                    - testing
+                - if: EXPECTED_ROW_COUNT
+                  rows-expected: 0
+                  sql: SELECT * FROM testing.testing

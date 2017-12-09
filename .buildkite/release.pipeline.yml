@@ -1,5 +1,14 @@
 steps:
 
+  - label: Test
+    command:
+      - python3.6 -m venv .python3
+      - source .python3/bin/activate
+      - pip install -r ./requirements.txt
+      - py.test --cov-config=./.coveragerc --cov=./src tests/
+
+  - wait
+
   - label: Version & push Docker images
     command:
       - ./.buildkite/release.sh "${VERSION}"

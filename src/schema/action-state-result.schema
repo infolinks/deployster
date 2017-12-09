@@ -1,41 +1,67 @@
 {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [ "status" ],
-    "properties": {
-        "status": {
-            "type": "string",
-            "enum": [ "MISSING", "STALE", "VALID" ]
-        },
-        "actions": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "image": {
-                        "type": "string"
-                    },
-                    "entrypoint": {
-                        "type": "string"
-                    },
-                    "args": {
-                        "type": "array",
-                        "items": { "type": "string" }
+    "oneOf": [
+        {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "status", "actions" ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "pattern": "^STALE$"
+                },
+                "staleState": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "actions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["name"],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "description": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "image": {
+                                "type": "string",
+                                "pattern": "^[^:]+(?::[^:]+)?$"
+                            },
+                            "entrypoint": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "args": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
                     }
                 }
             }
         },
-        "properties": {
-            "type": "object"
-        },
-        "staleProperties": {
-            "type": "object"
+        {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "status", "state" ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "pattern": "^VALID$"
+                },
+                "state": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
         }
-    }
+    ]
 }

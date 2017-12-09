@@ -3,5 +3,5 @@ MAINTAINER Arik Kfir <arik@infolinks.com>
 RUN apk --no-cache --update add jq tree bash python3 py3-pip && \
     pip3 install PyYAML google-api-python-client ansicolors
 ENV PYTHONPATH "/deployster/lib:$PYTHONPATH"
-WORKDIR /deployster/workspace/
+ENV PYTHONUNBUFFERED="1"
 COPY src/dresources.py /deployster/lib/

@@ -1,6 +1,7 @@
 import argparse
 import json
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Mapping, Sequence, Any, Callable, MutableSequence, MutableMapping
 
 
@@ -124,27 +125,34 @@ class DResourceInfo:
     def __init__(self, data: dict) -> None:
         super().__init__()
         self._data = data
-        self._name = data['name']
-        self._type = data['type']
-        self._config: dict = data['config']
-        self._dependencies: dict = data['dependencies'] if 'dependencies' in data else None
-        self._properties = data['properties'] if 'properties' in data else None
 
     @property
     def name(self) -> str:
         """The resource name, as depicted by the user in the deployment manifest."""
-        return self._name
+        return self._data['name']
 
     @property
     def type(self) -> str:
         """The resource type. This is the resource's Docker image."""
-        return self._type
+        return self._data['type']
+
+    @property
+    def deployster_version(self) -> str:
+        return self._data['version']
+
+    @property
+    def verbose(self) -> str:
+        return self._data['verbose']
+
+    @property
+    def workspace(self) -> Path:
+        return Path(self._data['workspace'])
 
     @property
     def config(self) -> Mapping[str, Any]:
         """The resource configuration, which in essence is the *desired* state of the resource, as depicted by the user
         in the deployment manifest."""
-        return self._config
+        return self._data['config']
 
     @property
     def dependencies(self) -> Mapping[str, dict]:
@@ -154,65 +162,13 @@ class DResourceInfo:
         So for each dependency, a dictionary containing the name, type, configuration, dependencies and so on will be
         provided. This is recursive (ie. each dependency can have its own dependencies, etc) and circular dependencies
         have been resolved by Deployster prior to this information being provided."""
-        return self._dependencies
+        return self._data['dependencies']
 
     @property
-    def properties(self) -> dict:
-        """If the resource already calculated its *actual* state, it will be provided on subsequent invocation."""
-        return self._properties
+    def stale_state(self) -> dict:
+        return self._data['staleState']
 
 
-class Dependency:
-
-    def __init__(self, resource_info: DResourceInfo, name: str, type: str, optional: bool, factory: type) -> None:
-        super().__init__()
-        self._resource_info = resource_info
-        self._name = name
-        self._type = type
-        self._optional = optional
-        self._factory = factory
-        self._instance = None
-
-    @property
-    def resource_info(self) -> DResourceInfo:
-        return self._resource_info
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def type(self) -> str:
-        return self._type
-
-    @property
-    def optional(self) -> bool:
-        return self._optional
-
-    @property
-    def factory(self) -> type:
-        return self._factory
-
-    @property
-    def instance(self) -> Any:
-        if self._instance:
-            return self._instance
-        elif self.name in self.resource_info.dependencies:
-            data = self.resource_info.dependencies[self.name]
-            self._instance = self.factory(data)
-            return self._instance
-        elif self.optional:
-            return None
-        else:
-            # this should not happen, since Deployster is supposed to validate this for us
-            raise Exception(f"required dependency '{self.name}' is missing")
-
-    def to_dict(self) -> dict:
-        """Converts the dependency to a dictionary for serialization back to Deployster (usually as JSON)."""
-        return {'type': self.type, 'optional': self.optional}
-
-
-# noinspection PyTypeChecker
 class DResource(ABC):
     """
     Deployster resource base class.
@@ -229,8 +185,7 @@ class DResource(ABC):
     def __init__(self, data: dict) -> None:
         super().__init__()
         self._info = DResourceInfo(data)
-        self._plugs: MutableSequence[str, DPlug] = {}
-        self._dependencies: MutableMapping[str, Dependency] = {}
+        self._plugs: MutableMapping[str, DPlug] = {}
         self._config_schema = {
             "type": "object",
             "additionalProperties": True,
@@ -238,22 +193,8 @@ class DResource(ABC):
         }
 
     @property
-    def resource_name(self) -> str:
-        """Provides the resource's name, as depicted in the deployment manifest."""
-        return self._info.name
-
-    @property
-    def resource_config(self) -> Mapping[str, Any]:
-        """Provides the resource configuration as provided in the deployment manifest."""
-        return self._info.config
-
-    @property
-    def resource_properties(self) -> Mapping[str, Any]:
-        """Provides the resource actual properties.
-
-        This is in essence the actual state of the resource, but is only available if previously calculated by this
-        resource, and subsequently provided by Deployster."""
-        return self._info.properties
+    def info(self) -> DResourceInfo:
+        return self._info
 
     def get_plug(self, name: str) -> DPlug:
         return self._plugs[name]
@@ -262,53 +203,41 @@ class DResource(ABC):
         """Signals that this resource requests or demands this plug."""
         self._plugs[name] = DPlug(container_path=container_path, optional=optional, writable=writable)
 
-    def add_dependency(self, name: str, type: str, optional: bool, factory: type):
-        """Signals that this resource requests or demands the given resource dependency."""
-        self._dependencies[name] = \
-            Dependency(resource_info=self._info, name=name, type=type, optional=optional, factory=factory)
-
     @property
     def config_schema(self) -> dict:
         """Provides the JSON schema to be used to validate resource configuration in the manifest.
 
-        By default, only validates that the configuration is an object."""
+        The default schema only validates that the configuration is an object. You can modify the returned dict."""
         return self._config_schema
 
-    def get_dependency(self, name: str) -> Any:
-        """Provides the requested dependency instance."""
-        if name not in self._dependencies:
-            raise Exception(f"illegal state: dependency '{name}' was requested by a DResource, but was not declared")
-
-        dependency = self._dependencies[name]
-        return dependency.instance
-
     @abstractmethod
-    def discover_actual_properties(self):
+    def discover_state(self):
         """Discovers the resource's actual properties, as they currently deployed.
 
         This method must be implemented by subclasses, and either return a dictionary describing the resource, or, if
         the resource is not found, return None."""
-        raise Exception(f"illegal state: 'discover_actual_properties' not implemented")
+        raise Exception(f"internal error: 'discover_state' not implemented")
 
     @abstractmethod
-    def get_actions_when_missing(self) -> Sequence[DAction]:
+    def get_actions_for_missing_state(self) -> Sequence[DAction]:
         """Provides the list of actions to invoke when the resource is MISSING.
 
         Must be implemented by subclasses. It will be called when the "discover_actual_properties" method returns
         None."""
-        raise Exception(f"illegal state: 'get_actions_when_missing' not implemented")
+        raise Exception(f"internal error: 'get_actions_for_missing_state' not implemented")
 
     @abstractmethod
-    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
+    def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
         """Provides the list of actions to invoke when the resource *was* found.
 
         Must be implemented by subclasses. It will be called when the "discover_actual_properties" method DOES NOT
         return None.
 
         This method can return an empty list, signaling in essence that the resource is VALID."""
-        raise Exception(f"illegal state: 'get_actions_when_existing' not implemented")
+        raise Exception(f"internal error: 'get_actions_for_discovered_state' not implemented")
 
-    def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
+    # noinspection PyUnusedLocal
+    def configure_action_argument_parser(self, action: str, argparser: argparse.ArgumentParser):
         """Called to configure the argument parser for the given action.
 
         SHOULD be implemented by subclasses to support actions that require command line arguments. Those arguments will
@@ -324,14 +253,10 @@ class DResource(ABC):
         if args: pass
 
         plugs: dict = self._plugs
-        dependencies: Sequence[Dependency] = self._dependencies.values()
         print(json.dumps({
             "plugs": {plug_name: plug.to_dict() for plug_name, plug in plugs.items()},
-            "dependencies": {dep.name: dep.to_dict() for dep in dependencies},
             "config_schema": self.config_schema,
             "state_action": {
-                "name": "state",
-                "description": f"Calculates state for resource '{self.resource_name}'",
                 "args": ["state"]
             }
         }))
@@ -339,32 +264,34 @@ class DResource(ABC):
     @action
     def state(self, args) -> None:
         if args: pass
-        actual_properties: dict = self.discover_actual_properties()
-        if actual_properties is not None:
-            actions: Sequence[DAction] = self.get_actions_when_existing(actual_properties=actual_properties)
+        state: dict = self.discover_state()
+        if state is not None:
+            actions: Sequence[DAction] = self.get_actions_for_discovered_state(state=state)
             if actions:
                 print(json.dumps({
                     'status': 'STALE',
-                    'actions': [action.to_dict() for action in actions],
-                    'staleProperties': actual_properties
+                    'staleState': state,
+                    'actions': [action.to_dict() for action in actions]
                 }, indent=2))
             else:
                 print(json.dumps({
                     'status': 'VALID',
-                    'properties': actual_properties
+                    'state': state
                 }, indent=2))
         else:
             print(json.dumps({
-                'status': 'MISSING',
-                'actions': [action.to_dict() for action in self.get_actions_when_missing()]
+                'status': 'STALE',
+                'actions': [action.to_dict() for action in self.get_actions_for_missing_state()]
             }, indent=2))
 
-    def execute_action(self, action_name: str, action_method: Callable[..., Any], args: argparse.Namespace):
+    def execute_action(self, action_name: str,
+                       action_method: Callable[['DResource', argparse.Namespace], None],
+                       args: argparse.Namespace):
         if action_name: pass
         action_method(self, args)
 
     def execute(self) -> None:
-        argparser: argparse.ArgumentParser = argparse.ArgumentParser(description=f"Resource {self.resource_name}")
+        argparser: argparse.ArgumentParser = argparse.ArgumentParser(description=f"Resource {self.info.name}")
         subparsers = argparser.add_subparsers()
 
         inspection_target = type(self)
@@ -374,13 +301,14 @@ class DResource(ABC):
                 method: function = attr
                 if hasattr(method, 'action'):
                     parser = subparsers.add_parser(method.__name__)
-                    self.define_action_args(method.__name__, parser)
+                    self.configure_action_argument_parser(method.__name__, parser)
                     parser.set_defaults(action_name=method.__name__, action_method=method)
 
         args = argparser.parse_args()
         self.execute_action(args.action_name, args.action_method, args)
 
 
+# TODO: move collect_differences somewhere
 def collect_differences(desired: Any, actual: Any,
                         path: MutableSequence[str] = None, diffs: MutableSequence[str] = None):
     diffs = [] if diffs is None else diffs

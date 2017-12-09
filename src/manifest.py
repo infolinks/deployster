@@ -2,31 +2,103 @@ import json
 import os
 import pkgutil
 import re
+from copy import deepcopy
+from enum import auto, Enum, unique
 from pathlib import Path
 from typing import Mapping, Sequence, Pattern, MutableMapping
 
-import jinja2
 import jsonschema
 import yaml
-from jinja2 import UndefinedError
 from jsonschema import ValidationError
 
-from context import Context
-from util import log, UserError, bold, underline, indent, unindent
+import util
+from context import Context, ConfirmationMode
+from docker import DockerInvoker
+from util import UserError, bold, underline, Logger, faint, italic, post_process, ask
+
+
+class Action:
+
+    def __init__(self,
+                 work_dir: Path,
+                 name: str,
+                 description: str,
+                 image: str,
+                 entrypoint: str = None,
+                 args: Sequence[str] = None) -> None:
+        super().__init__()
+        self._work_dir = work_dir
+        self._name: str = name
+        self._description: str = description
+        self._image: str = image
+        self._entrypoint: str = entrypoint
+        self._args: Sequence[str] = args if args else []
+
+    @property
+    def work_dir(self) -> Path:
+        return self._work_dir
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    @property
+    def image(self) -> str:
+        return self._image
+
+    @property
+    def entrypoint(self) -> str:
+        return self._entrypoint
+
+    @property
+    def args(self) -> Sequence[str]:
+        return self._args
+
+
+@unique
+class ResourceStatus(Enum):
+    INITIALIZED = auto()
+    RESOLVING = auto()
+    STALE = auto()
+    VALID = auto()
 
 
 class Resource:
-    def __init__(self, name: str,
+    init_action_stdout_schema = json.loads(pkgutil.get_data('schema', 'action-init-result.schema'))
+    state_action_stdout_schema = json.loads(pkgutil.get_data('schema', 'action-state-result.schema'))
+
+    def __init__(self,
+                 manifest: 'Manifest',
+                 name: str,
                  type: str,
                  readonly: bool,
                  config: dict = None,
-                 dependencies: Mapping[str, str] = None) -> None:
+                 dependencies: Mapping[str, 'Resource'] = None) -> None:
         super().__init__()
+        self._manifest: 'Manifest' = manifest
+        self._status: ResourceStatus = None
         self._name: str = name
         self._type: str = type
         self._readonly: bool = readonly
+        self._config_schema: dict = None
         self._config: dict = config if config else {}
-        self._dependencies: Mapping[str, str] = dependencies if dependencies else {}
+        self._resolved_config: dict = None
+        self._dependencies: Mapping[str, 'Resource'] = dependencies if dependencies else {}
+        self._docker_volumes: Sequence[str] = [
+            f"{manifest.context.conf_dir}:{manifest.context.conf_dir}:ro",
+            f"{manifest.context.workspace_dir}:{manifest.context.workspace_dir}:ro",
+            f"{manifest.context.work_dir}:{manifest.context.work_dir}:rw",
+        ]
+        self._plug_volumes: Sequence[str] = None
+        self._docker_invoker: DockerInvoker = DockerInvoker(volumes=self._docker_volumes)
+        self._plugs: MutableMapping[str, Plug] = {}
+        self._state_action: Action = None
+        self._state: dict = None
+        self._apply_actions: Sequence[Action] = None
 
     @property
     def name(self) -> str:
@@ -45,8 +117,232 @@ class Resource:
         return self._config
 
     @property
-    def dependencies(self) -> Mapping[str, str]:
+    def dependencies(self) -> Mapping[str, 'Resource']:
         return self._dependencies
+
+    @property
+    def status(self) -> ResourceStatus:
+        return self._status
+
+    @property
+    def state(self) -> dict:
+        return self._state
+
+    def initialize(self) -> None:
+        with Logger(f":point_right: Initializing '{bold(self.name)}' ({italic(faint(self.type))})",
+                    spacious=False) as logger:
+
+            # execute resource Docker image with the default entrypoint
+            result = self._docker_invoker.run_json(
+                logger=logger,
+                local_work_dir=self._manifest.context.work_dir / self.name / "init",
+                container_work_dir=str(self._manifest.context.workspace_dir),
+                image=self.type,
+                input={
+                    'name': self.name,
+                    'type': self.type,
+                    'version': self._manifest.context.version,
+                    'verbose': self._manifest.context.verbose,
+                    'workspace': str(self._manifest.context.workspace_dir)
+                })
+
+            # validate manifest against our manifest schema
+            try:
+                jsonschema.validate(result, Resource.init_action_stdout_schema)
+            except ValidationError as e:
+                raise UserError(f"protocol error: resource initialization result failed validation: {e.message}") from e
+
+            # store config schema
+            self._config_schema = result['config_schema'] if 'config_schema' in result else {
+                'type': 'object',
+                'additionalProperties': True
+            }
+
+            # parse, validate & collect requested plugs
+            plugs: MutableMapping[str, Plug] = {}
+            for plug_name, plug_spec in (result['plugs'] if 'plugs' in result else {}).items():
+                optional = plug_spec['optional'] if 'optional' in plug_spec else False
+                require_writable = plug_spec['writable'] if 'writable' in plug_spec else True
+
+                if plug_name not in self._manifest.plugs:
+                    if optional:
+                        logger.warn(f"Optional plug '{plug_name}' does not exist (skipped)")
+                        continue
+                    else:
+                        raise UserError(f"illegal config: required plug '{plug_name}' does not exist")
+
+                plug = self._manifest.plug(plug_name)
+                if not plug.allowed_for(self):
+                    if optional:
+                        logger.warn(f"Optional plug '{plug_name}' is not allowed for this resource (skipped)")
+                        continue
+                    else:
+                        raise UserError(f"illegal config: required plug '{plug_name}' is not allowed for this resource")
+                elif require_writable and plug.readonly:
+                    if optional:
+                        logger.warn(
+                            f"Optional plug '{plug_name}' is readonly, but requested with write access (denied)")
+                        continue
+                    else:
+                        raise UserError(
+                            f"illegal config: required plug '{plug_name}' is readonly, but requested with write access")
+                else:
+                    plugs[plug_spec['container_path']] = plug
+            self._plugs: MutableMapping[str, Plug] = plugs
+
+            # save actions
+            state_action = result['state_action']
+            self._state_action: Action = \
+                Action(work_dir=self._manifest.context.work_dir / self.name / "state",
+                       name="state",
+                       description=f"Discover state of resource '{self.name}'",
+                       image=state_action['image'] if 'image' in state_action else self.type,
+                       entrypoint=state_action['entrypoint'] if 'entrypoint' in state_action else None,
+                       args=state_action['args'] if 'args' in state_action else None)
+
+            # mark resource as initialized
+            self._status: ResourceStatus = ResourceStatus.INITIALIZED
+
+        self._plug_volumes: Sequence[str] = \
+            [f"{p.path}:{cpath}:{'ro' if p.readonly else 'rw'}" for cpath, p in self._plugs.items()]
+        volumes: list = []
+        volumes.extend(self._docker_volumes)
+        volumes.extend(self._plug_volumes)
+        self._docker_invoker: DockerInvoker = DockerInvoker(volumes=volumes)
+
+    def _resolve_state(self, logger: Logger) -> dict:
+
+        # invoke the "state" action
+        state_result = self._docker_invoker.run_json(
+            logger=logger,
+            local_work_dir=self._manifest.context.work_dir / self.name / self._state_action.name,
+            container_work_dir=str(self._manifest.context.workspace_dir),
+            image=self._state_action.image,
+            entrypoint=self._state_action.entrypoint,
+            args=self._state_action.args,
+            input={
+                'name': self.name,
+                'type': self.type,
+                'version': self._manifest.context.version,
+                'verbose': self._manifest.context.verbose,
+                'workspace': str(self._manifest.context.workspace_dir),
+                'config': self._resolved_config,
+                'dependencies': {
+                    alias: {
+                        'name': dep.name,
+                        'type': dep.type,
+                        'state': dep.state,
+                    } for alias, dep in self._dependencies.items()
+                }
+            }
+        )
+
+        # validate result against our the state schema
+        try:
+            jsonschema.validate(state_result, Resource.state_action_stdout_schema)
+        except ValidationError as e:
+            raise UserError(f"protocol error: state action result failed validation: {e.message}") from e
+
+        return state_result
+
+    def execute(self) -> None:
+
+        # attempt to resolve all dependencies (resolving an already-resolved dependency has no side-effects)
+        for dependency in self._dependencies.values():
+            dependency.execute()
+
+        with Logger(f":point_right: Inspecting {bold(self.name)} ({faint(self.type)})...") as logger:
+            if self._manifest.context.confirm == ConfirmationMode.RESOURCE:
+                if util.ask(logger=logger, message=bold('Execute this resource?'), chars='yn', default='n') == 'n':
+                    raise UserError(f"user aborted")
+
+            # fail if not initialized, or already resolving (circular dependency), and do nothing if already resolved
+            if self._status is None:
+                raise Exception(f"internal error: cannot resolve un-initialized resource ('{self.name}')")
+            elif self._status == ResourceStatus.RESOLVING:
+                raise UserError(f"illegal config: circular resource dependency encountered!")
+            elif self._status == ResourceStatus.VALID:
+                return
+
+            # post-process configuration
+            config_context: dict = deepcopy(self._manifest.context.data)
+            config_context.update({
+                alias: {
+                    'name': dep.name,
+                    'type': dep.type,
+                    'state': dep.state,
+                } for alias, dep in self._dependencies.items()
+            })
+            self._resolved_config = post_process(value=self._config, context=config_context)
+
+            # validate the config, now that it's been resolved
+            try:
+                jsonschema.validate(self._resolved_config, self._config_schema)
+            except ValidationError as e:
+                raise UserError(f"illegal config: {e.message}") from e
+
+            # invoke the "state" action
+            state_result = self._resolve_state(logger=logger)
+
+            # save resource status
+            self._status: ResourceStatus = ResourceStatus[state_result['status']]
+            if self._status == ResourceStatus.VALID:
+                self._state = state_result['state']
+            elif self._status == ResourceStatus.STALE:
+
+                # parse "apply" actions from the "state" action's response
+                self._apply_actions = \
+                    [Action(work_dir=self._manifest.context.work_dir / self.name / action['name'],
+                            name=action['name'],
+                            description=action['description'] if 'description' in action else action['name'],
+                            image=action['image'] if 'image' in action else self.type,
+                            entrypoint=action['entrypoint'] if 'entrypoint' in action else None,
+                            args=action['args'] if 'args' in action else None) for action in state_result['actions']]
+
+                # execute the "apply" actions
+                for action in self._apply_actions:
+                    with Logger(header=f":wrench: {action.description} ({action.name})") as action_logger:
+
+                        # confirm if necessary
+                        if self._manifest.context.confirm == ConfirmationMode.ACTION:
+                            if ask(logger=action_logger, message=bold('Execute?'), chars='yn', default='n') == 'n':
+                                raise UserError(f"user aborted")
+
+                        # execute
+                        self._docker_invoker.run(
+                            logger=action_logger,
+                            local_work_dir=self._manifest.context.work_dir / self.name / action.name,
+                            container_work_dir=str(self._manifest.context.workspace_dir),
+                            image=action.image,
+                            entrypoint=action.entrypoint,
+                            args=action.args,
+                            input={
+                                'name': self.name,
+                                'type': self.type,
+                                'version': self._manifest.context.version,
+                                'verbose': self._manifest.context.verbose,
+                                'workspace': str(self._manifest.context.workspace_dir),
+                                'config': self._resolved_config,
+                                'staleState': state_result["staleState"],
+                                'dependencies': {
+                                    alias: {
+                                        'name': dep.name,
+                                        'type': dep.type,
+                                        'state': dep.state,
+                                    } for alias, dep in self._dependencies.items()
+                                }
+                            }
+                        )
+
+                # verify that the resource is now VALID
+                updated_state_result: dict = self._resolve_state(logger=logger)
+                if ResourceStatus[updated_state_result['status']] != ResourceStatus.VALID:
+                    raise UserError(f"protocol error: expecting state to be VALID after applying resource actions")
+                else:
+                    self._status = ResourceStatus.VALID
+                    self._state = state_result['state']
+            else:
+                raise Exception(f"internal error: unrecognized resource status '{self._status}'")
 
 
 class Plug:
@@ -103,25 +399,25 @@ class Manifest:
         self._context = context
         self._manifest_files: Sequence[Path] = manifest_files
 
-        # read manifest
         composite_manifest: dict = {
             'plugs': {},
             'resources': {}
         }
+
+        # read manifest files
         for manifest_file in manifest_files:
             with open(manifest_file, 'r') as f:
-                # TODO: load JSON manifests too (no reason why not, just use 'json.loads')
-                environment = jinja2.Environment(undefined=jinja2.StrictUndefined)
+                # read the manifest
                 try:
-                    manifest = yaml.load(environment.from_string(f.read()).render(context.data))
-                except UndefinedError as e:
-                    raise UserError(f"error in '{manifest_file}': {e.message}") from e
+                    manifest = yaml.load(f.read())
+                except yaml.YAMLError as e:
+                    raise UserError(f"Manifest '{manifest_file}' is malformed: {e}") from e
 
-            # validate manifest against our manifest schema
-            try:
-                jsonschema.validate(manifest, Manifest.schema)
-            except ValidationError as e:
-                raise UserError(f"Manifest '{manifest_file}' failed validation: {e.message}") from e
+                # validate the manifest
+                try:
+                    jsonschema.validate(manifest, Manifest.schema)
+                except ValidationError as e:
+                    raise UserError(f"Manifest '{manifest_file}' failed validation: {e.message}") from e
 
             # merge into the composite manifest
             if 'plugs' in manifest:
@@ -140,6 +436,7 @@ class Manifest:
         # parse plugs
         plugs: MutableMapping[str, Plug] = {}
         for plug_name, plug in composite_manifest['plugs'].items():
+            plug = post_process(value=plug, context=self.context.data)
             plugs[plug_name] = Plug(name=plug_name,
                                     path=plug['path'],
                                     readonly=plug['read_only'] if 'read_only' in plug else False,
@@ -149,13 +446,33 @@ class Manifest:
 
         # parse resources
         resources: MutableMapping[str, Resource] = {}
+
+        def get_resource(name, data) -> Resource:
+            if name in resources:
+                return resources[name]
+
+            dependencies: MutableMapping[str, Resource] = {}
+            if 'dependencies' in data:
+                for alias, dep_resource_name in data['dependencies']:
+                    alias = post_process(alias, self.context.data)
+                    dep_resource_name = post_process(dep_resource_name, self.context.data)
+                    if dep_resource_name not in composite_manifest['resources']:
+                        raise UserError(f"resource '{name}' depends on an unknown resource: {dep_resource_name}")
+                    else:
+                        dep_resource_data = composite_manifest['resources'][dep_resource_name]
+                        dependencies[alias] = get_resource(dep_resource_name, dep_resource_data)
+            resources[name] = \
+                Resource(manifest=self,
+                         name=post_process(name, self.context.data),
+                         type=post_process(data['type'], self.context.data),
+                         readonly=post_process(data['readonly'], self.context.data) if 'readonly' in data else False,
+                         config=data['config'] if 'config' in data else {},
+                         dependencies=dependencies)
+            return resources[name]
+
         for resource_name, resource in composite_manifest['resources'].items():
-            resources[resource_name] = \
-                Resource(name=resource_name,
-                         type=resource['type'],
-                         readonly=resource['readonly'] if 'readonly' in resource else False,
-                         config=resource['config'] if 'config' in resource else {},
-                         dependencies=resource['dependencies'] if 'dependencies' in resource else {})
+            get_resource(resource_name, resource)
+
         self._resources = resources
 
     @property
@@ -163,30 +480,19 @@ class Manifest:
         return self._context
 
     def display_plugs(self) -> None:
-        log(bold(":paperclip: " + underline("Plugs:")))
-        log('')
-        indent()
-        for name, value in self.plugs.items():
-            log(f":point_right: {name}: {bold(value.path)}")
-            if value.resource_name_patterns:
-                indent()
-                log(f"Resource name patterns:")
-                indent()
-                for pattern in value.resource_name_patterns:
-                    log(pattern)
-                unindent()
-                unindent()
-            if value.resource_type_patterns:
-                indent()
-                log(f"Resource type patterns:")
-                indent()
-                for pattern in value.resource_type_patterns:
-                    log(pattern)
-                unindent()
-                unindent()
-
-        unindent()
-        log('')
+        with Logger(header=f":electric_plug: {underline('Plugs:')}"):
+            for name, value in self.plugs.items():
+                with Logger(header=f":point_right: {name}: {bold(value.path)}", spacious=False):
+                    if value.resource_name_patterns:
+                        with Logger(header=f":heavy_exclamation_mark: Resource name patterns:", spacious=False) \
+                                as names_logger:
+                            for pattern in value.resource_name_patterns:
+                                names_logger.info('- ' + pattern)
+                    if value.resource_type_patterns:
+                        with Logger(header=f":heavy_exclamation_mark: Resource type patterns:", spacious=False) \
+                                as types_logger:
+                            for pattern in value.resource_type_patterns:
+                                types_logger.info('- ' + pattern)
 
     @property
     def manifest_files(self) -> Sequence[Path]:

@@ -1,4 +1,7 @@
 /.buildkite
+/.git
+/.python3
+/docs
 /examples
 /resources
 /.dockerignore

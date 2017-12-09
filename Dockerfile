@@ -7,10 +7,10 @@ RUN apk --no-cache --update add bash docker jq python3 py3-pip && \
         PyYAML \
         emoji \
         ansicolors
-ENV PYTHONPATH="/deployster/lib:$PYTHONPATH"
+ARG VERSION="0.0.0"
+RUN mkdir -pv /deployster && echo "${VERSION}" > /deployster/VERSION
+ENV PYTHONPATH="/deployster/lib"
+ENV PYTHONUNBUFFERED="1"
 COPY src /deployster/lib
 RUN chmod a+x /deployster/lib/deployster.py
-ARG VERSION="0.0.0"
-RUN echo "${VERSION}" > /deployster/VERSION
-WORKDIR /deployster/workspace/
 ENTRYPOINT ["/deployster/lib/deployster.py"]
