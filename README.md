@@ -1,6 +1,7 @@
 # deployster
 
 [![Build status](https://badge.buildkite.com/55e25a8e5c77c2393c8a73d78a343d623ab77bca48875ded10.svg)](https://buildkite.com/infolinks/deployster)
+[![Coverage Status](https://coveralls.io/repos/github/infolinks/deployster/badge.svg)](https://coveralls.io/github/infolinks/deployster)
 
 Deployster is an extensible resource-centric deployment tool. It allows
 developers to declare their _desired_ state of the deployment plane &
