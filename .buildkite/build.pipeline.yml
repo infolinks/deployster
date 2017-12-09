@@ -6,7 +6,7 @@ steps:
       - echo "ARG BUILDKITE" >> ./Dockerfile.test.centos
       - echo "ARG BUILDKITE_JOB_ID" >> ./Dockerfile.test.centos
       - echo "ARG BUILDKITE_BRANCH" >> ./Dockerfile.test.centos
-      - echo "RUN coveralls" >> ./Dockerfile.test
+      - echo "RUN coveralls" >> ./Dockerfile.test.centos
       - docker build --build-arg COVERALLS_REPO_TOKEN="${COVERALLS_REPO_TOKEN}"
                      --build-arg BUILDKITE="${BUILDKITE}"
                      --build-arg BUILDKITE_JOB_ID="${BUILDKITE_JOB_ID}"
