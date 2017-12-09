@@ -2,11 +2,8 @@ steps:
 
   - label: Test
     command:
-      - python3.6 -m venv .python3
-      - source .python3/bin/activate
-      - pip install -r ./requirements.txt
-      - py.test --cov-config=./.coveragerc --cov-report=term-missing --cov-branch --cov=./src/ tests/
-      - COVERALLS_REPO_TOKEN=${COVERALLS_REPO_TOKEN} ./.python3/bin/coveralls
+      - echo "RUN coveralls" >> ./Dockerfile.test
+      - docker build -e BUILDKITE -e BUILDKITE_JOB_ID -e BUILDKITE_BRANCH --file "${DEPLOYSTER_HOME}/Dockerfile.test" .
 
   - wait
 
