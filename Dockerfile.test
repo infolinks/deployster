@@ -9,8 +9,6 @@ COPY requirements.txt .coveragerc /app/
 RUN pip3 --quiet --disable-pip-version-check --no-cache-dir install -r requirements.txt
 
 ENV PYTHONPATH=/app/src
-ARG COVERALLS_REPO_TOKEN
-
 COPY .coveragerc /app/
 COPY src /app/src/
 COPY tests /app/tests/
