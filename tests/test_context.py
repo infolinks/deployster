@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 import pytest
+from _pytest.capture import CaptureResult
 
 from context import Context, ConfirmationMode
 from util import UserError
@@ -124,5 +125,5 @@ def test_display(capsys, name: str, value: str):
     context.add_variable(name, value)
     context.display()
 
-    captured = capsys.readouterr()
+    captured: CaptureResult = capsys.readouterr()
     assert [line for line in captured.out.split("\n") if re.match(r'.*' + name + r'.*' + value, line)]
