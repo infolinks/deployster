@@ -10,4 +10,6 @@ ENV PYTHONPATH=/app/src
 COPY .coveragerc /app/
 COPY src /app/src/
 COPY tests /app/tests/
-RUN py.test --cov-config=./.coveragerc --cov-report=term-missing --cov-branch --cov=./src/ tests/
+
+ENTRYPOINT ["py.test"]
+CMD ["--cov-config=./.coveragerc", "--cov-report=term-missing", "--cov-branch", "--cov=./src/", "tests/"]
