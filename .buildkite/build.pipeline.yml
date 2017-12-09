@@ -2,12 +2,11 @@ steps:
 
   - label: Test
     command:
-      - echo "repo_token: ${COVERALLS_REPO_TOKEN}" > .coveralls.yml
       - python3.6 -m venv .python3
       - source .python3/bin/activate
       - pip install -r ./requirements.txt
       - py.test --cov-config=./.coveragerc --cov-report=term-missing --cov-branch --cov=./src/ tests/
-      - ./.python3/bin/coveralls
+      - COVERALLS_REPO_TOKEN=${COVERALLS_REPO_TOKEN} ./.python3/bin/coveralls
 
   - wait
 
