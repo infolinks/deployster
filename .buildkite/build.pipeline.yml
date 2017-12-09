@@ -6,7 +6,9 @@ steps:
       - echo "ARG BUILDKITE" >> ./Dockerfile.test
       - echo "ARG BUILDKITE_JOB_ID" >> ./Dockerfile.test
       - echo "ARG BUILDKITE_BRANCH" >> ./Dockerfile.test
+      - echo "COPY .git /app/.git/" >> ./Dockerfile.test
       - echo "RUN coveralls" >> ./Dockerfile.test
+      - sed -i 's/^\/\.git$//' .dockerignore
       - docker build --build-arg COVERALLS_REPO_TOKEN="${COVERALLS_REPO_TOKEN}"
                      --build-arg BUILDKITE="${BUILDKITE}"
                      --build-arg BUILDKITE_JOB_ID="${BUILDKITE_JOB_ID}"
