@@ -1,12 +1,10 @@
-# TODO: remove "as build" clause
-FROM ubuntu:17.10 AS build
-RUN apt-get update && apt-get install -y apt-utils && \
-    apt-get install -y python3 python3-pip python3-venv && \
-    rm -rf /var/lib/apt/lists/*
+FROM centos:7.4.1708
+RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
+    yum install -y python36u python36u-pip
 
 WORKDIR /app/
 COPY requirements.txt .coveragerc /app/
-RUN pip3 --disable-pip-version-check --no-cache-dir install -r requirements.txt
+RUN pip3.6 --disable-pip-version-check --no-cache-dir install -r requirements.txt
 
 ENV PYTHONPATH=/app/src
 COPY .coveragerc /app/
