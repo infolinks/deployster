@@ -11,7 +11,7 @@ steps:
                      --build-arg BUILDKITE="${BUILDKITE}"
                      --build-arg BUILDKITE_JOB_ID="${BUILDKITE_JOB_ID}"
                      --build-arg BUILDKITE_BRANCH="${BUILDKITE_BRANCH}"
-                     --file "${DEPLOYSTER_HOME}/Dockerfile.test" .
+                     --file ./Dockerfile.test .
 
   - wait
 
