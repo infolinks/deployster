@@ -75,7 +75,7 @@ class Logger(AbstractContextManager):
 
 
 def merge(*args):
-    return merge_into({}, args)
+    return merge_into({}, *args)
 
 
 def merge_into(target: dict, *args) -> dict:
