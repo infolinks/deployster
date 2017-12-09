@@ -1,6 +1,6 @@
 import pytest
 
-from util import UserError, Logger, merge_into, merge
+from util import UserError, Logger, merge_into, merge, post_process
 
 
 def test_new_usererror():
@@ -82,3 +82,59 @@ def test_merge_into():
     assert 'k3' not in src1
     assert 'k3' not in src2
     assert 'k3' in src3
+
+
+def test_post_processing():
+    src = {
+        'k1': 'v1',
+        'k2': '{{ 1 + 2 }}',
+        'k3': '{{ c1 + 1 }}',
+        'k4': 'hello, {{ name }}!',
+        'k5': {
+            'kk51': 'vv51',
+            'kk52': '{{ 1 + 2 }}',
+            'kk53': '{{ c1 + 1 }}',
+            'kk54': 'hello, {{ name }}!',
+            'kk55': {
+                'kk551': 'vv551',
+                'kk552': '{{ 1 + 2 }}',
+                'kk553': '{{ c1 + 1 }}',
+                'kk554': 'hello, {{ name }}!',
+            }
+        },
+        'k6': [
+            'vv51',
+            '{{ 1 + 2 }}',
+            '{{ c1 + 1 }}',
+            'hello, {{ name }}!',
+        ]
+    }
+
+    context = {
+        'c1': 1,
+        'name': 'John'
+    }
+
+    result1 = post_process(value=src, context=context)
+    assert result1['k1'] == 'v1'
+    assert result1['k2'] == 3
+    assert result1['k3'] == 2
+    assert result1['k4'] == 'hello, John!'
+    assert result1['k5'] == {
+        'kk51': 'vv51',
+        'kk52': 3,
+        'kk53': 2,
+        'kk54': 'hello, John!',
+        'kk55': {
+            'kk551': 'vv551',
+            'kk552': 3,
+            'kk553': 2,
+            'kk554': 'hello, John!',
+        }
+    }
+    assert result1['k6'] == [
+        'vv51',
+        3,
+        2,
+        'hello, John!'
+    ]
