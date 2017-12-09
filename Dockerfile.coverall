@@ -1,3 +1,0 @@
-FROM infolinks/deployster:testing
-COPY .git /app/.git/
-ENTRYPOINT ["coveralls"]

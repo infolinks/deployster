@@ -6,10 +6,12 @@ WORKDIR /app/
 COPY requirements.txt .coveragerc /app/
 RUN pip3.6 --disable-pip-version-check --no-cache-dir install -r requirements.txt
 
-ENV PYTHONPATH=/app/src
+COPY test.sh /app/
+RUN chmod +x /app/test.sh
+
 COPY .coveragerc /app/
 COPY src /app/src/
 COPY tests /app/tests/
+COPY .git /app/.git/
 
-ENTRYPOINT ["py.test"]
-CMD ["--cov-config=./.coveragerc", "--cov-report=term-missing", "--cov-branch", "--cov=./src/", "tests/"]
+ENTRYPOINT ["/app/test.sh"]
