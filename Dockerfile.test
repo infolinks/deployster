@@ -1,6 +1,6 @@
 FROM centos:7.4.1708
 RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
-    yum install -y python36u python36u-pip
+    yum install -y python36u python36u-pip git
 
 WORKDIR /app/
 COPY requirements.txt .coveragerc /app/
