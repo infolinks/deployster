@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y apt-utils && \
 
 WORKDIR /app/
 COPY requirements.txt .coveragerc /app/
-RUN pip3 --quiet --disable-pip-version-check --no-cache-dir install -r requirements.txt
+RUN pip3 --disable-pip-version-check --no-cache-dir install -r requirements.txt
 
 ENV PYTHONPATH=/app/src
 COPY .coveragerc /app/
