@@ -1,0 +1,37 @@
+{
+    "description": "Test existing project without APIs configuration.",
+    "actual": {
+        "project": {
+            "prj": { "projectId": "prj", "name": "prj", "parent": { "type": "organization", "id": "123" } }
+        },
+        "billing": {},
+        "apis": {
+            "prj": [ "api1" ]
+        }
+    },
+    "config": {
+        "project_id": "prj",
+        "organization_id": 123,
+        "billing_account_id": "ABC123"
+    },
+    "expected": {
+        "status": "STALE",
+        "staleState": {
+            "name": "prj",
+            "projectId": "prj",
+            "billing_account_id": null,
+            "parent": {
+                "type": "organization",
+                "id": "123"
+            },
+            "apis": { "enabled": [ "api1" ] }
+        },
+        "actions": [
+            {
+                "name": "set-billing-account",
+                "description": "Set billing account to 'ABC123'",
+                "args": [ "set_billing_account" ]
+            }
+        ]
+    }
+}
