@@ -56,7 +56,7 @@ class DockerInvoker:
             with open(stderr_file, 'w') as f:
                 for line in iter(stream.readline, ''):
                     line = line[0:len(line) - 1]
-                    f.write(line)
+                    f.write(line + '\n')
                     if stderr_logger:
                         stderr_logger.info(line)
 
@@ -65,7 +65,7 @@ class DockerInvoker:
             with open(stdout_file, 'w') as f:
                 for line in iter(stream.readline, ''):
                     line = line[0:len(line) - 1]
-                    f.write(line)
+                    f.write(line + '\n')
                     if stdout_logger:
                         stdout_logger.info(line)
 
