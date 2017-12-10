@@ -368,10 +368,10 @@ class ScriptEvaluator:
         super().__init__()
         self._gcp: GcpServices = sql_resource.gcp
         self._project_id: str = sql_resource.info.config['project_id']
-        self._region: str = sql_resource.info.config['region']
+        self._region: str = region_from_zone(sql_resource.info.config['zone'])
         self._instance: str = sql_resource.info.config['name']
         self._db_username: str = 'root'
-        self._db_password: str = sql_resource.info.config['root_password']
+        self._db_password: str = sql_resource.info.config['root-password']
         self._proxy_process: subprocess.Popen = None
         self._connection: Connection = None
 
