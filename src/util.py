@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import emoji
 from colors import *
-from jinja2 import Environment, Template
+from jinja2 import Environment, Template, Undefined
 from jinja2.exceptions import TemplateSyntaxError
 
 
@@ -123,8 +123,11 @@ def post_process(value: Any, context: dict) -> Any:
             if expr.startswith('{{') and expr.endswith('}}') and expr.find('{{') == expr.rfind('{{'):
                 # line is a single expression (only one '{{' token at the beginning, and '}}' at the end)
                 expr = expr[2:len(expr) - 2]
-                result = environment.compile_expression(expr)(context)
-                return result
+                result = environment.compile_expression(source=expr, undefined_to_none=False)(context)
+                if type(result) == Undefined:
+                    raise UserError(f"expression '{expr}' yielded an undefined result (are all variables defined?)")
+                else:
+                    return result
             elif expr.find('{{') >= 0:
                 # given string contains a jinja expression, use normal templating
                 template: Template = environment.from_string(expr, globals=context)

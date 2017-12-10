@@ -138,3 +138,6 @@ def test_post_processing():
         2,
         'hello, John!'
     ]
+
+    with pytest.raises(expected_exception=UserError, match=r'\' unknown_var \' yielded an undefined result'):
+        post_process('{{ unknown_var }}', {})
