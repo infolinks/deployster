@@ -1,24 +1,39 @@
 #!/usr/bin/env python3
+
 import argparse
 import json
 import os
 import subprocess
 import sys
-import time
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from pprint import pprint
-from typing import Mapping, Sequence, MutableSequence
+from typing import Sequence, MutableSequence
 
 import pymysql
-from googleapiclient.errors import HttpError
 from pymysql.connections import Connection
 
 from dresources import DAction, action
 from gcp import GcpResource
-from gcp_project import GcpProject
-from gcp_services import get_sql, region_from_zone, wait_for_sql_operation, get_project_enabled_apis, \
-    get_service_management, wait_for_service_manager_operation
+from gcp_services import region_from_zone, GcpServices
+
+
+def _translate_day_name_to_number(day_name: str) -> int:
+    if type(day_name) == str:
+        if day_name == 'Monday':
+            return 1
+        elif day_name == 'Tuesday':
+            return 2
+        elif day_name == 'Wednesday':
+            return 3
+        elif day_name == 'Thursday':
+            return 4
+        elif day_name == 'Friday':
+            return 5
+        elif day_name == 'Saturday':
+            return 6
+        elif day_name == 'Sunday':
+            return 7
+        else:
+            raise Exception(f"illegal config: unknown maintenance day encountered: {day_name}")
 
 
 class Condition(ABC):
@@ -350,13 +365,14 @@ class Script:
 
 class ScriptEvaluator:
 
-    def __init__(self, sql_resource) -> None:
+    def __init__(self, sql_resource: 'GcpCloudSql') -> None:
         super().__init__()
-        self._project_id: str = sql_resource.project.project_id
-        self._region: str = sql_resource.region
-        self._instance: str = sql_resource.name
+        self._gcp: GcpServices = sql_resource.gcp
+        self._project_id: str = sql_resource.info.config['project_id']
+        self._region: str = sql_resource.info.config['region']
+        self._instance: str = sql_resource.info.config['name']
         self._db_username: str = 'root'
-        self._db_password: str = sql_resource.root_password
+        self._db_password: str = sql_resource.info.config['root_password']
         self._proxy_process: subprocess.Popen = None
         self._connection: Connection = None
 
@@ -365,14 +381,14 @@ class ScriptEvaluator:
             [Script(name=data['name'],
                     paths=data['paths'],
                     conditions=condition_factory.create_conditions(data['when']))
-             for data in sql_resource.scripts]
+             for data in sql_resource.info.config['scripts']]
 
     @property
     def scripts(self) -> Sequence[Script]:
         return self._scripts
 
     def get_script(self, name: str) -> Script:
-        return next(script for script in self.scripts if script.name == name)
+        return next(script for script in self._scripts if script.name == name)
 
     def get_scripts_to_execute(self) -> Sequence[Script]:
         if self._connection is None:
@@ -390,12 +406,7 @@ class ScriptEvaluator:
                 script.execute(username=self._db_username, password=self._db_password)
 
     def __enter__(self):
-
-        op = get_sql().users().update(project=self._project_id, instance=self._instance, host='%', name='root', body={
-            'password': self._db_password
-        }).execute()
-        wait_for_sql_operation(project_id=self._project_id, operation=op)
-
+        self._gcp.update_sql_user(project_id=self._project_id, instance=self._instance, password=self._db_password)
         self._proxy_process: subprocess.Popen = \
             subprocess.Popen([f'/usr/local/bin/cloud_sql_proxy',
                               f'-instances={self._project_id}:{self._region}:{self._instance}=tcp:3306',
@@ -425,9 +436,8 @@ class ScriptEvaluator:
 
 class GcpCloudSql(GcpResource):
 
-    def __init__(self, data: dict) -> None:
-        super().__init__(data)
-        self.add_dependency(name='project', type='infolinks/deployster-gcp-project', optional=False, factory=GcpProject)
+    def __init__(self, data: dict, gcp_services: GcpServices = GcpServices()) -> None:
+        super().__init__(data=data, gcp_services=gcp_services)
 
         # build definitions for condition types
         condition_definitions = {}
@@ -572,215 +582,135 @@ class GcpCloudSql(GcpResource):
                 }
             }
         })
-        pprint(self.config_schema, stream=sys.stderr)
 
-    @property
-    def project(self) -> GcpProject:
-        return self.get_dependency('project')
+        cfg: dict = self.info.config
+        if "maintenance" in cfg and type(cfg["maintenance"]['day']) == str:
+            cfg["maintenance"]['day'] = _translate_day_name_to_number(cfg["maintenance"]['day'])
 
-    @property
-    def zone(self) -> str:
-        return self.resource_config['zone']
+    def discover_state(self):
+        cfg: dict = self.info.config
 
-    @property
-    def region(self) -> str:
-        return region_from_zone(self.zone)
+        if 'flags' in cfg:
+            allowed_flags: dict = self.gcp.get_sql_allowed_flags()
+            for desired_flag in cfg['flags']:
+                desired_name = desired_flag['name']
+                if desired_name not in allowed_flags:
+                    raise Exception(f"illegal config: flag '{desired_name}' is not a supported MySQL 5.7 flag.")
 
-    @property
-    def name(self) -> str:
-        return self.resource_config['name']
+                allowed_flag = allowed_flags[desired_name]
+                flag_type = allowed_flag['type']
+                if flag_type == 'NONE':
+                    if 'value' in desired_flag:
+                        raise Exception(f"illegal config: flag '{desired_name}' does not accept values.")
 
-    @property
-    def machine_type(self) -> str:
-        return self.resource_config['machine-type']
+                elif flag_type == 'INTEGER':
+                    if 'value' not in desired_flag:
+                        raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
+                    try:
+                        int_value = int(desired_flag['value'])
+                    except ValueError as e:
+                        raise Exception(f"illegal config: flag '{desired_name}' value must be an integer") from e
 
-    @property
-    def backup(self) -> dict:
-        return self.resource_config['backup'] if 'backup' in self.resource_config else None
+                    if 'minValue' in allowed_flag and int_value < int(allowed_flag['minValue']):
+                        min_value = allowed_flag['minValue']
+                        raise Exception(f"illegal config: flag '{desired_name}' value must be greater than {min_value}")
+                    if 'maxValue' in allowed_flag and int_value > int(allowed_flag['maxValue']):
+                        max_value = allowed_flag['maxValue']
+                        raise Exception(
+                            f"illegal config: flag '{desired_name}' value must not be greater than {max_value}")
 
-    @property
-    def data_disk_size_gb(self) -> int:
-        return self.resource_config["data-disk-size-gb"] if "data-disk-size-gb" in self.resource_config else None
+                elif flag_type == 'STRING':
+                    if 'value' not in desired_flag:
+                        raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
+                    elif 'allowedStringValues' in allowed_flag:
+                        allowed_values = allowed_flag['allowedStringValues']
+                        if desired_flag['value'] not in allowed_values:
+                            raise Exception(
+                                f"illegal config: flag '{desired_name}' value must be one of: {allowed_values}")
 
-    @property
-    def data_disk_type(self) -> str:
-        return self.resource_config["data-disk-type"] if "data-disk-type" in self.resource_config else None
-
-    @property
-    def flags(self) -> Sequence[Mapping[str, str]]:
-        return self.resource_config["flags"] if "flags" in self.resource_config else None
-
-    @property
-    def require_ssl(self) -> bool:
-        return self.resource_config["require-ssl"] if "require-ssl" in self.resource_config else None
-
-    @property
-    def authorized_networks(self) -> Sequence[Mapping[str, str]]:
-        return self.resource_config["authorized-networks"] if "authorized-networks" in self.resource_config else None
-
-    @property
-    def maintenance_window(self) -> Mapping[str, int]:
-        if "maintenance" in self.resource_config:
-            maintenance = deepcopy(self.resource_config["maintenance"])
-            if type(maintenance['day']) == str:
-                if maintenance['day'] == 'Monday':
-                    maintenance['day'] = 1
-                elif maintenance['day'] == 'Tuesday':
-                    maintenance['day'] = 2
-                elif maintenance['day'] == 'Wednesday':
-                    maintenance['day'] = 3
-                elif maintenance['day'] == 'Thursday':
-                    maintenance['day'] = 4
-                elif maintenance['day'] == 'Friday':
-                    maintenance['day'] = 5
-                elif maintenance['day'] == 'Saturday':
-                    maintenance['day'] = 6
-                elif maintenance['day'] == 'Sunday':
-                    maintenance['day'] = 7
-                else:
-                    raise Exception(f"illegal config: unknown maintenance day encountered: {maintenance['day']}")
-            return maintenance
-        else:
-            # noinspection PyTypeChecker
-            return None
-
-    @property
-    def storage_auto_resize(self) -> dict:
-        return self.resource_config['storage-auto-resize'] if 'storage-auto-resize' in self.resource_config else None
-
-    @property
-    def labels(self) -> Mapping[str, str]:
-        return self.resource_config["labels"] if "labels" in self.resource_config else None
-
-    @property
-    def scripts(self) -> Sequence[dict]:
-        return self.resource_config['scripts'] if 'scripts' in self.resource_config else None
-
-    @property
-    def root_password(self) -> str:
-        return self.resource_config['root-password'] if 'root-password' in self.resource_config else None
-
-    def discover_actual_properties(self):
-        sql = get_sql()
-        allowed_tiers = \
-            {tier['tier']: tier
-             for tier in sql.tiers().list(project=self.project.project_id).execute()['items']
-             if tier['tier'].startswith('db-')}
-        allowed_flags = \
-            {flag['name']: flag for flag in sql.flags().list(databaseVersion='MYSQL_5_7').execute()['items']}
-        for desired_flag in self.flags:
-            desired_name = desired_flag['name']
-            if desired_name not in allowed_flags:
-                raise Exception(f"illegal config: flag '{desired_name}' is not a supported MySQL 5.7 flag.")
-
-            allowed_flag = allowed_flags[desired_name]
-            flag_type = allowed_flag['type']
-            if flag_type == 'NONE':
-                if 'value' in desired_flag:
-                    raise Exception(f"illegal config: flag '{desired_name}' does not accept values.")
-
-            elif flag_type == 'INTEGER':
-                if 'value' not in desired_flag:
-                    raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
-                try:
-                    int_value = int(desired_flag['value'])
-                except ValueError as e:
-                    raise Exception(f"illegal config: flag '{desired_name}' value must be an integer") from e
-
-                if 'minValue' in allowed_flag and int_value < int(allowed_flag['minValue']):
-                    min_value = allowed_flag['minValue']
-                    raise Exception(f"illegal config: flag '{desired_name}' value must be greater than {min_value}")
-                if 'maxValue' in allowed_flag and int_value > int(allowed_flag['maxValue']):
-                    max_value = allowed_flag['maxValue']
-                    raise Exception(f"illegal config: flag '{desired_name}' value must not be greater than {max_value}")
-
-            elif flag_type == 'STRING':
-                if 'value' not in desired_flag:
-                    raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
-                elif 'allowedStringValues' in allowed_flag:
-                    allowed_values = allowed_flag['allowedStringValues']
-                    if desired_flag['value'] not in allowed_values:
-                        raise Exception(f"illegal config: flag '{desired_name}' value must be one of: {allowed_values}")
-
-            elif flag_type == 'BOOLEAN':
-                if 'value' not in desired_flag:
-                    raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
-                elif desired_flag['value'] not in ['yes', 'no']:
-                    raise Exception(f"illegal config: flag '{desired_name}' value must be 'on' or 'off'.")
+                elif flag_type == 'BOOLEAN':
+                    if 'value' not in desired_flag:
+                        raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
+                    elif desired_flag['value'] not in ['yes', 'no']:
+                        raise Exception(f"illegal config: flag '{desired_name}' value must be 'on' or 'off'.")
 
         # validate machine-type against allowed tiers (tier=machine-type in Cloud SQL lingo)
-        desired_tier = self.machine_type
+        allowed_tiers: dict = self.gcp.get_sql_allowed_tiers(project_id=self.info.config['project_id'])
+        desired_tier = cfg['machine_type']
         if desired_tier not in allowed_tiers:
-            raise Exception(f"illegal config: unsupported")
+            raise Exception(f"illegal config: unsupported machine_type '{desired_tier}'")
         tier = allowed_tiers[desired_tier]
-        if self.region not in tier['region']:
-            raise Exception(f"illegal config: machine-type '{desired_tier}' is not supported in "
-                            f"region '{self.region}'")
+        region = region_from_zone(cfg['zone'])
+        if region not in tier['region']:
+            raise Exception(f"illegal config: machine-type '{desired_tier}' is not supported in region '{region}'")
 
         # validate all paths in given scripts exist
-        for script in self.scripts:
-            for path in script['paths']:
-                if not os.path.exists(path):
-                    raise Exception(f"illegal config: could not find script '{path}'")
+        if 'scripts' in cfg:
+            for script in cfg['scripts']:
+                for path in script['paths']:
+                    if not os.path.exists(path):
+                        raise Exception(f"illegal config: could not find script '{path}'")
 
         # if the SQL Admin API is not enabled, there can be no SQL instances; we will, however, have to enable
         # that API for the project later on.
-        enabled_apis = get_project_enabled_apis(project_id=self.project.project_id)
+        enabled_apis = self.gcp.find_project_enabled_apis(project_id=cfg['project_id'])
         if 'sqladmin.googleapis.com' in enabled_apis and 'sql-component.googleapis.com' in enabled_apis:
             # using "instances().list(..)" because "get" throws 403 when instance does not exist
             # also, it seems the "filter" parameter for "list" does not work; so we fetch all instances and filter here
-            result = sql.instances().list(project=self.project.project_id).execute()
-            if 'items' in result:
-                for instance in result['items']:
-                    if instance['name'] == self.name:
-                        return instance
-        return None
+            return self.gcp.get_sql_instance(project_id=cfg['project_id'], instance_name=cfg['name'])
+        else:
+            return None
 
-    def get_actions_when_missing(self) -> Sequence[DAction]:
+    def get_actions_for_missing_state(self) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
+        cfg: dict = self.info.config
 
-        enabled_apis = get_project_enabled_apis(project_id=self.project.project_id)
+        enabled_apis = self.gcp.find_project_enabled_apis(project_id=cfg['project_id'])
         if 'sqladmin.googleapis.com' not in enabled_apis or 'sql-component.googleapis.com' not in enabled_apis:
             # if the SQL Admin API is not enabled, there can be no SQL instances; we will, however, have to enable
             # that API for the project later on.
-            actions.append(DAction(name='enable-sqladmin-apis',
-                                   description=f"Enable SQL APIs for project '{self.project.project_id}'"))
+            actions.append(DAction(name='enable-sql-apis',
+                                   description=f"Enable Cloud SQL APIs for project '{cfg['project_id']}'"))
 
-        actions.append(DAction(name=f"create-sql-instance", description=f"Create SQL instance '{self.name}'"))
+        actions.append(DAction(name=f"create-sql-instance", description=f"Create SQL instance '{cfg['name']}'"))
 
         # no need to evaluate scripts, since instance does not yet exist; the create action will do it once it creates
         # the instance successfully
 
         return actions
 
-    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
+    def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
-        actual = actual_properties
+        actual = state
         actual_settings = actual['settings']
+        cfg = self.info.config
 
         # validate instance is RUNNING
         if actual['state'] != "RUNNABLE":
             raise Exception(f"illegal state: instance exists, but not running ('{actual['state']}')")
 
         # validate instance region
-        if actual['region'] != self.region:
+        zone = cfg['zone']
+        region = region_from_zone(zone)
+        if actual['region'] != region:
             raise Exception(
-                f"illegal config: SQL instance is in region '{actual['region']}' instead of '{self.region}'. "
+                f"illegal config: SQL instance is in region '{actual['region']}' instead of '{region}'. "
                 f"Unfortunately, changing SQL instances regions is not allowed in Google Cloud SQL.")
 
         # validate instance preferred zone
-        if actual_settings['locationPreference']['zone'] != self.zone:
+        if actual_settings['locationPreference']['zone'] != zone:
             actions.append(DAction(name='update-zone',
-                                   description=f"Update SQL instance preferred zone to '{self.zone}'"))
+                                   description=f"Update SQL instance preferred zone to '{zone}'"))
 
         # validate instance machine type
-        if actual_settings['tier'] != self.machine_type:
+        machine_type = cfg['machine-type']
+        if actual_settings['tier'] != machine_type:
             actions.append(DAction(name='update-machine-type',
-                                   description=f"Update SQL instance machine type zone to '{self.machine_type}'"))
+                                   description=f"Update SQL instance machine type zone to '{machine_type}'"))
 
         # validate backup configuration
-        desired_backup: dict = self.backup
-        if desired_backup is not None:
+        if 'backup' in cfg:
+            desired_backup: dict = cfg['backup']
             if desired_backup['enabled']:
                 # Verify that actual backup configuration IS enabled:
 
@@ -809,55 +739,61 @@ class GcpCloudSql(GcpResource):
                     raise Exception(f"illegal config: cannot specify backup time when backup is disabled")
 
         # validate data-disk size
-        if self.data_disk_size_gb is not None:
+        if "data-disk-size-gb" in cfg:
+            desired_data_disk_size_gb: int = cfg["data-disk-size-gb"]
             actual_disk_size: int = int(actual_settings['dataDiskSizeGb'])
-            if actual_disk_size != self.data_disk_size_gb:
-                if self.data_disk_size_gb < actual_disk_size:
+            if actual_disk_size != desired_data_disk_size_gb:
+                if desired_data_disk_size_gb < actual_disk_size:
                     raise Exception(
                         f"illegal config: cannot reduce disk size from {actual_disk_size}gb to "
-                        f"{self.data_disk_size_gb}gb (not allowed by Cloud SQL APIs).")
+                        f"{desired_data_disk_size_gb}gb (not allowed by Cloud SQL APIs).")
                 else:
                     actions.append(
                         DAction(name='update-data-disk-size',
                                 description=f"Update SQL instance data disk size from {actual_disk_size}gb to "
-                                            f"{self.data_disk_size_gb}gb"))
+                                            f"{desired_data_disk_size_gb}gb"))
 
         # validate data-disk type
-        if self.data_disk_type is not None:
-            if actual_settings['dataDiskType'] != self.data_disk_type:
+        if "data-disk-type" in cfg:
+            desired_data_disk_type: str = cfg["data-disk-type"]
+            if actual_settings['dataDiskType'] != desired_data_disk_type:
                 actions.append(DAction(name='update-data-disk-type',
-                                       description=f"Update SQL instance data disk type to '{self.data_disk_type}'"))
+                                       description=f"Update SQL instance data disk type to '{desired_data_disk_type}'"))
 
         # validate MySQL flags
-        if self.flags is not None:
+        if 'flags' in cfg:
+            desired_flags: dict = cfg['flags']
             actual_flags = actual_settings['databaseFlags'] if 'databaseFlags' in actual_settings else []
-            if actual_flags != self.flags:
+            if actual_flags != desired_flags:
                 actions.append(DAction(name='update-flags', description=f"Update SQL instance flags"))
 
         # validate SSL connections requirement
-        if self.require_ssl is not None:
-            if actual_settings['ipConfiguration']['requireSsl'] != self.require_ssl:
+        if "require-ssl" in cfg:
+            desired_require_ssl: bool = cfg["require-ssl"]
+            if actual_settings['ipConfiguration']['requireSsl'] != desired_require_ssl:
                 actions.append(
                     DAction(name='update-require-ssl',
-                            description=f"Update SQL instance to require SSL connections"))
+                            description=f"Update SQL instance to {'' if desired_require_ssl else 'not'} require "
+                                        f"SSL connections"))
 
         # validate authorized networks
-        if self.authorized_networks is not None:
+        if "authorized-networks" in cfg:
+            desired_authorized_networks: list = cfg["authorized-networks"]
             actual_auth_networks = actual_settings['ipConfiguration']['authorizedNetworks']
-            if len(actual_auth_networks) != len(self.authorized_networks):
+            if len(actual_auth_networks) != len(desired_authorized_networks):
                 actions.append(DAction(name='update-authorized-networks',
                                        description=f"Update SQL instance authorized networks"))
             else:
                 # validate network names are unique
                 names = set()
-                for desired_network in self.authorized_networks:
+                for desired_network in desired_authorized_networks:
                     if desired_network['name'] in names:
                         raise Exception(f"illegal config: network '{desired_network['name']}' defined more than once")
                     else:
                         names.add(desired_network['name'])
 
                 # validate each network
-                for desired_network in self.authorized_networks:
+                for desired_network in desired_authorized_networks:
                     try:
                         actual_network = next(n for n in actual_auth_networks if n['name'] == desired_network['name'])
                         desired_expiry = desired_network['expirationTime'] \
@@ -876,37 +812,46 @@ class GcpCloudSql(GcpResource):
                         break
 
         # validate maintenance window
-        if self.maintenance_window is not None:
+        if "maintenance" in cfg:
+            desired_maintenance: dict = cfg["maintenance"]
             actual_maintenance_window = actual_settings['maintenanceWindow']
-            if self.maintenance_window['day'] != actual_maintenance_window['day'] \
-                    or self.maintenance_window['hour'] != actual_maintenance_window['hour']:
+            if desired_maintenance is None:
+                # TODO: ensure "update-maintenance-window" knows to DISABLE the maintenance window if its None
                 actions.append(DAction(name='update-maintenance-window',
-                                       description=f"Update SQL instance maintenance window"))
+                                       description=f"Disable SQL instance maintenance window"))
+            else:
+                desired_day = desired_maintenance['day']
+                desired_hour: int = desired_maintenance['hour']
+                if desired_day != actual_maintenance_window['day'] or desired_hour != actual_maintenance_window['hour']:
+                    actions.append(DAction(name='update-maintenance-window',
+                                           description=f"Update SQL instance maintenance window"))
 
         # validate storage auto-resize
-        if self.storage_auto_resize is not None:
-            if not self.storage_auto_resize['enabled'] and 'limit' in self.storage_auto_resize:
+        if "storage-auto-resize" in cfg:
+            desired_storage_auto_resize: dict = cfg["storage-auto-resize"]
+            if not desired_storage_auto_resize['enabled'] and 'limit' in desired_storage_auto_resize:
                 raise Exception(f"illegal config: cannot specify storage auto-resize limit when it's disabled")
-            elif not self.storage_auto_resize['enabled'] and actual_settings['storageAutoResize']:
+            elif not desired_storage_auto_resize['enabled'] and actual_settings['storageAutoResize']:
                 raise Exception(f"illegal config: currently it's impossible to switch off storage auto-resizing "
                                 f"(Google APIs seem to reject this change)")
-            elif self.storage_auto_resize['enabled'] != actual_settings['storageAutoResize']:
-                raise Exception(f"illegal config: currently it's impossible to switch ")
-            elif 'limit' in self.storage_auto_resize \
-                    and self.storage_auto_resize['limit'] != int(actual_settings['storageAutoResizeLimit']):
+            elif desired_storage_auto_resize['enabled'] != actual_settings['storageAutoResize']:
+                raise Exception(f"illegal config: currently it's impossible to switch storage auto-resize")
+            elif 'limit' in desired_storage_auto_resize \
+                    and desired_storage_auto_resize['limit'] != int(actual_settings['storageAutoResizeLimit']):
                 actions.append(DAction(name='update-storage-auto-resize',
                                        description=f"Update SQL instance storage auto-resizing"))
 
         # validate labels
-        if self.labels is not None:
+        if "labels" in cfg:
+            desired_labels = cfg["labels"]
             actual_labels: dict = actual_settings['userLabels'] if 'userLabels' in actual_settings else {}
-            for key, value in self.labels.items():
+            for key, value in desired_labels.items():
                 if key not in actual_labels or value != actual_labels[key]:
                     actions.append(DAction(name='update-labels', description=f"Update SQL instance user-labels"))
                     break
 
         # check for scripts that need to be executed
-        if self.scripts:
+        if "scripts" in cfg:
             with ScriptEvaluator(sql_resource=self) as evaluator:
                 for script in evaluator.get_scripts_to_execute():
                     actions.append(
@@ -916,91 +861,69 @@ class GcpCloudSql(GcpResource):
 
         return actions
 
-    def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
-        super().define_action_args(action, argparser)
+    def configure_action_argument_parser(self, action: str, argparser: argparse.ArgumentParser):
+        super().configure_action_argument_parser(action, argparser)
         if action == 'execute_scripts':
             argparser.add_argument('scripts', nargs='+')
 
     @action
-    def enable_sqladmin_api(self, args):
+    def enable_sql_api(self, args):
         if args: pass
         for api in ['sqladmin.googleapis.com', 'sql-component.googleapis.com']:
-            wait_for_service_manager_operation(
-                get_service_management().services().enable(serviceName=api, body={
-                    'consumerId': f"project:{self.project.project_id}"
-                }).execute()
-            )
-
-            # poll until actually enabled
-            timeout = 60
-            interval = 3
-            waited = 0
-            while waited < timeout and api not in get_project_enabled_apis(project_id=self.project.project_id):
-                time.sleep(interval)
-                waited += interval
-            if waited >= interval:
-                raise Exception(f"illegal state: Timed out while waiting for SQL Admin API to enable.")
+            self.gcp.enable_project_api(project_id=self.info.config['project_id'], api=api)
 
     @action
     def create_sql_instance(self, args) -> None:
         if args: pass
+        cfg = self.info.config
         body = {
-            "name": self.name,
+            "name": cfg['name'],
             "settings": {
-                "tier": self.machine_type,  # https://cloud.google.com/sql/pricing#2nd-gen-instance-pricing
-                "dataDiskSizeGb": str(self.data_disk_size_gb or 10),
-                "dataDiskType": self.data_disk_type or "PD_SSD",
-                "databaseFlags": self.flags or [],
+                # https://cloud.google.com/sql/pricing#2nd-gen-instance-pricing
+                "tier": cfg['machine-type'],
+                "dataDiskSizeGb": str(cfg["data-disk-size-gb"] if "data-disk-size-gb" in cfg else 10),
+                "dataDiskType": cfg["data-disk-type"] if "data-disk-type" in cfg else "PD_SSD",
+                "databaseFlags": cfg['flags'] if 'flags' in cfg else [],
                 "ipConfiguration": {
-                    "requireSsl": self.require_ssl if self.require_ssl is not None else False,
-                    "authorizedNetworks": self.authorized_networks or [],
+                    "requireSsl": cfg["require-ssl"] if "require-ssl" in cfg else False,
+                    "authorizedNetworks": cfg["authorized-networks"] if "authorized-networks" in cfg else [],
                 },
                 "locationPreference": {
-                    "zone": self.zone,
+                    "zone": cfg['zone'],
                 },
-                "maintenanceWindow": self.maintenance_window or {"day": 7, "hour": 3},
+                "maintenanceWindow": cfg["maintenance"] if "maintenance" in cfg else {"day": 7, "hour": 3},
                 "pricingPlan": "PER_USE",
-                "userLabels": self.labels or {}
+                "userLabels": cfg['labels'] if 'labels' in cfg else {}
             },
             "databaseVersion": "MYSQL_5_7",
-            "region": self.region,
+            "region": region_from_zone(cfg['zone']),
         }
         settings = body['settings']
 
         # apply backup information
-        if self.backup is not None:
+        if "backup" in cfg:
             settings['backupConfiguration'] = {
-                'enabled': self.backup['enabled'],
-                'binaryLogEnabled': self.backup['enabled']
+                'enabled': cfg["backup"]['enabled'],
+                'binaryLogEnabled': cfg["backup"]['enabled']
             }
-            if self.backup['enabled'] and 'time' in self.backup:
-                settings['backupConfiguration']['startTime'] = self.backup['time']
+            if cfg["backup"]['enabled'] and 'time' in cfg["backup"]:
+                settings['backupConfiguration']['startTime'] = cfg["backup"]['time']
 
         # apply storage auto-resize
-        if self.storage_auto_resize is not None:
-            settings['storageAutoResize'] = self.storage_auto_resize['enabled']
-            if self.storage_auto_resize['enabled'] and 'limit' in self.storage_auto_resize:
-                settings['storageAutoResizeLimit'] = str(self.storage_auto_resize['limit'])
+        if "storage-auto-resize" in cfg:
+            settings['storageAutoResize'] = cfg["storage-auto-resize"]['enabled']
+            if cfg["storage-auto-resize"]['enabled'] and 'limit' in cfg["storage-auto-resize"]:
+                settings['storageAutoResizeLimit'] = str(cfg["storage-auto-resize"]['limit'])
 
         # create instance
-        try:
-            op = get_sql().instances().insert(project=self.project.project_id, body=body).execute()
-            wait_for_sql_operation(self.project.project_id, op)
-        except HttpError as e:
-            status = e.resp.status
-            if status == 409:
-                raise Exception(f"failed creating SQL instance, possibly due to instance name reuse (you can't "
-                                f"reuse an instance name for a week after its deletion)") from e
+        project_id: str = cfg['project_id']
+        self.gcp.create_sql_instance(project_id=project_id, body=body)
 
         # set 'root' password
-        op = get_sql().users().update(project=self.project.project_id, instance=self.name, host='%', body={
-            'name': 'root',
-            'password': self.root_password
-        }).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        self.gcp.update_sql_user(project_id=project_id, instance=cfg['name'], password=cfg['root-password'])
 
         # check for scripts that need to be executed
-        if self.scripts:
+        if "scripts" in cfg:
             with ScriptEvaluator(sql_resource=self) as evaluator:
                 evaluator.execute_scripts(scripts=evaluator.get_scripts_to_execute())
 
@@ -1013,135 +936,129 @@ class GcpCloudSql(GcpResource):
     @action
     def update_zone(self, args) -> None:
         if args: pass
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body={
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'locationPreference': {
-                    'zone': self.zone
+                    'zone': cfg['zone']
                 }
             }
-        }).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_machine_type(self, args) -> None:
         if args: pass
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body={
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'tier': self.machine_type
+                'tier': cfg["machine-type"]
             }
-        }).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_backup(self, args) -> None:
         if args: pass
+        cfg = self.info.config
         body = {
             'settings': {
                 'backupConfiguration': {
-                    'enabled': self.backup['enabled'],
-                    'binaryLogEnabled': self.backup['enabled']
+                    'enabled': cfg['backup']['enabled'],
+                    'binaryLogEnabled': cfg['backup']['enabled']
                 }
             }
         }
-        if self.backup['enabled'] and 'time' in self.backup:
-            body['settings']['backupConfiguration']['startTime'] = self.backup['time']
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        if cfg['backup']['enabled'] and 'time' in cfg['backup']:
+            body['settings']['backupConfiguration']['startTime'] = cfg['backup']['time']
+
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
 
     @action
     def update_data_disk_size(self, args) -> None:
         if args: pass
-        body = {
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'dataDiskSizeGb': str(self.data_disk_size_gb)
+                'dataDiskSizeGb': str(cfg["data-disk-size-gb"])
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_data_disk_type(self, args) -> None:
         if args: pass
-        body = {
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'dataDiskType': self.data_disk_type
+                'dataDiskType': cfg["data-disk-type"]
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_flags(self, args) -> None:
         if args: pass
-        body = {
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'databaseFlags': self.flags
+                'databaseFlags': cfg['flags']
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_require_ssl(self, args) -> None:
         if args: pass
-        body = {
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'ipConfiguration': {
-                    'requireSsl': self.require_ssl
+                    'requireSsl': cfg["require-ssl"]
                 }
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_authorized_networks(self, args) -> None:
         if args: pass
-        body = {
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'ipConfiguration': {
-                    'authorizedNetworks': self.authorized_networks
+                    'authorizedNetworks': cfg["authorized-networks"]
                 }
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_maintenance_window(self, args) -> None:
         if args: pass
-        body = {
+        cfg = self.info.config
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'maintenanceWindow': self.maintenance_window
+                'maintenanceWindow': cfg["maintenance"]
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
     @action
     def update_storage_auto_resize(self, args) -> None:
         if args: pass
+        cfg = self.info.config
         body = {
             'settings': {
-                'storageAutoResize': self.storage_auto_resize['enabled']
+                'storageAutoResize': cfg["storage-auto-resize"]['enabled']
             }
         }
-        if self.storage_auto_resize['enabled']:
-            body['settings']['storageAutoResizeLimit'] = self.storage_auto_resize['limit']
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        if cfg["storage-auto-resize"]['enabled']:
+            body['settings']['storageAutoResizeLimit'] = cfg["storage-auto-resize"]['limit']
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
 
     @action
     def update_labels(self, args) -> None:
         if args: pass
+        cfg = self.info.config
         # TODO: currently, this DOES NOT remove old labels, just adds new ones and updates existing ones
-        body = {
+        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'userLabels': self.labels
+                'userLabels': cfg['labels']
             }
-        }
-        op = get_sql().instances().patch(project=self.project.project_id, instance=self.name, body=body).execute()
-        wait_for_sql_operation(project_id=self.project.project_id, operation=op)
+        })
 
 
 def main():
