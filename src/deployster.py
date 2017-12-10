@@ -99,6 +99,7 @@ def main():
 
     except UserError as e:
         with Logger(indent_amount=0, spacious=False) as logger:
+            logger.info('')
             if context and context.verbose:
                 logger.error(traceback.format_exc().strip())
             else:
@@ -107,17 +108,20 @@ def main():
 
     except termios.error as e:
         with Logger(indent_amount=0, spacious=False) as logger:
+            logger.info('')
             logger.error(f"IO error: {e}")
         exit(1)
 
     except KeyboardInterrupt:
         with Logger(indent_amount=0, spacious=False) as logger:
+            logger.info('')
             logger.error(f"Interrupted.")
         exit(1)
 
     except Exception:
         # always print stacktrace since this exception is an unexpected exception
         with Logger(indent_amount=0, spacious=False) as logger:
+            logger.info('')
             logger.error(traceback.format_exc().strip())
         exit(1)
 
