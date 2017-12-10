@@ -55,6 +55,38 @@ def test_new_dresource(name: str,
     assert resource.info.stale_state == stale_state
 
 
+def test_abstract_methods_fail():
+    class TestResource(DResource):
+
+        def __init__(self) -> None:
+            super().__init__({
+                'name': 'test',
+                'type': 'test-resource',
+                'version': '1.2.3',
+                'verbose': True,
+                'workspace': '/workspace',
+                'config': {},
+                'staleState': {}
+            })
+
+        def discover_state(self):
+            return super().discover_state()
+
+        def get_actions_for_missing_state(self) -> Sequence[DAction]:
+            return super().get_actions_for_missing_state()
+
+        def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
+            return super().get_actions_for_discovered_state(state)
+
+    resource: TestResource = TestResource()
+    with pytest.raises(NotImplementedError):
+        resource.discover_state()
+    with pytest.raises(NotImplementedError):
+        resource.get_actions_for_missing_state()
+    with pytest.raises(NotImplementedError):
+        resource.get_actions_for_discovered_state({})
+
+
 @pytest.mark.parametrize("plug_name", ["test"])
 @pytest.mark.parametrize("container_path", ["/my"])
 @pytest.mark.parametrize("optional", [True, False])
