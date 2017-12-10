@@ -1,0 +1,29 @@
+{
+    "description": "Test missing project without enabled APIs.",
+    "actual": {
+        "project": { },
+        "billing": { },
+        "apis": { }
+    },
+    "config": {
+        "project_id": "prj",
+        "apis": {
+            "disabled": [ "api2" ]
+        }
+    },
+    "expected": {
+        "status": "STALE",
+        "actions": [
+            {
+                "name": "create-project",
+                "description": "Create GCP project 'prj'",
+                "args": [ "create_project" ]
+            },
+            {
+                "name": "disable-api-api2",
+                "description": "Disable API 'api2'",
+                "args": [ "disable_api", "api2" ]
+            }
+        ]
+    }
+}
