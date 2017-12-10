@@ -1,4 +1,5 @@
 import pytest
+from colors import yellow, red
 
 from util import UserError, Logger, merge_into, merge, post_process
 
@@ -12,18 +13,33 @@ def test_new_usererror():
 @pytest.mark.parametrize("header", ["test header", None])
 @pytest.mark.parametrize("indent_amount", [0, 2, 4])
 @pytest.mark.parametrize("spacious", [True, False])
-@pytest.mark.parametrize("content", ["some-line", None])
-def test_logger_header(capsys, header: str, indent_amount: int, spacious: bool, content: str):
+@pytest.mark.parametrize("info_content", ["info-line", None])
+@pytest.mark.parametrize("warn_content", ["warn-line", None])
+@pytest.mark.parametrize("error_content", ["error-line", None])
+def test_logger_header(capsys,
+                       header: str,
+                       indent_amount: int,
+                       spacious: bool,
+                       info_content: str,
+                       warn_content: str,
+                       error_content):
     with Logger(header=header, indent_amount=indent_amount, spacious=spacious) as logger:
-        if content is not None:
-            logger.info(content)
+        if info_content is not None:
+            logger.info(info_content)
+        if warn_content is not None:
+            logger.warn(warn_content)
+        if error_content is not None:
+            logger.error(error_content)
 
     expected = ''
     expected = expected + (f'{header}\n' if header is not None else '')
     expected = expected + (f'\n' if header is not None and spacious else '')
-    expected = expected + (f'{" " * indent_amount}{content}\n' if content else '')
+    expected = expected + (f'{" " * indent_amount}{info_content}\n' if info_content else '')
+    expected = expected + (f'{" " * indent_amount}{yellow(warn_content)}\n' if warn_content else '')
     expected = expected + (f'{" " * indent_amount}\n' if spacious else '')
-    assert capsys.readouterr().out == expected
+    readouterr = capsys.readouterr()
+    assert readouterr.out == expected
+    assert readouterr.err == (f'{" " * indent_amount}{red(error_content)}\n' if error_content else '')
 
 
 @pytest.mark.parametrize("header", ["test header", None])
