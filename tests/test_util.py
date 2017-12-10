@@ -69,16 +69,19 @@ def test_logger_partial_line(capsys, header: str, indent_amount: int, spacious: 
 
 
 def test_merge_into():
-    dst = {}
+    dst = {'k4': {'v41': 'vv41'}}
     src1 = {'k1': 'v1'}
     src2 = {'k2': 'v2'}
     src3 = {'k3': {'v3': 'vv3'}}
-    result = merge_into(dst, src1, src2, src3)
+    src4 = {'k4': {'v4': 'vv4'}}
+    result = merge_into(dst, src1, src2, src3, src4)
     assert result is dst
     assert result['k1'] == 'v1'
     assert result['k2'] == 'v2'
     assert isinstance(result['k3'], dict)
     assert result['k3']['v3'] == 'vv3'
+    assert result['k4']['v41'] == 'vv41'
+    assert result['k4']['v4'] == 'vv4'
 
     result = merge(src1, src2, src3)
     assert result is not dst
@@ -123,7 +126,8 @@ def test_post_processing():
             '{{ 1 + 2 }}',
             '{{ c1 + 1 }}',
             'hello, {{ name }}!',
-        ]
+        ],
+        'k7': 7
     }
 
     context = {
@@ -154,6 +158,7 @@ def test_post_processing():
         2,
         'hello, John!'
     ]
+    assert result1['k7'] == 7
 
     with pytest.raises(expected_exception=UserError, match=r'\' unknown_var \' yielded an undefined result'):
         post_process('{{ unknown_var }}', {})

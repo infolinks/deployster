@@ -81,7 +81,7 @@ def merge(*args):
 def merge_into(target: dict, *args) -> dict:
     for source in args:
         for k, v in source.items():
-            if k in target and isinstance(target[k], dict) and isinstance(source[k], collections.Mapping):
+            if k in target and isinstance(target[k], dict) and isinstance(source[k], dict):
                 merge_into(target[k], source[k])
             else:
                 target[k] = source[k]
