@@ -11,6 +11,7 @@ RUN chmod +x /app/test.sh
 
 COPY .coveragerc /app/
 COPY src /app/src/
+COPY resources/src/*.py /app/resources/src/
 COPY tests /app/tests/
 COPY .git /app/.git/
 
