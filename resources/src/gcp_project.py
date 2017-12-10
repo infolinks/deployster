@@ -130,12 +130,13 @@ class GcpProject(GcpResource):
 
         # enable/disable project APIs if requested to (and if necessary)
         if 'apis' in config:
+            apis = config['apis']
 
             # fetch currently enabled project APIs
             actual_enabled_api_names: Sequence[str] = \
-                get_project_enabled_apis(project_id=self.info.config['project_id'])
-            apis = config['apis']
-            if 'disabed' in apis:
+                sorted(get_project_enabled_apis(project_id=self.info.config['project_id']))
+
+            if 'disabled' in apis:
                 # disable APIs that are currently enabled, but user requested them to be disabled
                 for api_name in [api_name for api_name in apis['disabled'] if api_name in actual_enabled_api_names]:
                     actions.append(
