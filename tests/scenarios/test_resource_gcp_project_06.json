@@ -1,0 +1,40 @@
+{
+    "description": "Test project with only enabled APIs in configuration.",
+    "actual": {
+        "project": {
+            "prj": { "projectId": "prj", "name": "prj", "parent": { "type": "organization", "id": "123" } }
+        },
+        "billing": {
+            "prj": { "billingAccountName": "billingAccounts/ABC123" }
+        },
+        "apis": {
+            "prj": [ "api1" ]
+        }
+    },
+    "config": {
+        "project_id": "prj",
+        "organization_id": 123,
+        "billing_account_id": "ABC123",
+        "apis": { "enabled": [ "api1", "api2" ] }
+    },
+    "expected": {
+        "status": "STALE",
+        "staleState": {
+            "name": "prj",
+            "projectId": "prj",
+            "billing_account_id": "ABC123",
+            "parent": {
+                "type": "organization",
+                "id": "123"
+            },
+            "apis": { "enabled": [ "api1" ] }
+        },
+        "actions": [
+            {
+                "name": "enable-api-api2",
+                "description": "Enable API 'api2'",
+                "args": [ "enable_api", "api2" ]
+            }
+        ]
+    }
+}
