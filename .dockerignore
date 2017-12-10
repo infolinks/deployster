@@ -2,7 +2,6 @@
 /.python3
 /docs
 /examples
-/resources
 /.dockerignore
 /.gitignore
 /*.iml
