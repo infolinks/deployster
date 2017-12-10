@@ -1,5 +1,5 @@
 FROM infolinks/deployster-gcp:local
-COPY src/gcp_compute_ip_address.py src/gcp_project.py /deployster/lib/
+COPY src/gcp_compute_ip_address.py /deployster/lib/
 RUN chmod +x /deployster/lib/gcp_compute_ip_address.py
 ENTRYPOINT ["/deployster/lib/gcp_compute_ip_address.py"]
 CMD ["init"]
