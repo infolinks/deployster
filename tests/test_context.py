@@ -29,6 +29,14 @@ def test_new_context(version_file: str, verbose: str, conf_dir: str, workspace_d
     assert context.confirm == ConfirmationMode.ACTION
 
 
+def test_verbose_setter():
+    context: Context = Context()
+    assert not context.verbose
+
+    context.verbose = True
+    assert context.verbose
+
+
 @pytest.mark.parametrize("conf_dir", ["./tests/.cache/conf", "/conf/dir"])
 @pytest.mark.parametrize("workspace_dir", ["./tests/.cache/workspace", "/workspace/dir"])
 def test_load_auto_vars_files(conf_dir: str, workspace_dir: str):
@@ -46,24 +54,26 @@ def test_load_auto_vars_files(conf_dir: str, workspace_dir: str):
 
     if conf_dir.startswith("./"):
         os.makedirs(conf_dir, exist_ok=True)
-    if workspace_dir.startswith("./"):
-        os.makedirs(workspace_dir, exist_ok=True)
-
-    if os.path.exists(conf_dir):
         with open(Path(conf_dir) / 'vars.auto.yaml', 'w') as f:
             expected_foo1 = 'bar1'
             f.write(f'foo1: {expected_foo1}')
+        with open(Path(conf_dir) / 'vars.notauto.yaml', 'w') as f:
+            f.write(f'foo2: will_not_be_added_{expected_foo2}')
 
-    if os.path.exists(workspace_dir):
+    if workspace_dir.startswith("./"):
+        os.makedirs(workspace_dir, exist_ok=True)
         with open(Path(workspace_dir) / 'vars.auto.yaml', 'w') as f:
             expected_foo2 = 'bar2'
             f.write(f'foo2: {expected_foo2}')
+        with open(Path(workspace_dir) / 'vars.notauto.yaml', 'w') as f:
+            f.write(f'foo2: will_not_be_added_{expected_foo2}')
 
     context.load_auto_files()
     assert context.data['foo1'] == expected_foo1
     assert context.data['foo2'] == expected_foo2
 
 
+# noinspection PyTypeChecker
 @pytest.mark.parametrize("mode", list(ConfirmationMode))
 def test_confirm(mode: ConfirmationMode):
     context: Context = Context()
@@ -87,9 +97,6 @@ def test_add_file_not_existing():
 
 
 def test_add_file_invalid():
-    # TODO: test valid file
-    # TODO: test templates
-
     path: str = './tests/.cache/workspace/vars.yaml'
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -101,6 +108,11 @@ def test_add_file_invalid():
     with pytest.raises(UserError):
         with open('./tests/.cache/workspace/vars.yaml', 'w') as f:
             f.write('foo: "{{aaa}}}"')
+        Context().add_file(path)
+
+    with pytest.raises(UserError):
+        with open('./tests/.cache/workspace/vars.yaml', 'w') as f:
+            f.write('foo: "{{aaa"')
         Context().add_file(path)
 
 

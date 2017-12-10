@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from jinja2.exceptions import TemplateSyntaxError
 
 import util
 from util import UserError, merge_into, bold, underline, Logger, italic
@@ -90,10 +89,7 @@ class Context:
                 source = yaml.load(stream.read())
             except yaml.YAMLError as e:
                 raise UserError(f"illegal config: malformed variables file at '{path}': {e}") from e
-            try:
-                merge_into(self._data, util.post_process(value=source, context=self.data))
-            except TemplateSyntaxError as e:
-                raise UserError(f"illegal config in '{path}': {e.message}") from e
+            merge_into(self._data, util.post_process(value=source, context=self.data))
 
     def add_variable(self, key: str, value: Any) -> None:
         self._data[key] = value
