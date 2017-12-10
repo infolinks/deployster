@@ -631,12 +631,12 @@ class GcpCloudSql(GcpResource):
                 elif flag_type == 'BOOLEAN':
                     if 'value' not in desired_flag:
                         raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
-                    elif desired_flag['value'] not in ['yes', 'no']:
+                    elif desired_flag['value'] not in ['on', 'off']:
                         raise Exception(f"illegal config: flag '{desired_name}' value must be 'on' or 'off'.")
 
         # validate machine-type against allowed tiers (tier=machine-type in Cloud SQL lingo)
         allowed_tiers: dict = self.gcp.get_sql_allowed_tiers(project_id=self.info.config['project_id'])
-        desired_tier = cfg['machine_type']
+        desired_tier = cfg["machine-type"]
         if desired_tier not in allowed_tiers:
             raise Exception(f"illegal config: unsupported machine_type '{desired_tier}'")
         tier = allowed_tiers[desired_tier]
