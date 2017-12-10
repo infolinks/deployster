@@ -82,6 +82,9 @@ class Resource:
         self._manifest: 'Manifest' = manifest
         self._status: ResourceStatus = None
         self._name: str = name
+
+        if re.match(r'^infolinks/deployster-[^:]+$', type):
+            type = type + ':' + manifest.context.version
         self._type: str = type
         self._readonly: bool = readonly
         self._config_schema: dict = None
@@ -150,7 +153,8 @@ class Resource:
             try:
                 jsonschema.validate(result, Resource.init_action_stdout_schema)
             except ValidationError as e:
-                raise UserError(f"protocol error: resource initialization result failed validation: {e.message}") from e
+                raise UserError(
+                    f"protocol error: '{self.name}' initialization result failed validation: {e.message}") from e
 
             # store config schema
             self._config_schema = result['config_schema'] if 'config_schema' in result else {
@@ -169,7 +173,8 @@ class Resource:
                         logger.warn(f"Optional plug '{plug_name}' does not exist (skipped)")
                         continue
                     else:
-                        raise UserError(f"illegal config: required plug '{plug_name}' does not exist")
+                        raise UserError(
+                            f"illegal config: plug '{plug_name}' required by '{self.name}' does not exist")
 
                 plug = self._manifest.plug(plug_name)
                 if not plug.allowed_for(self):
@@ -177,7 +182,8 @@ class Resource:
                         logger.warn(f"Optional plug '{plug_name}' is not allowed for this resource (skipped)")
                         continue
                     else:
-                        raise UserError(f"illegal config: required plug '{plug_name}' is not allowed for this resource")
+                        raise UserError(
+                            f"illegal config: plug '{plug_name}' required by '{self.name}' is not allowed for it")
                 elif require_writable and plug.readonly:
                     if optional:
                         logger.warn(
@@ -185,7 +191,8 @@ class Resource:
                         continue
                     else:
                         raise UserError(
-                            f"illegal config: required plug '{plug_name}' is readonly, but requested with write access")
+                            f"illegal config: plug '{plug_name}' required by '{self.name}' is readonly, but requested "
+                            f"with write access")
                 else:
                     plugs[plug_spec['container_path']] = plug
             self._plugs: MutableMapping[str, Plug] = plugs
@@ -241,7 +248,7 @@ class Resource:
         try:
             jsonschema.validate(state_result, Resource.state_action_stdout_schema)
         except ValidationError as e:
-            raise UserError(f"protocol error: state action result failed validation: {e.message}") from e
+            raise UserError(f"protocol error: '{self.name}' state result failed validation: {e.message}") from e
 
         return state_result
 
@@ -260,6 +267,7 @@ class Resource:
             if self._status is None:
                 raise Exception(f"internal error: cannot resolve un-initialized resource ('{self.name}')")
             elif self._status == ResourceStatus.RESOLVING:
+                # TODO: print dependency chain
                 raise UserError(f"illegal config: circular resource dependency encountered!")
             elif self._status == ResourceStatus.VALID:
                 return
@@ -279,7 +287,23 @@ class Resource:
             try:
                 jsonschema.validate(self._resolved_config, self._config_schema)
             except ValidationError as e:
-                raise UserError(f"illegal config: {e.message}") from e
+                raise UserError(f"illegal config for '{self.name}.config.{'.'.join(e.path)}': {e.message}\n"
+                                f"Must match schema: {e.schema}") from e
+                # raise UserError(f"illegal config for '{self.name}': {e.message}\n"
+                #                 f"path: {e.path}\n"
+                #                 f"context: {e.context}\n"
+                #                 f"absolute_path: {e.absolute_path}\n"
+                #                 f"absolute_schema_path: {e.absolute_schema_path}\n"
+                #                 f"cause: {e.cause}\n"
+                #                 f"instance: {e.instance}\n"
+                #                 f"parent: {e.parent}\n"
+                #                 f"relative_path: {e.relative_path}\n"
+                #                 f"relative_schema_path: {e.relative_schema_path}\n"
+                #                 f"schema: {e.schema}\n"
+                #                 f"schema_path: {e.schema_path}\n"
+                #                 f"validator: {e.validator}\n"
+                #                 f"validator_value: {e.validator_value}\n"
+                #                 f"args: {e.args}") from e
 
             # invoke the "state" action
             state_result = self._resolve_state(logger=logger)
@@ -337,12 +361,12 @@ class Resource:
                 # verify that the resource is now VALID
                 updated_state_result: dict = self._resolve_state(logger=logger)
                 if ResourceStatus[updated_state_result['status']] != ResourceStatus.VALID:
-                    raise UserError(f"protocol error: expecting state to be VALID after applying resource actions")
+                    raise UserError(f"protocol error: expected '{self.name}' to be VALID after applying actions")
                 else:
                     self._status = ResourceStatus.VALID
                     self._state = state_result['state']
             else:
-                raise Exception(f"internal error: unrecognized resource status '{self._status}'")
+                raise Exception(f"internal error: unrecognized status '{self._status}' for '{self.name}'")
 
 
 class Plug:
