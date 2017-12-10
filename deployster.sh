@@ -2,11 +2,11 @@
 
 # simple IntelliJ IDEA hack to prevent undefined-env-vars warnings
 if [[ "THIS_WILL" == "NEVER_BE_TRUE" ]]; then
-    DEPLOYSTER_VERSION=${DEPLOYSTER_VERSION}
+    VERSION=${VERSION}
 fi
 
 # default deployster version to "latest" unless supplied as environment variable already
-[[ "${DEPLOYSTER_VERSION}" == "" ]] && DEPLOYSTER_VERSION="latest"
+[[ "${VERSION}" == "" ]] && VERSION="latest"
 
 # setup paths to mount
 CONF_DIR="$(mkdir -p ~/.deployster; cd ~/.deployster; pwd)"
@@ -26,5 +26,5 @@ docker run ${TTY_FLAGS} \
            -e WORKSPACE_DIR="${WORKSPACE_DIR}" \
            -e WORK_DIR="${WORK_DIR}" \
            --workdir="${WORKSPACE_DIR}" \
-           infolinks/deployster:${DEPLOYSTER_VERSION} \
+           infolinks/deployster:${VERSION} \
            $@
