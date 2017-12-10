@@ -17,23 +17,22 @@ from gcp_services import region_from_zone, GcpServices
 
 
 def _translate_day_name_to_number(day_name: str) -> int:
-    if type(day_name) == str:
-        if day_name == 'Monday':
-            return 1
-        elif day_name == 'Tuesday':
-            return 2
-        elif day_name == 'Wednesday':
-            return 3
-        elif day_name == 'Thursday':
-            return 4
-        elif day_name == 'Friday':
-            return 5
-        elif day_name == 'Saturday':
-            return 6
-        elif day_name == 'Sunday':
-            return 7
-        else:
-            raise Exception(f"illegal config: unknown week-day encountered: {day_name}")
+    if day_name == 'Monday':
+        return 1
+    elif day_name == 'Tuesday':
+        return 2
+    elif day_name == 'Wednesday':
+        return 3
+    elif day_name == 'Thursday':
+        return 4
+    elif day_name == 'Friday':
+        return 5
+    elif day_name == 'Saturday':
+        return 6
+    elif day_name == 'Sunday':
+        return 7
+    else:
+        raise Exception(f"illegal config: unknown week-day encountered: {day_name}")
 
 
 class Condition(ABC):
