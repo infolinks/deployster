@@ -6,8 +6,8 @@ PYTHONPATH="$(pwd)/src:$(pwd)/resources/src" \
             --cov-branch \
             --cov=./src/ \
             --cov=./resources/src/ \
-            tests/
-
+            tests/ \
+            $@
 [[ $? != 0 ]] && echo "Tests failed!" >&2 && exit 1
 
 if [[ -n "${BUILDKITE}" ]]; then
