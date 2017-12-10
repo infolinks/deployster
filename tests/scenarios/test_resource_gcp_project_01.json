@@ -1,0 +1,30 @@
+{
+    "description": "Test actual & desired states are the same (VALID).",
+    "actual": {
+        "project": {
+            "prj": { "projectId": "prj", "name": "prj", "parent": { "type": "organization", "id": "123" } }
+        },
+        "billing": {
+            "prj": { "billingAccountName": "billingAccounts/ABC123" }
+        },
+        "apis": {
+            "prj": [ "api1" ]
+        }
+    },
+    "config": {
+        "project_id": "prj",
+        "organization_id": 123,
+        "billing_account_id": "ABC123",
+        "apis": { "enabled": [ "api1" ], "disabled": [ "api2", "api3" ] }
+    },
+    "expected": {
+        "status": "VALID",
+        "state": {
+            "apis": { "enabled": [ "api1" ] },
+            "billing_account_id": "ABC123",
+            "name": "prj",
+            "parent": { "type": "organization", "id": "123" },
+            "projectId": "prj"
+        }
+    }
+}
