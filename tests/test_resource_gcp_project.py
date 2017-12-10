@@ -8,7 +8,7 @@ from mock_gcp_services import MockGcpServices, load_scenarios
 
 @pytest.mark.parametrize("actual,config,expected", load_scenarios(r'^test_resource_gcp_project_\d+\.json'))
 def test_project_state(capsys, actual: dict, config: dict, expected: dict):
-    project = GcpProject(
+    resource = GcpProject(
         data={
             'name': 'test',
             'type': 'test-resource',
@@ -29,8 +29,8 @@ def test_project_state(capsys, actual: dict, config: dict, expected: dict):
             if [api for api in disabled_apis if api in enabled_apis] and \
                     [api for api in enabled_apis if api in disabled_apis]:
                 with pytest.raises(Exception, match=r'cannot be both enabled & disabled'):
-                    project.execute(['state'])
+                    resource.execute(['state'])
                 return
 
-    project.execute(['state'])
+    resource.execute(['state'])
     assert json.loads(capsys.readouterr().out) == expected
