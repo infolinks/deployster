@@ -40,6 +40,13 @@ class GcpProject(GcpResource):
         })
 
     def discover_state(self):
+        if 'apis' in self.info.config:
+            apis = self.info.config['apis']
+            if 'enabled' in apis and 'disabled' in apis:
+                if [api for api in apis['enabled'] if api in apis['disabled']] or \
+                        [api for api in apis['disabled'] if api in apis['enabled']]:
+                    raise Exception(f"illegal config: APIs cannot be both enabled & disabled!")
+
         project: dict = self.gcp.find_project(self.info.config['project_id'])
         if project is None:
             return None
@@ -73,16 +80,12 @@ class GcpProject(GcpResource):
             apis = config['apis']
             if 'disabled' in apis:
                 for api_name in apis['disabled']:
-                    if 'enabled' in apis and api_name in apis['enabled']:
-                        raise Exception(f"illegal config: the API '{api_name}' cannot be both enabled & disabled!")
                     actions.append(
                         DAction(name=f"disable-api-{api_name}",
                                 description=f"Disable API '{api_name}'",
                                 args=['disable_api', api_name]))
             if 'enabled' in apis:
                 for api_name in apis['enabled']:
-                    if 'disabled' in apis and api_name in apis['disabled']:
-                        raise Exception(f"illegal config: the API '{api_name}' cannot be both enabled & disabled!")
                     actions.append(
                         DAction(name=f"enable-api-{api_name}",
                                 description=f"Enable API '{api_name}'",
@@ -112,7 +115,7 @@ class GcpProject(GcpResource):
             apis = config['apis']
 
             # fetch currently enabled project APIs
-            actual_enabled_api_names: Sequence[str] = sorted(state['apis'])
+            actual_enabled_api_names: Sequence[str] = sorted(state['apis']['enabled'])
 
             if 'disabled' in apis:
                 # disable APIs that are currently enabled, but user requested them to be disabled
