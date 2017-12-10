@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Mapping, Sequence, Any, Callable, MutableSequence, MutableMapping
@@ -141,7 +142,7 @@ class DResourceInfo:
         return self._data['version']
 
     @property
-    def verbose(self) -> str:
+    def verbose(self) -> bool:
         return self._data['verbose']
 
     @property
@@ -153,16 +154,6 @@ class DResourceInfo:
         """The resource configuration, which in essence is the *desired* state of the resource, as depicted by the user
         in the deployment manifest."""
         return self._data['config']
-
-    @property
-    def dependencies(self) -> Mapping[str, dict]:
-        """The set of dependencies that the user wired to this resource. This provides a mapping between a dependency
-        resource's name, and the same set of information for the dependency, as provided for this resource.
-
-        So for each dependency, a dictionary containing the name, type, configuration, dependencies and so on will be
-        provided. This is recursive (ie. each dependency can have its own dependencies, etc) and circular dependencies
-        have been resolved by Deployster prior to this information being provided."""
-        return self._data['dependencies']
 
     @property
     def stale_state(self) -> dict:
@@ -290,7 +281,7 @@ class DResource(ABC):
         if action_name: pass
         action_method(self, args)
 
-    def execute(self) -> None:
+    def execute(self, args=sys.argv[1:]) -> None:
         argparser: argparse.ArgumentParser = argparse.ArgumentParser(description=f"Resource {self.info.name}")
         subparsers = argparser.add_subparsers()
 
@@ -304,7 +295,7 @@ class DResource(ABC):
                     self.configure_action_argument_parser(method.__name__, parser)
                     parser.set_defaults(action_name=method.__name__, action_method=method)
 
-        args = argparser.parse_args()
+        args = argparser.parse_args(args=args)
         self.execute_action(args.action_name, args.action_method, args)
 
 
