@@ -1,5 +1,5 @@
 {
-    "description": "Test project doees not exist.",
+    "description": "Test project does not exist.",
     "actual": {
         "project": {
             "prj2": { "projectId": "prj", "name": "prj", "parent": { "type": "organization", "id": "123" } }
