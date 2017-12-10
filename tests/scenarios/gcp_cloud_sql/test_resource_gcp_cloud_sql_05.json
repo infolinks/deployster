@@ -1,0 +1,49 @@
+{
+    "description": "Test week-day translation: Sunday",
+    "actual": {
+        "project_apis": {
+            "prj": [ "sqladmin.googleapis.com", "sql-component.googleapis.com" ]
+        },
+        "tiers": {
+            "db-1": {
+                "DiskQuota": "100",
+                "tier": "db-1",
+                "kind": "sql#tier",
+                "RAM": "32",
+                "region": [ "europe-west1", "europe-west2", "europe-west3" ]
+            }
+        },
+        "flags": { },
+        "instances": {
+            "sql1": {
+                "state": "RUNNABLE",
+                "region": "europe-west1",
+                "settings": {
+                    "locationPreference": { "zone": "europe-west1-a" },
+                    "tier": "db-1",
+                    "maintenanceWindow": { "day": 4, "hour": 18 }
+                }
+            }
+        }
+    },
+    "config": {
+        "project_id": "prj",
+        "zone": "europe-west1-a",
+        "name": "sql1",
+        "machine-type": "db-1",
+        "maintenance": { "day": "Thursday", "hour": 18 },
+        "root-password": "abcdefg"
+    },
+    "expected": {
+        "status": "VALID",
+        "state": {
+            "state": "RUNNABLE",
+            "region": "europe-west1",
+            "settings": {
+                "locationPreference": { "zone": "europe-west1-a" },
+                "maintenanceWindow": { "day": 4, "hour": 18 },
+                "tier": "db-1"
+            }
+        }
+    }
+}
