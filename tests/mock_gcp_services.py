@@ -7,12 +7,12 @@ from typing import Mapping, Sequence, Union, Tuple, MutableSequence, Any
 from gcp_services import GcpServices
 
 
-def load_scenarios(scenario_pattern: str) -> Sequence[Tuple[dict, dict, dict]]:
+def load_scenarios(scenarios_dir: str, scenario_pattern: str) -> Sequence[Tuple[dict, dict, dict]]:
     print("", file=sys.stderr)
     scenarios: MutableSequence[Tuple[dict, dict, dict]] = []
-    for scenario_file in os.listdir('./tests/scenarios'):
+    for scenario_file in os.listdir(scenarios_dir):
         if re.match(scenario_pattern, scenario_file):
-            file_name = os.path.join('./tests/scenarios', scenario_file)
+            file_name = os.path.join(scenarios_dir, scenario_file)
             print(f"Loading GCP project scenario '{file_name}'...", file=sys.stderr)
             with open(file_name, 'r') as f:
                 scenario_data = json.loads(f.read())
@@ -77,7 +77,7 @@ class MockGcpServices(GcpServices):
         return self._sql_flags
 
     def get_sql_instance(self, project_id: str, instance_name: str):
-        return self._sql_instances[instance_name]
+        return self._sql_instances[instance_name] if instance_name in self._sql_instances else None
 
     def create_sql_instance(self, project_id: str, body: dict) -> None:
         pass
