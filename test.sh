@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
-PYTHONPATH="$(pwd)/src" py.test --cov-config=./.coveragerc --cov-report=term-missing --cov-branch --cov=./src/ tests/
+PYTHONPATH="$(pwd)/src:$(pwd)/resources/src" \
+    py.test --cov-config=./.coveragerc \
+            --cov-report=term-missing \
+            --cov-branch \
+            --cov=./src/ \
+            --cov=./resources/src/ \
+            tests/
+
 [[ $? != 0 ]] && echo "Tests failed!" >&2 && exit 1
 
 if [[ -n "${BUILDKITE}" ]]; then
