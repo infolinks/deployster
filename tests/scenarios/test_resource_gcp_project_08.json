@@ -1,5 +1,5 @@
 {
-    "description": "Test project without desired billing account.",
+    "description": "Test existing project without desired billing account.",
     "actual": {
         "project": {
             "prj": { "projectId": "prj", "name": "prj", "parent": { "type": "organization", "id": "123" } }
