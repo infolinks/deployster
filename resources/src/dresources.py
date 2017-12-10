@@ -207,7 +207,7 @@ class DResource(ABC):
 
         This method must be implemented by subclasses, and either return a dictionary describing the resource, or, if
         the resource is not found, return None."""
-        raise Exception(f"internal error: 'discover_state' not implemented")
+        raise NotImplementedError(f"internal error: 'discover_state' not implemented")
 
     @abstractmethod
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
@@ -215,7 +215,7 @@ class DResource(ABC):
 
         Must be implemented by subclasses. It will be called when the "discover_actual_properties" method returns
         None."""
-        raise Exception(f"internal error: 'get_actions_for_missing_state' not implemented")
+        raise NotImplementedError(f"internal error: 'get_actions_for_missing_state' not implemented")
 
     @abstractmethod
     def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
@@ -225,7 +225,7 @@ class DResource(ABC):
         return None.
 
         This method can return an empty list, signaling in essence that the resource is VALID."""
-        raise Exception(f"internal error: 'get_actions_for_discovered_state' not implemented")
+        raise NotImplementedError(f"internal error: 'get_actions_for_discovered_state' not implemented")
 
     # noinspection PyUnusedLocal
     def configure_action_argument_parser(self, action: str, argparser: argparse.ArgumentParser):
