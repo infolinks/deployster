@@ -1,8 +1,115 @@
 import json
 from time import sleep
-from typing import Sequence
+from typing import Sequence, MutableMapping, Union, Any
 
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+
+class GcpServices:
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._services: MutableMapping[str, Any] = {}
+
+    def _get_service(self, service_name, version) -> Any:
+        service_key = service_name + '_' + version
+        if service_key not in self._services:
+            self._services[service_key] = build(serviceName=service_name, version=version)
+        return self._services[service_key]
+
+    def find_project(self, project_id: str) -> Union[None, dict]:
+        filter: str = f"name:{project_id}"
+        result: dict = get_service('cloudresourcemanager', 'v1').projects().list(filter=f"name:{project_id}").execute()
+
+        if 'projects' not in result:
+            return None
+
+        projects: Sequence[dict] = result['projects']
+        if len(projects) == 0:
+            return None
+        elif len(projects) > 1:
+            raise Exception(f"too many GCP projects matched filter '{filter}'")
+        else:
+            return projects[0]
+
+    def find_project_billing_info(self, project_id: str) -> Union[None, dict]:
+        try:
+            return get_service('cloudbilling', 'v1').projects().getBillingInfo(name=f"projects/{project_id}").execute()
+        except HttpError as e:
+            if e.resp.status == 404:
+                return None
+            else:
+                raise
+
+    def update_project_billing_info(self, project_id: str, body: dict) -> None:
+        service = get_service('cloudbilling', 'v1').projects()
+        service.updateBillingInfo(name=f'projects/{project_id}', body=body).execute()
+
+    def find_project_enabled_apis(self, project_id: str) -> Sequence[str]:
+        result: dict = \
+            get_service('servicemanagement', 'v1').services().list(consumerId=f'project:{project_id}').execute()
+        if 'services' in result:
+            return [api['serviceName'] for api in result['services']]
+        else:
+            return []
+
+    def wait_for_service_manager_operation(self, result):
+        if 'response' in result:
+            return result['response']
+
+        operations_service = get_service('servicemanagement', 'v1').operations()
+        while True:
+            sleep(5)
+            result = operations_service.get(name=result['name']).execute()
+            if 'done' in result and result['done']:
+                if 'response' in result:
+                    return result['response']
+
+                elif 'error' in result:
+                    raise Exception("ERROR: %s" % json.dumps(result['error']))
+
+                else:
+                    raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
+
+    def enable_project_api(self, project_id: str, api: str) -> None:
+        self.wait_for_service_manager_operation(
+            get_service('servicemanagement', 'v1').services().enable(serviceName=api, body={
+                'consumerId': f"project:{project_id}"
+            }).execute())
+
+    def disable_project_api(self, project_id: str, api: str) -> None:
+        self.wait_for_service_manager_operation(
+            get_service('servicemanagement', 'v1').services().disable(serviceName=api, body={
+                'consumerId': f"project:{project_id}"
+            }).execute())
+
+    def wait_for_resource_manager_operation(self, result):
+        if 'response' in result:
+            return result['response']
+
+        operations_service = get_service('cloudresourcemanager', 'v1').operations()
+        while True:
+            sleep(5)
+            result = operations_service.get(name=result['name']).execute()
+            if 'done' in result and result['done']:
+                if 'response' in result:
+                    return result['response']
+
+                elif 'error' in result:
+                    raise Exception("ERROR: %s" % json.dumps(result['error']))
+
+                else:
+                    raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
+
+    def create_project(self, body: dict) -> None:
+        service = get_service('cloudresourcemanager', 'v1').projects()
+        self.wait_for_resource_manager_operation(service.create(body=body).execute())
+
+    def update_project(self, project_id: str, body: dict) -> None:
+        service = get_service('cloudresourcemanager', 'v1').projects()
+        self.wait_for_resource_manager_operation(service.update(projectId=project_id, body=body).execute())
+
 
 services = {}
 
