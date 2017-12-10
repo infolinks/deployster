@@ -33,7 +33,7 @@ def _translate_day_name_to_number(day_name: str) -> int:
         elif day_name == 'Sunday':
             return 7
         else:
-            raise Exception(f"illegal config: unknown maintenance day encountered: {day_name}")
+            raise Exception(f"illegal config: unknown week-day encountered: {day_name}")
 
 
 class Condition(ABC):
