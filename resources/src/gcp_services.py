@@ -125,18 +125,6 @@ def get_service(service_name, version):
     return services[service_key]
 
 
-def get_service_management():
-    return get_service('servicemanagement', 'v1')
-
-
-def get_billing():
-    return get_service('cloudbilling', 'v1')
-
-
-def get_resource_manager():
-    return get_service('cloudresourcemanager', 'v1')
-
-
 def get_sql():
     return get_service('sqladmin', 'v1beta4')
 
@@ -151,50 +139,6 @@ def get_compute():
 
 def get_container():
     return get_service('container', 'v1')
-
-
-def get_project_enabled_apis(project_id: str) -> Sequence[str]:
-    result: dict = get_service_management().services().list(consumerId=f'project:{project_id}').execute()
-    apis: Sequence[dict] = result['services'] if 'services' in result else []
-    return [api['serviceName'] for api in apis]
-
-
-def wait_for_resource_manager_operation(result):
-    if 'response' in result:
-        return result['response']
-
-    operations_service = get_resource_manager().operations()
-    while True:
-        sleep(5)
-        result = operations_service.get(name=result['name']).execute()
-        if 'done' in result and result['done']:
-            if 'response' in result:
-                return result['response']
-
-            elif 'error' in result:
-                raise Exception("ERROR: %s" % json.dumps(result['error']))
-
-            else:
-                raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
-
-
-def wait_for_service_manager_operation(result):
-    if 'response' in result:
-        return result['response']
-
-    operations_service = get_service_management().operations()
-    while True:
-        sleep(5)
-        result = operations_service.get(name=result['name']).execute()
-        if 'done' in result and result['done']:
-            if 'response' in result:
-                return result['response']
-
-            elif 'error' in result:
-                raise Exception("ERROR: %s" % json.dumps(result['error']))
-
-            else:
-                raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
 
 
 def wait_for_compute_region_operation(project_id, region, operation, timeout=300):
