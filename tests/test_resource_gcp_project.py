@@ -4,7 +4,6 @@ import pytest
 
 from gcp_project import GcpProject
 from mock_gcp_services import MockGcpServices, load_scenarios
-from util import UserError
 
 
 @pytest.mark.parametrize("actual,config,expected", load_scenarios(r'^test_resource_gcp_project_\d+\.json'))
@@ -29,9 +28,9 @@ def test_project_state(capsys, actual: dict, config: dict, expected: dict):
             disabled_apis = apis['disabled']
             if [api for api in disabled_apis if api in enabled_apis] and \
                     [api for api in enabled_apis if api in disabled_apis]:
-                with pytest.raises(UserError, match=r'cannot be both enabled & disabled'):
+                with pytest.raises(Exception, match=r'cannot be both enabled & disabled'):
                     project.execute(['state'])
-                    return
+                return
 
     project.execute(['state'])
     assert json.loads(capsys.readouterr().out) == expected
