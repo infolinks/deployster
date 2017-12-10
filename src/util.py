@@ -38,7 +38,7 @@ class Logger(AbstractContextManager):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> Any:
-        if self._spacious:
+        if exc_value is None and self._spacious:
             self.info('')
 
         Logger._global_indent -= self._indent_amount
