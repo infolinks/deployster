@@ -1,0 +1,96 @@
+{
+    "description": "Test ALL composite condition on existing GCP Cloud SQL.",
+    "actual": {
+        "project_apis": {
+            "prj": [ "sqladmin.googleapis.com", "sql-component.googleapis.com" ]
+        },
+        "tiers": {
+            "db-1": {
+                "DiskQuota": "100",
+                "tier": "db-1",
+                "kind": "sql#tier",
+                "RAM": "32",
+                "region": [
+                    "europe-west1",
+                    "europe-west2",
+                    "europe-west3"
+                ]
+            }
+        },
+        "flags": {
+        },
+        "instances": {
+            "sql1": {
+                "state": "RUNNABLE",
+                "region": "europe-west1",
+                "settings": {
+                    "locationPreference": { "zone": "europe-west1-a" },
+                    "tier": "db-1",
+                    "maintenanceWindow": { "day": 2, "hour": 18 },
+                    "dataDiskSizeGb": "15",
+                    "dataDiskType": "PD_SSD",
+                    "ipConfiguration": {
+                        "requireSsl": true,
+                        "authorizedNetworks": [ ]
+                    },
+                    "storageAutoResize": true,
+                    "storageAutoResizeLimit": 150
+                }
+            }
+        },
+        "sql_results": {
+            "SELECT SCHEMA_NAME FROM SCHEMATA": [
+                { "SCHEMA_NAME": "my_schema1" },
+                { "SCHEMA_NAME": "my_schema2" }
+            ]
+        }
+    },
+    "config": {
+        "project_id": "prj",
+        "zone": "europe-west1-a",
+        "name": "sql1",
+        "machine-type": "db-1",
+        "root-password": "abcdefg",
+        "scripts": [
+            {
+                "name": "my-script",
+                "paths": [ "./tests/scenarios/gcp_cloud_sql/script1.sql" ],
+                "when": [
+                    {
+                        "if": "ALL",
+                        "conditions": [
+                            {
+                                "if": "ANY_SCHEMA_MISSING",
+                                "schemas": [ "my_schema1" ]
+                            },
+                            {
+                                "if": "NO_SCHEMA_MISSING",
+                                "schemas": [ "my_schema2" ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "expected": {
+        "status": "VALID",
+        "state": {
+            "state": "RUNNABLE",
+            "region": "europe-west1",
+            "settings": {
+                "locationPreference": { "zone": "europe-west1-a" },
+                "tier": "db-1",
+                "maintenanceWindow": { "day": 2, "hour": 18 },
+                "dataDiskSizeGb": "15",
+                "dataDiskType": "PD_SSD",
+                "ipConfiguration": {
+                    "requireSsl": true,
+                    "authorizedNetworks": [ ]
+                },
+                "storageAutoResize": true,
+                "storageAutoResizeLimit": 150
+            }
+        }
+    }
+}
