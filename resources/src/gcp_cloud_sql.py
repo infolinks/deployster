@@ -179,7 +179,7 @@ class NoTableMissingCondition(Condition):
         super().__init__(condition_factory, data)
 
     def evaluate(self, sql_executor: SqlExecutor) -> bool:
-        sql: str = f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES"
+        sql: str = f"SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES"
         existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in sql_executor.execute_sql(sql)]
         required_tables = self._data['tables']
         missing_tables = [table for table in required_tables if table not in existing_tables]
