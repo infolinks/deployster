@@ -642,7 +642,7 @@ class GcpCloudSql(GcpResource):
         machine_type = cfg['machine-type']
         if actual_settings['tier'] != machine_type:
             actions.append(DAction(name='update-machine-type',
-                                   description=f"Update SQL instance machine type zone to '{machine_type}'"))
+                                   description=f"Update SQL instance machine type to '{machine_type}'"))
 
         # validate backup configuration
         if 'backup' in cfg:
