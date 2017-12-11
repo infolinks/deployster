@@ -4,7 +4,7 @@ import re
 import sys
 from typing import Mapping, Sequence, Union, Tuple, MutableSequence, Any
 
-from gcp_services import GcpServices
+from gcp_services import GcpServices, SqlExecutor
 
 
 def load_scenarios(scenarios_dir: str, scenario_pattern: str) -> Sequence[Tuple[dict, dict, dict]]:
@@ -21,6 +21,25 @@ def load_scenarios(scenarios_dir: str, scenario_pattern: str) -> Sequence[Tuple[
     return scenarios
 
 
+class MockSqlExecutor(SqlExecutor):
+
+    def __init__(self, gcp_services: 'GcpServices', sql_execution_results: Mapping[str, Sequence[dict]] = None) -> None:
+        super().__init__(gcp_services)
+        self._sql_execution_results = sql_execution_results
+
+    def open(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def execute_sql(self, sql: str):
+        return self._sql_execution_results[sql]
+
+    def execute_sql_script(self, path: str):
+        pass
+
+
 class MockGcpServices(GcpServices):
     def __init__(self,
                  projects: Mapping[str, dict] = None,
@@ -28,7 +47,8 @@ class MockGcpServices(GcpServices):
                  project_apis: Mapping[str, Sequence[str]] = None,
                  sql_tiers: Mapping[str, dict] = None,
                  sql_flags: Mapping[str, dict] = None,
-                 sql_instances: Mapping[str, dict] = None) -> None:
+                 sql_instances: Mapping[str, dict] = None,
+                 sql_execution_results: Mapping[str, Sequence[dict]] = None) -> None:
         super().__init__()
         self._projects: Mapping[str, dict] = projects
         self._project_billing_infos: Mapping[str, dict] = project_billing_infos
@@ -36,6 +56,7 @@ class MockGcpServices(GcpServices):
         self._sql_tiers = sql_tiers
         self._sql_flags = sql_flags
         self._sql_instances = sql_instances
+        self._sql_execution_results = sql_execution_results
 
     def _get_service(self, service_name, version) -> Any:
         raise NotImplementedError()
@@ -90,3 +111,6 @@ class MockGcpServices(GcpServices):
 
     def wait_for_sql_operation(self, project_id: str, operation: dict, timeout=60 * 30):
         pass
+
+    def create_sql_executor(self, **kwargs) -> SqlExecutor:
+        return MockSqlExecutor(gcp_services=self, sql_execution_results=self._sql_execution_results)

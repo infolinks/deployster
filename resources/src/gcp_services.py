@@ -1,9 +1,89 @@
 import json
+import subprocess
+import sys
+from abc import abstractmethod
 from time import sleep
 from typing import Sequence, MutableMapping, Union, Any, Mapping
 
+import pymysql
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from pymysql import Connection
+
+
+class SqlExecutor:
+
+    def __init__(self, gcp_services: 'GcpServices') -> None:
+        super().__init__()
+        self._gcp: 'GcpServices' = gcp_services
+
+    @abstractmethod
+    def open(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def close(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def execute_sql(self, sql: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def execute_sql_script(self, path: str):
+        raise NotImplementedError()
+
+
+class ProxySqlExecutor(SqlExecutor):
+
+    def __init__(self, gcp_services: 'GcpServices', project_id: str, instance: str, password: str, region: str) -> None:
+        super().__init__(gcp_services)
+        self._project_id: str = project_id
+        self._instance: str = instance
+        self._username: str = 'root'
+        self._password: str = password
+        self._region: str = region
+        self._proxy_process: subprocess.Popen = None
+        self._connection: Connection = None
+
+    def open(self) -> None:
+        self._gcp.update_sql_user(project_id=self._project_id, instance=self._instance, password=self._password)
+        self._proxy_process: subprocess.Popen = \
+            subprocess.Popen([f'/usr/local/bin/cloud_sql_proxy',
+                              f'-instances={self._project_id}:{self._region}:{self._instance}=tcp:3306',
+                              f'-credential_file=/deployster/service-account.json'])
+        try:
+            self._proxy_process.wait(2)
+            raise Exception(f"could not start Cloud SQL Proxy!")
+        except subprocess.TimeoutExpired:
+            pass
+
+        print(f"Connecting to MySQL...", file=sys.stderr)
+        self._connection: Connection = pymysql.connect(host='localhost',
+                                                       port=3306,
+                                                       user=self._username,
+                                                       password=self._password,
+                                                       db='INFORMATION_SCHEMA',
+                                                       charset='utf8mb4',
+                                                       cursorclass=pymysql.cursors.DictCursor)
+
+    def close(self) -> None:
+        try:
+            self._connection.close()
+        finally:
+            self._proxy_process.terminate()
+
+    def execute_sql(self, sql: str) -> Sequence[dict]:
+        with self._connection.cursor() as cursor:
+            cursor.execute(sql)
+            return [row for row in cursor.fetchall()]
+
+    def execute_sql_script(self, path: str):
+        command = \
+            f"/usr/bin/mysql --user={self._username} " \
+            f"               --password={self._password} " \
+            f"               --host=127.0.0.1 information_schema < {path}"
+        subprocess.run(command, shell=True, check=True)
 
 
 class GcpServices:
@@ -149,6 +229,13 @@ class GcpServices:
             'password': password
         }).execute()
         self.wait_for_sql_operation(project_id=project_id, operation=op)
+
+    def create_sql_executor(self, **kwargs) -> SqlExecutor:
+        return ProxySqlExecutor(gcp_services=self,
+                                project_id=kwargs['project_id'],
+                                instance=kwargs['instance'],
+                                password=kwargs['password'],
+                                region=kwargs['region'])
 
     def wait_for_sql_operation(self, project_id: str, operation: dict, timeout=60 * 30):
         operations_service = self._get_service('sqladmin', 'v1beta4').operations()

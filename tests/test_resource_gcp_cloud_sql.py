@@ -40,7 +40,8 @@ def test_cloud_sql_state(capsys, actual: dict, config: dict, expected: dict):
         gcp_services=MockGcpServices(project_apis=actual["project_apis"],
                                      sql_tiers=actual['tiers'],
                                      sql_flags=actual['flags'],
-                                     sql_instances=actual['instances']))
+                                     sql_instances=actual['instances'],
+                                     sql_execution_results=actual['sql_results']))
 
     resource.execute(['state'])
     assert json.loads(capsys.readouterr().out) == expected

@@ -3,17 +3,13 @@
 import argparse
 import json
 import os
-import subprocess
 import sys
 from abc import ABC, abstractmethod
 from typing import Sequence, MutableSequence
 
-import pymysql
-from pymysql.connections import Connection
-
 from dresources import DAction, action
 from gcp import GcpResource
-from gcp_services import region_from_zone, GcpServices
+from gcp_services import region_from_zone, GcpServices, SqlExecutor
 
 
 def _translate_day_name_to_number(day_name: str) -> int:
@@ -51,7 +47,7 @@ class Condition(ABC):
         return self._data
 
     @abstractmethod
-    def evaluate(self, connection: Connection) -> bool:
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
         raise Exception(f"not implemented")
 
 
@@ -79,13 +75,11 @@ class AnyMissingSchemaCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT SCHEMA_NAME FROM SCHEMATA")
-            existing_schemas = [row['SCHEMA_NAME'] for row in cursor.fetchall()]
-            required_schemas = self._data['schemas']
-            missing_schemas = [schema for schema in required_schemas if schema not in existing_schemas]
-            return True if missing_schemas else False
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
+        existing_schemas = [row["SCHEMA_NAME"] for row in sql_executor.execute_sql(f"SELECT SCHEMA_NAME FROM SCHEMATA")]
+        required_schemas = self._data['schemas']
+        missing_schemas = [schema for schema in required_schemas if schema not in existing_schemas]
+        return True if missing_schemas else False
 
 
 class AnyMissingTableCondition(Condition):
@@ -115,13 +109,12 @@ class AnyMissingTableCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES")
-            existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in cursor.fetchall()]
-            required_tables = self._data['tables']
-            missing_tables = [table for table in required_tables if table not in existing_tables]
-            return True if missing_tables else False
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
+        sql: str = f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES"
+        existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in sql_executor.execute_sql(sql)]
+        required_tables = self._data['tables']
+        missing_tables = [table for table in required_tables if table not in existing_tables]
+        return True if missing_tables else False
 
 
 class NoSchemaMissingCondition(Condition):
@@ -148,15 +141,14 @@ class NoSchemaMissingCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT SCHEMA_NAME FROM SCHEMATA")
-            existing_schema_names = [row['SCHEMA_NAME'] for row in cursor.fetchall()]
-            required_schemas = self._data['schemas']
-            missing_schema_names = [required_schema
-                                    for required_schema in required_schemas
-                                    if required_schema not in existing_schema_names]
-            return False if missing_schema_names else True
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
+        sql: str = f"SELECT SCHEMA_NAME FROM SCHEMATA"
+        existing_schema_names = [row['SCHEMA_NAME'] for row in sql_executor.execute_sql(sql)]
+        required_schemas = self._data['schemas']
+        missing_schema_names = [required_schema
+                                for required_schema in required_schemas
+                                if required_schema not in existing_schema_names]
+        return False if missing_schema_names else True
 
 
 class NoTableMissingCondition(Condition):
@@ -186,13 +178,12 @@ class NoTableMissingCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES")
-            existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in cursor.fetchall()]
-            required_tables = self._data['tables']
-            missing_tables = [table for table in required_tables if table not in existing_tables]
-            return False if missing_tables else True
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
+        sql: str = f"SELECT TABLE_NAME, TABLE_SCHEMA, TABLE_CATALOG FROM information_schema.TABLES"
+        existing_tables = [f"{row['TABLE_SCHEMA']}.{row['TABLE_NAME']}" for row in sql_executor.execute_sql(sql)]
+        required_tables = self._data['tables']
+        missing_tables = [table for table in required_tables if table not in existing_tables]
+        return False if missing_tables else True
 
 
 class ExpectedRowCountCondition(Condition):
@@ -221,11 +212,9 @@ class ExpectedRowCountCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
-        with connection.cursor() as cursor:
-            cursor.execute(self.data['sql'])
-            row_count = len([row for row in cursor.fetchall()])
-            return row_count == self.data['rows-expected']
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
+        row_count = len([row for row in sql_executor.execute_sql(self.data['sql'])])
+        return row_count == self.data['rows-expected']
 
 
 class AllCondition(Condition):
@@ -254,10 +243,10 @@ class AllCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
         for condition_data in self.data['conditions']:
             condition = self.condition_factory.create_condition(condition_data)
-            if not condition.evaluate(connection):
+            if not condition.evaluate(sql_executor=sql_executor):
                 return False
         return True
 
@@ -288,10 +277,10 @@ class AnyCondition(Condition):
     def __init__(self, condition_factory, data: dict) -> None:
         super().__init__(condition_factory, data)
 
-    def evaluate(self, connection: Connection) -> bool:
+    def evaluate(self, sql_executor: SqlExecutor) -> bool:
         for condition_data in self.data['conditions']:
             condition = self.condition_factory.create_condition(condition_data)
-            if condition.evaluate(connection):
+            if condition.evaluate(sql_executor=sql_executor):
                 return True
         return False
 
@@ -346,34 +335,29 @@ class Script:
     def conditions(self) -> Sequence[Condition]:
         return self._conditions
 
-    def should_execute(self, connection: Connection) -> bool:
+    def should_execute(self, sql_executor: SqlExecutor) -> bool:
         if len(self._conditions) == 0:
             return True
 
         for condition in self._conditions:
-            if condition.evaluate(connection=connection):
+            if condition.evaluate(sql_executor=sql_executor):
                 return True
         return False
 
-    def execute(self, username: str, password: str) -> None:
+    def execute(self, sql_executor: SqlExecutor) -> None:
         for path in self._paths:
-            command = \
-                f"/usr/bin/mysql --user={username} --password={password} --host=127.0.0.1 information_schema < {path}"
-            subprocess.run(command, shell=True, check=True)
+            sql_executor.execute_sql_script(path=path)
 
 
 class ScriptEvaluator:
 
     def __init__(self, sql_resource: 'GcpCloudSql') -> None:
         super().__init__()
-        self._gcp: GcpServices = sql_resource.gcp
-        self._project_id: str = sql_resource.info.config['project_id']
-        self._region: str = region_from_zone(sql_resource.info.config['zone'])
-        self._instance: str = sql_resource.info.config['name']
-        self._db_username: str = 'root'
-        self._db_password: str = sql_resource.info.config['root-password']
-        self._proxy_process: subprocess.Popen = None
-        self._connection: Connection = None
+        self._sql_executor: SqlExecutor = \
+            sql_resource.gcp.create_sql_executor(project_id=sql_resource.info.config['project_id'],
+                                                 instance=sql_resource.info.config['name'],
+                                                 password=sql_resource.info.config['root-password'],
+                                                 region=region_from_zone(sql_resource.info.config['zone']))
 
         condition_factory: ConditionFactory = ConditionFactory()
         self._scripts: Sequence[Script] = \
@@ -390,47 +374,18 @@ class ScriptEvaluator:
         return next(script for script in self._scripts if script.name == name)
 
     def get_scripts_to_execute(self) -> Sequence[Script]:
-        if self._connection is None:
-            raise Exception(
-                f"illegal state: connection not available (did you invoke ScriptEvaluator outside 'with' context?)")
-        else:
-            return [script for script in self._scripts if script.should_execute(self._connection)]
+        return [script for script in self._scripts if script.should_execute(self._sql_executor)]
 
     def execute_scripts(self, scripts: Sequence[Script]) -> None:
-        if self._connection is None:
-            raise Exception(
-                f"illegal state: connection not available (did you invoke ScriptEvaluator outside 'with' context?)")
-        else:
-            for script in scripts:
-                script.execute(username=self._db_username, password=self._db_password)
+        for script in scripts:
+            script.execute(sql_executor=self._sql_executor)
 
     def __enter__(self):
-        self._gcp.update_sql_user(project_id=self._project_id, instance=self._instance, password=self._db_password)
-        self._proxy_process: subprocess.Popen = \
-            subprocess.Popen([f'/usr/local/bin/cloud_sql_proxy',
-                              f'-instances={self._project_id}:{self._region}:{self._instance}=tcp:3306',
-                              f'-credential_file=/deployster/service-account.json'])
-        try:
-            self._proxy_process.wait(2)
-            raise Exception(f"could not start Cloud SQL Proxy!")
-        except subprocess.TimeoutExpired:
-            pass
-
-        print(f"Connecting to MySQL...", file=sys.stderr)
-        self._connection: Connection = pymysql.connect(host='localhost',
-                                                       port=3306,
-                                                       user=self._db_username,
-                                                       password=self._db_password,
-                                                       db='INFORMATION_SCHEMA',
-                                                       charset='utf8mb4',
-                                                       cursorclass=pymysql.cursors.DictCursor)
+        self._sql_executor.open()
         return self
 
     def __exit__(self, *exc):
-        try:
-            self._connection.close()
-        finally:
-            self._proxy_process.terminate()
+        self._sql_executor.close()
 
 
 class GcpCloudSql(GcpResource):

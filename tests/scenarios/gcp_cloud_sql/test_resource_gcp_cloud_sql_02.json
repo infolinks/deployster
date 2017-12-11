@@ -1,8 +1,8 @@
 {
-    "description": "Test creating new GCP Cloud SQL.",
+    "description": "Test patching existing GCP Cloud SQL.",
     "actual": {
         "project_apis": {
-            "prj": ["sqladmin.googleapis.com", "sql-component.googleapis.com"]
+            "prj": [ "sqladmin.googleapis.com", "sql-component.googleapis.com" ]
         },
         "tiers": {
             "db-1": {
@@ -50,12 +50,30 @@
                 "type": "NONE"
             }
         },
-        "instances": { },
+        "instances": {
+            "sql1": {
+                "state": "RUNNABLE",
+                "region": "europe-west1",
+                "settings": {
+                    "locationPreference": { "zone": "europe-west1-a" },
+                    "tier": "db-1",
+                    "maintenanceWindow": { "day": 2, "hour": 18 },
+                    "dataDiskSizeGb": "15",
+                    "dataDiskType": "PD_SSD",
+                    "ipConfiguration": {
+                        "requireSsl": true,
+                        "authorizedNetworks": [ ]
+                    },
+                    "storageAutoResize": true,
+                    "storageAutoResizeLimit": 150
+                }
+            }
+        },
         "sql_results": { }
     },
     "config": {
         "project_id": "prj",
-        "zone": "europe-west1-a",
+        "zone": "europe-west1-b",
         "name": "sql1",
         "machine-type": "db-1",
         "backup": {
@@ -87,30 +105,52 @@
             "key1": "value1",
             "key2": "value2"
         },
-        "root-password": "abcdefg",
-        "scripts": [
-            {
-                "name": "script1",
-                "paths": [
-                    "./tests/scenarios/gcp_cloud_sql/script1.sql",
-                    "./tests/scenarios/gcp_cloud_sql/script2.sql"
-                ],
-                "when": [
-                    {
-                        "if": "ANY_SCHEMA_MISSING",
-                        "schemas": [ "foo", "bar" ]
-                    }
-                ]
-            }
-        ]
+        "root-password": "abcdefg"
     },
     "expected": {
         "status": "STALE",
+        "staleState": {
+            "state": "RUNNABLE",
+            "region": "europe-west1",
+            "settings": {
+                "locationPreference": { "zone": "europe-west1-a" },
+                "tier": "db-1",
+                "maintenanceWindow": { "day": 2, "hour": 18 },
+                "dataDiskSizeGb": "15",
+                "dataDiskType": "PD_SSD",
+                "ipConfiguration": {
+                    "requireSsl": true,
+                    "authorizedNetworks": [ ]
+                },
+                "storageAutoResize": true,
+                "storageAutoResizeLimit": 150
+            }
+        },
         "actions": [
             {
-                "name": "create-sql-instance",
-                "description": "Create SQL instance 'sql1'",
-                "args": ["create_sql_instance"]
+                "name": "update-zone",
+                "description": "Update SQL instance preferred zone to 'europe-west1-b'",
+                "args": [ "update_zone" ]
+            },
+            {
+                "name": "update-backup",
+                "description": "Enable SQL instance backups",
+                "args": [ "update_backup" ]
+            },
+            {
+                "name": "update-flags",
+                "description": "Update SQL instance flags",
+                "args": [ "update_flags" ]
+            },
+            {
+                "name": "update-authorized-networks",
+                "description": "Update SQL instance authorized networks",
+                "args": [ "update_authorized_networks" ]
+            },
+            {
+                "name": "update-labels",
+                "description": "Update SQL instance user-labels",
+                "args": [ "update_labels" ]
             }
         ]
     }
