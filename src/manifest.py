@@ -233,14 +233,7 @@ class Resource:
                 'version': self._manifest.context.version,
                 'verbose': self._manifest.context.verbose,
                 'workspace': str(self._manifest.context.workspace_dir),
-                'config': self._resolved_config,
-                'dependencies': {
-                    alias: {
-                        'name': dep.name,
-                        'type': dep.type,
-                        'state': dep.state,
-                    } for alias, dep in self._dependencies.items()
-                }
+                'config': self._resolved_config
             }
         )
 
@@ -347,14 +340,7 @@ class Resource:
                                 'verbose': self._manifest.context.verbose,
                                 'workspace': str(self._manifest.context.workspace_dir),
                                 'config': self._resolved_config,
-                                'staleState': state_result["staleState"] if "staleState" in state_result else {},
-                                'dependencies': {
-                                    alias: {
-                                        'name': dep.name,
-                                        'type': dep.type,
-                                        'state': dep.state,
-                                    } for alias, dep in self._dependencies.items()
-                                }
+                                'staleState': state_result["staleState"] if "staleState" in state_result else {}
                             }
                         )
 
