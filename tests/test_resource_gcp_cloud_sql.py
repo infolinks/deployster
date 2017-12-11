@@ -65,3 +65,35 @@ def test_cloud_sql_state(capsys, description: str, actual: dict, config: dict, e
                     },
                     gcp_services=mock_gcp_services)
                 resource.execute(action['args'] if 'args' in action else [])
+
+
+def test_execution_of_unknown_script_bundle():
+    resource = GcpCloudSql(
+        data={
+            'name': 'test',
+            'type': 'test-resource',
+            'version': '1.2.3',
+            'verbose': True,
+            'workspace': '/workspace',
+            'config': {
+                "project_id": "prj",
+                "zone": "europe-west1-a",
+                "name": "sql1",
+                "machine-type": "db-1",
+                "root-password": "abcdefg",
+                "scripts": [
+                    {
+                        "name": "my-script",
+                        "paths": ["./tests/scenarios/gcp_cloud_sql/script-does-not-exist-errrrrrrrr.sql"],
+                        "when": []
+                    }
+                ]
+            }
+        },
+        gcp_services=MockGcpServices(project_apis={},
+                                     sql_tiers={},
+                                     sql_flags={},
+                                     sql_instances={}))
+
+    with pytest.raises(Exception):
+        resource.execute(['execute_scripts', 'unknown-script'])
