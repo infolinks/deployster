@@ -16,7 +16,10 @@ def load_scenarios(scenarios_dir: str, scenario_pattern: str) -> Sequence[Tuple[
             print(f"Loading GCP project scenario '{file_name}'...", file=sys.stderr)
             with open(file_name, 'r') as f:
                 scenario_data = json.loads(f.read())
-                scenario_tuple = (scenario_data['actual'], scenario_data['config'], scenario_data['expected'])
+                scenario_tuple = (scenario_data['description'] if 'description' in scenario_data else 'Missing',
+                                  scenario_data['actual'],
+                                  scenario_data['config'],
+                                  scenario_data['expected'])
                 scenarios.append(scenario_tuple)
     return scenarios
 

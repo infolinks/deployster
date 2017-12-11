@@ -87,22 +87,7 @@
             "key1": "value1",
             "key2": "value2"
         },
-        "root-password": "abcdefg",
-        "scripts": [
-            {
-                "name": "script1",
-                "paths": [
-                    "./tests/scenarios/gcp_cloud_sql/script1.sql",
-                    "./tests/scenarios/gcp_cloud_sql/script2.sql"
-                ],
-                "when": [
-                    {
-                        "if": "ANY_SCHEMA_MISSING",
-                        "schemas": [ "foo", "bar" ]
-                    }
-                ]
-            }
-        ]
+        "root-password": "abcdefg"
     },
     "expected": {
         "status": "STALE",
