@@ -6,8 +6,8 @@ WORKDIR /app/
 COPY requirements.txt .coveragerc /app/
 RUN pip3.6 --disable-pip-version-check --no-cache-dir install -r requirements.txt
 
-COPY test.sh /app/
-RUN chmod +x /app/test.sh
+COPY .buildkite/run-tests.sh /app/
+RUN chmod +x /app/run-tests.sh
 
 COPY .coveragerc /app/
 COPY src /app/src/
@@ -15,4 +15,4 @@ COPY resources/src/*.py /app/resources/src/
 COPY tests /app/tests/
 COPY .git /app/.git/
 
-ENTRYPOINT ["/app/test.sh"]
+ENTRYPOINT ["/app/run-tests.sh"]
