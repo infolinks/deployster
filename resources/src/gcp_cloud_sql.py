@@ -352,10 +352,6 @@ class ScriptEvaluator:
                     conditions=condition_factory.create_conditions(data['when']))
              for data in sql_resource.info.config['scripts']]
 
-    @property
-    def scripts(self) -> Sequence[Script]:
-        return self._scripts
-
     def get_script(self, name: str) -> Script:
         return next(script for script in self._scripts if script.name == name)
 
