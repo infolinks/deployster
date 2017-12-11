@@ -302,14 +302,8 @@ class ConditionFactory:
         super().__init__()
 
     def create_condition(self, data: dict) -> Condition:
-        if 'if' not in data:
-            raise Exception(f"illegal config: missing 'if' property in {json.dumps(data)}")
         condition_type = data['if']
-        if condition_type in CONDITION_TYPES:
-            return CONDITION_TYPES[condition_type](self, data)
-        else:
-            raise Exception(f"illegal config: unsupported condition '{condition_type}'. Available conditions "
-                            f"are: {CONDITION_TYPES.keys()}")
+        return CONDITION_TYPES[condition_type](self, data)
 
     def create_conditions(self, conditions_data: Sequence[dict]) -> Sequence[Condition]:
         return [self.create_condition(cdata) for cdata in conditions_data]
@@ -326,14 +320,6 @@ class Script:
     @property
     def name(self) -> str:
         return self._name
-
-    @property
-    def paths(self) -> Sequence[str]:
-        return self._paths
-
-    @property
-    def conditions(self) -> Sequence[Condition]:
-        return self._conditions
 
     def should_execute(self, sql_executor: SqlExecutor) -> bool:
         if len(self._conditions) == 0:
