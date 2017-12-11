@@ -803,7 +803,7 @@ class GcpCloudSql(GcpResource):
             argparser.add_argument('scripts', nargs='+')
 
     @action
-    def enable_sql_api(self, args):
+    def enable_sql_apis(self, args):
         if args: pass
         for api in ['sqladmin.googleapis.com', 'sql-component.googleapis.com']:
             self.gcp.enable_project_api(project_id=self.info.config['project_id'], api=api)
