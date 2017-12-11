@@ -168,9 +168,9 @@ class GcpProject(GcpResource):
     @action
     def set_billing_account(self, args):
         if args: pass
-        desired_billing_accunt_id = self.info.config['billing_accunt_id']
+        desired_billing_account_id = self.info.config['billing_account_id']
         self.gcp.update_project_billing_info(project_id=self.info.config['project_id'], body={
-            'billingAccountName': f"billingAccounts/{desired_billing_accunt_id}" if desired_billing_accunt_id else ""
+            'billingAccountName': f"billingAccounts/{desired_billing_account_id}" if desired_billing_account_id else ""
         })
 
     @action
