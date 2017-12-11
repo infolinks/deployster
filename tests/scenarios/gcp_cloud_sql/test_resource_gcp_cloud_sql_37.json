@@ -1,5 +1,5 @@
 {
-    "description": "Test updating backup time on existing GCP Cloud SQL.",
+    "description": "Test patching disabled backup configuration on existing GCP Cloud SQL.",
     "actual": {
         "project_apis": {
             "prj": [ "sqladmin.googleapis.com", "sql-component.googleapis.com" ]
@@ -33,9 +33,8 @@
                         "authorizedNetworks": [ ]
                     },
                     "backupConfiguration": {
-                        "enabled": true,
-                        "binaryLogEnabled": false,
-                        "startTime": "02:00"
+                        "enabled": false,
+                        "binaryLogEnabled": false
                     },
                     "storageAutoResize": true,
                     "storageAutoResizeLimit": 150
@@ -74,9 +73,8 @@
                     "authorizedNetworks": [ ]
                 },
                 "backupConfiguration": {
-                    "enabled": true,
-                    "binaryLogEnabled": false,
-                    "startTime": "02:00"
+                    "enabled": false,
+                    "binaryLogEnabled": false
                 },
                 "storageAutoResize": true,
                 "storageAutoResizeLimit": 150
