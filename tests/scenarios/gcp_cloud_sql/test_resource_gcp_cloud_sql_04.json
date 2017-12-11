@@ -39,7 +39,9 @@
             }
         },
         "sql_results": {
-            "SELECT SCHEMA_NAME FROM SCHEMATA": []
+            "SELECT SCHEMA_NAME FROM SCHEMATA": [
+                { "SCHEMA_NAME": "my_schema" }
+            ]
         }
     },
     "config": {
@@ -51,19 +53,19 @@
         "scripts": [
             {
                 "name": "my-script",
-                "paths": ["./tests/scenarios/gcp_cloud_sql/script1.sql"],
+                "paths": [ "./tests/scenarios/gcp_cloud_sql/script1.sql" ],
                 "when": [
                     {
                         "if": "ANY_SCHEMA_MISSING",
-                        "schemas": ["my_schema"]
+                        "schemas": [ "my_schema" ]
                     }
                 ]
             }
         ]
     },
     "expected": {
-        "status": "STALE",
-        "staleState": {
+        "status": "VALID",
+        "state": {
             "state": "RUNNABLE",
             "region": "europe-west1",
             "settings": {
@@ -79,13 +81,6 @@
                 "storageAutoResize": true,
                 "storageAutoResizeLimit": 150
             }
-        },
-        "actions": [
-            {
-                "name": "execute-script",
-                "description": "Execute 'my-script' SQL scripts",
-                "args": [ "execute_scripts", "my-script" ]
-            }
-        ]
+        }
     }
 }
