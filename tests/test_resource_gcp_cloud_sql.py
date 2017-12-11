@@ -44,21 +44,24 @@ def test_cloud_sql_state(capsys, description: str, actual: dict, config: dict, e
         },
         gcp_services=mock_gcp_services)
 
-    resource.execute(['state'])
-    state = json.loads(capsys.readouterr().out)
-    assert state == expected
-
-    if state['status'] == "STALE":
-        for action in state["actions"]:
-            resource = GcpCloudSql(
-                data={
-                    'name': 'test',
-                    'type': 'test-resource',
-                    'version': '1.2.3',
-                    'verbose': True,
-                    'workspace': '/workspace',
-                    'config': config,
-                    'staleState': state['staleState'] if 'staleState' in state else {}
-                },
-                gcp_services=mock_gcp_services)
-            resource.execute(action['args'] if 'args' in action else [])
+    if 'exception' in expected:
+        with pytest.raises(eval(expected['exception'])):
+            resource.execute(['state'])
+    else:
+        resource.execute(['state'])
+        state = json.loads(capsys.readouterr().out)
+        assert state == expected
+        if state['status'] == "STALE":
+            for action in state["actions"]:
+                resource = GcpCloudSql(
+                    data={
+                        'name': 'test',
+                        'type': 'test-resource',
+                        'version': '1.2.3',
+                        'verbose': True,
+                        'workspace': '/workspace',
+                        'config': config,
+                        'staleState': state['staleState'] if 'staleState' in state else {}
+                    },
+                    gcp_services=mock_gcp_services)
+                resource.execute(action['args'] if 'args' in action else [])
