@@ -45,7 +45,7 @@ def test_cloud_sql_state(capsys, description: str, actual: dict, config: dict, e
         gcp_services=mock_gcp_services)
 
     if 'exception' in expected:
-        with pytest.raises(eval(expected['exception'])):
+        with pytest.raises(eval(expected['exception']), match=expected["match"] if 'match' in expected else r'.*'):
             resource.execute(['state'])
     else:
         resource.execute(['state'])
