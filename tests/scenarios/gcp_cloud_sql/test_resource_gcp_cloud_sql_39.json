@@ -1,5 +1,5 @@
 {
-    "description": "Test disabling backup configuration on existing GCP Cloud SQL.",
+    "description": "Test enabling backup configuration on existing GCP Cloud SQL.",
     "actual": {
         "project_apis": {
             "prj": [ "sqladmin.googleapis.com", "sql-component.googleapis.com" ]
@@ -33,9 +33,8 @@
                         "authorizedNetworks": [ ]
                     },
                     "backupConfiguration": {
-                        "enabled": true,
-                        "binaryLogEnabled": true,
-                        "startTime": "01:00"
+                        "enabled": false,
+                        "binaryLogEnabled": false
                     },
                     "storageAutoResize": true,
                     "storageAutoResizeLimit": 150
@@ -50,7 +49,8 @@
         "name": "sql1",
         "machine-type": "db-1",
         "backup": {
-            "enabled": false
+            "enabled": true,
+            "time": "03:00"
         },
         "data-disk-size-gb": 15,
         "data-disk-type": "PD_SSD",
@@ -73,9 +73,8 @@
                     "authorizedNetworks": [ ]
                 },
                 "backupConfiguration": {
-                    "enabled": true,
-                    "binaryLogEnabled": true,
-                    "startTime": "01:00"
+                    "enabled": false,
+                    "binaryLogEnabled": false
                 },
                 "storageAutoResize": true,
                 "storageAutoResizeLimit": 150
@@ -84,7 +83,7 @@
         "actions": [
             {
                 "name": "update-backup",
-                "description": "Disable SQL instance backups/binary-logging",
+                "description": "Enable SQL instance backup/binary-logging",
                 "args": [ "update_backup" ]
             }
         ]
