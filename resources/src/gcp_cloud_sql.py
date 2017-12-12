@@ -983,7 +983,7 @@ class GcpCloudSql(GcpResource):
                 'storageAutoResize': cfg["storage-auto-resize"]['enabled']
             }
         }
-        if cfg["storage-auto-resize"]['enabled']:
+        if cfg["storage-auto-resize"]['enabled']:  # pragma: no cover
             body['settings']['storageAutoResizeLimit'] = cfg["storage-auto-resize"]['limit']
         self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
 
