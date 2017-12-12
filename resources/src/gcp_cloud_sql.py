@@ -711,7 +711,7 @@ class GcpCloudSql(GcpResource):
             if actual_settings['ipConfiguration']['requireSsl'] != desired_require_ssl:
                 actions.append(
                     DAction(name='update-require-ssl',
-                            description=f"Update SQL instance to {'' if desired_require_ssl else 'not'} require "
+                            description=f"Update SQL instance to {'' if desired_require_ssl else 'not '}require "
                                         f"SSL connections"))
 
         # validate authorized networks
