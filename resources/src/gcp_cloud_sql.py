@@ -768,11 +768,9 @@ class GcpCloudSql(GcpResource):
             desired_storage_auto_resize: dict = cfg["storage-auto-resize"]
             if not desired_storage_auto_resize['enabled'] and 'limit' in desired_storage_auto_resize:
                 raise Exception(f"illegal config: cannot specify storage auto-resize limit when it's disabled")
-            elif not desired_storage_auto_resize['enabled'] and actual_settings['storageAutoResize']:
-                raise Exception(f"illegal config: currently it's impossible to switch off storage auto-resizing "
-                                f"(Google APIs seem to reject this change)")
             elif desired_storage_auto_resize['enabled'] != actual_settings['storageAutoResize']:
-                raise Exception(f"illegal config: currently it's impossible to switch storage auto-resize")
+                raise Exception(f"illegal config: currently it's impossible to switch storage auto-resize "
+                                f"(Google APIs seem to reject this change)")
             elif 'limit' in desired_storage_auto_resize \
                     and desired_storage_auto_resize['limit'] != int(actual_settings['storageAutoResizeLimit']):
                 actions.append(DAction(name='update-storage-auto-resize',
