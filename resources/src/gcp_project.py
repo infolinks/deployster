@@ -183,7 +183,7 @@ class GcpProject(GcpResource):
 
 
 def main():
-    GcpProject(json.loads(sys.stdin.read())).execute()
+    GcpProject(json.loads(sys.stdin.read())).execute()  # pragma: no cover
 
 
 if __name__ == "__main__":
