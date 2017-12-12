@@ -1000,7 +1000,7 @@ class GcpCloudSql(GcpResource):
 
 
 def main():
-    GcpCloudSql(json.loads(sys.stdin.read())).execute()
+    GcpCloudSql(json.loads(sys.stdin.read())).execute()  # pragma: no cover
 
 
 if __name__ == "__main__":
