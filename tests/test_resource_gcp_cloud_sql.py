@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from gcp_cloud_sql import GcpCloudSql, _translate_day_name_to_number
+from gcp_cloud_sql import GcpCloudSql, _translate_day_name_to_number, Condition, ConditionFactory
+from gcp_services import SqlExecutor
 from mock_gcp_services import MockGcpServices, load_scenarios
 
 
@@ -22,6 +23,16 @@ def test_week_day_translation(day_name: str, expected: int):
             _translate_day_name_to_number(day_name)
     else:
         assert _translate_day_name_to_number(day_name) == expected
+
+
+def test_condition_evaluate_is_abstract():
+    with pytest.raises(NotImplementedError):
+        class TestCondition(Condition):
+
+            def evaluate(self, sql_executor: SqlExecutor) -> bool:
+                return super().evaluate(sql_executor)
+
+        TestCondition(ConditionFactory(), {}).evaluate(SqlExecutor(MockGcpServices()))
 
 
 @pytest.mark.parametrize("description,actual,config,expected",

@@ -48,7 +48,7 @@ class Condition(ABC):
 
     @abstractmethod
     def evaluate(self, sql_executor: SqlExecutor) -> bool:
-        raise Exception(f"not implemented")
+        raise NotImplementedError(f"not implemented")
 
 
 class AnyMissingSchemaCondition(Condition):
@@ -569,6 +569,10 @@ class GcpCloudSql(GcpResource):
                         raise Exception(f"illegal config: flag '{desired_name}' requires a value.")
                     elif desired_flag['value'] not in ['on', 'off']:
                         raise Exception(f"illegal config: flag '{desired_name}' value must be 'on' or 'off'.")
+
+                else:
+                    raise Exception(
+                        f"illegal state: unsupported flag type ('{flag_type}') found for flag '{desired_name}'")
 
         # validate machine-type against allowed tiers (tier=machine-type in Cloud SQL lingo)
         allowed_tiers: dict = self.gcp.get_sql_allowed_tiers(project_id=self.info.config['project_id'])
