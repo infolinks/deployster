@@ -1,0 +1,74 @@
+{
+    "description": "Test update maintenance window day int-to-int same value on existing GCP Cloud SQL.",
+    "actual": {
+        "project_apis": {
+            "prj": [ "sqladmin.googleapis.com", "sql-component.googleapis.com" ]
+        },
+        "tiers": {
+            "db-1": {
+                "DiskQuota": "100",
+                "tier": "db-1",
+                "kind": "sql#tier",
+                "RAM": "32",
+                "region": [
+                    "europe-west1",
+                    "europe-west2",
+                    "europe-west3"
+                ]
+            }
+        },
+        "flags": { },
+        "instances": {
+            "sql1": {
+                "state": "RUNNABLE",
+                "region": "europe-west1",
+                "settings": {
+                    "locationPreference": { "zone": "europe-west1-a" },
+                    "tier": "db-1",
+                    "dataDiskSizeGb": "15",
+                    "dataDiskType": "PD_SSD",
+                    "ipConfiguration": {
+                        "authorizedNetworks": [ ]
+                    },
+                    "maintenanceWindow": {
+                        "day": 1,
+                        "hour": 1
+                    }
+                }
+            }
+        },
+        "sql_results": { }
+    },
+    "config": {
+        "project_id": "prj",
+        "zone": "europe-west1-a",
+        "name": "sql1",
+        "machine-type": "db-1",
+        "root-password": "abcdefg",
+        "authorized-networks": [ ],
+        "maintenance": {
+            "day": 1,
+            "hour": 1
+        }
+    },
+    "expected": {
+        "status": "VALID",
+        "state": {
+            "state": "RUNNABLE",
+            "region": "europe-west1",
+            "settings": {
+                "locationPreference": { "zone": "europe-west1-a" },
+                "tier": "db-1",
+                "dataDiskSizeGb": "15",
+                "dataDiskType": "PD_SSD",
+                "ipConfiguration": {
+                    "authorizedNetworks": [ ]
+                },
+                "maintenanceWindow": {
+                    "day": 1,
+                    "hour": 1
+                }
+            }
+        }
+    }
+}
