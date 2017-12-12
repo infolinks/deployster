@@ -675,8 +675,6 @@ class GcpCloudSql(GcpResource):
                 if actual_backup['enabled'] or actual_backup['binaryLogEnabled']:
                     actions.append(DAction(name='update-backup',
                                            description=f"Disable SQL instance backups/binary-logging"))
-                elif 'time' in desired_backup:
-                    raise Exception(f"illegal config: cannot specify backup time when backup is disabled")
 
         # validate data-disk size
         if "data-disk-size-gb" in cfg:
