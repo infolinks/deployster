@@ -2,7 +2,7 @@ steps:
 
   - label: Test
     command:
-      - ./.buildkite/test.sh
+      - ./.buildkite/test.sh -s -vv
 
   - wait
 
