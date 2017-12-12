@@ -737,9 +737,7 @@ class GcpCloudSql(GcpResource):
                         desired_expiry = desired_network['expirationTime'] \
                             if 'expirationTime' in desired_network else None
                         actual_expiry = actual_network['expirationTime'] if 'expirationTime' in actual_network else None
-                        if desired_network['name'] != actual_network['name'] \
-                                or desired_network['value'] != actual_network['value'] \
-                                or desired_expiry != actual_expiry:
+                        if desired_network['value'] != actual_network['value'] or desired_expiry != actual_expiry:
                             actions.append(DAction(name='update-authorized-networks',
                                                    description=f"Update SQL instance authorized networks "
                                                                f"(found stale network: {desired_network['name']})"))
