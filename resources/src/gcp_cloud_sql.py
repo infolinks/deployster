@@ -520,8 +520,9 @@ class GcpCloudSql(GcpResource):
         })
 
         cfg: dict = self.info.config
-        if "maintenance" in cfg and type(cfg["maintenance"]['day']) == str:
-            cfg["maintenance"]['day'] = _translate_day_name_to_number(cfg["maintenance"]['day'])
+        if "maintenance" in cfg and cfg["maintenance"] is not None:
+            if 'day' in cfg["maintenance"] and type(cfg["maintenance"]['day']) == str:
+                cfg["maintenance"]['day'] = _translate_day_name_to_number(cfg["maintenance"]['day'])
 
     def discover_state(self):
         cfg: dict = self.info.config
