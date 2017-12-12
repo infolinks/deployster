@@ -79,6 +79,12 @@
             "key1": "value1",
             "key2": "value2"
         },
+        "backup": {
+            "enabled": false
+        },
+        "storage-auto-resize": {
+            "enabled": false
+        },
         "root-password": "abcdefg",
         "scripts": [
             {
