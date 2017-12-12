@@ -778,12 +778,15 @@ class GcpCloudSql(GcpResource):
 
         # validate labels
         if "labels" in cfg:
-            desired_labels = cfg["labels"]
+            desired_labels: dict = cfg["labels"]
             actual_labels: dict = actual_settings['userLabels'] if 'userLabels' in actual_settings else {}
-            for key, value in desired_labels.items():
-                if key not in actual_labels or value != actual_labels[key]:
-                    actions.append(DAction(name='update-labels', description=f"Update SQL instance user-labels"))
-                    break
+            if len(desired_labels.keys()) != len(actual_labels.keys()):
+                actions.append(DAction(name='update-labels', description=f"Update SQL instance user-labels"))
+            else:
+                for key, value in desired_labels.items():
+                    if key not in actual_labels or value != actual_labels[key]:
+                        actions.append(DAction(name='update-labels', description=f"Update SQL instance user-labels"))
+                        break
 
         # check for scripts that need to be executed
         if "scripts" in cfg:
