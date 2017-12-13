@@ -258,7 +258,7 @@ class GcpServices:
                 raise Exception(f"Timed out waiting for Google Cloud SQL operation: {json.dumps(result,indent=2)}")
 
     def get_gke_cluster(self, project_id: str, zone: str, name: str):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         try:
             return clusters_service.get(projectId=project_id, zone=zone, clusterId=name).execute()
         except HttpError as e:
@@ -268,7 +268,7 @@ class GcpServices:
                 raise
 
     def get_gke_cluster_node_pool(self, project_id: str, zone: str, name: str, pool_name: str):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         try:
             return clusters_service.nodePools().get(projectId=project_id,
                                                     zone=zone,
@@ -281,11 +281,11 @@ class GcpServices:
                 raise
 
     def get_gke_server_config(self, project_id: str, zone: str) -> dict:
-        service = get_service('container', 'v1')
+        service = self._get_service('container', 'v1')
         return service.projects().zones().getServerconfig(projectId=project_id, zone=zone).execute()
 
     def create_gke_cluster(self, project_id: str, zone: str, body: dict, timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         op = clusters_service.create(projectId=project_id, zone=zone, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
@@ -295,33 +295,33 @@ class GcpServices:
                                           name: str,
                                           version: str,
                                           timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         body = {'masterVersion': version}
         op = clusters_service.master(projectId=project_id, zone=zone, clusterId=name, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
     def update_gke_cluster(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         op = clusters_service.update(projectId=project_id, zone=zone, clusterId=name, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
     def update_gke_cluster_legacy_abac(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         op = clusters_service.legacyAbac(projectId=project_id, zone=zone, clusterId=name, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
     def update_gke_cluster_monitoring(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         op = clusters_service.monitoring(projectId=project_id, zone=zone, clusterId=name, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
     def update_gke_cluster_logging(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         op = clusters_service.logging(projectId=project_id, zone=zone, clusterId=name, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
     def update_gke_cluster_addons(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
-        clusters_service = get_service('container', 'v1').projects().zones().clusters()
+        clusters_service = self._get_service('container', 'v1').projects().zones().clusters()
         op = clusters_service.addons(projectId=project_id, zone=zone, clusterId=name, body=body).execute()
         self.wait_for_gke_zonal_operation(project_id=project_id, zone=zone, operation=op, timeout=timeout)
 
@@ -331,7 +331,7 @@ class GcpServices:
                                      name: str,
                                      node_pool_body: dict,
                                      timeout: int = 60 * 15):
-        pools_service = get_service('container', 'v1').projects().zones().clusters().nodePools()
+        pools_service = self._get_service('container', 'v1').projects().zones().clusters().nodePools()
         op = pools_service.create(projectId=project_id,
                                   zone=zone,
                                   clusterId=name,
@@ -344,7 +344,7 @@ class GcpServices:
                                      cluster_name: str,
                                      pool_name: str,
                                      body: dict, timeout: int = 60 * 15):
-        pools_service = get_service('container', 'v1').projects().zones().clusters().nodePools()
+        pools_service = self._get_service('container', 'v1').projects().zones().clusters().nodePools()
         op = pools_service.update(projectId=project_id,
                                   zone=zone,
                                   clusterId=cluster_name,
@@ -358,7 +358,7 @@ class GcpServices:
                                                 cluster_name: str,
                                                 pool_name: str,
                                                 body: dict, timeout: int = 60 * 15):
-        pools_service = get_service('container', 'v1').projects().zones().clusters().nodePools()
+        pools_service = self._get_service('container', 'v1').projects().zones().clusters().nodePools()
         op = pools_service.setManagement(projectId=project_id,
                                          zone=zone,
                                          clusterId=cluster_name,
@@ -372,7 +372,7 @@ class GcpServices:
                                                  cluster_name: str,
                                                  pool_name: str,
                                                  body: dict, timeout: int = 60 * 15):
-        pools_service = get_service('container', 'v1').projects().zones().clusters().nodePools()
+        pools_service = self._get_service('container', 'v1').projects().zones().clusters().nodePools()
         op = pools_service.autoscaling(projectId=project_id,
                                        zone=zone,
                                        clusterId=cluster_name,
@@ -382,7 +382,7 @@ class GcpServices:
 
     def wait_for_gke_zonal_operation(self, project_id: str, zone: str, operation: dict,
                                      timeout: int = 60 * 15):
-        operations_service = get_service('container', 'v1').projects().zones().operations()
+        operations_service = self._get_service('container', 'v1').projects().zones().operations()
 
         interval = 5
         counter = 0
@@ -409,9 +409,9 @@ class GcpServices:
 
     def get_compute_regional_ip_address(self, project_id: str, region: str, name: str) -> Union[None, dict]:
         try:
-            return get_service('compute', 'v1').addresses().get(project=project_id,
-                                                                region=region,
-                                                                address=name).execute()
+            return self._get_service('compute', 'v1').addresses().get(project=project_id,
+                                                                      region=region,
+                                                                      address=name).execute()
         except HttpError as e:
             if e.resp.status == 404:
                 return None
@@ -419,7 +419,7 @@ class GcpServices:
                 raise
 
     def create_compute_regional_ip_address(self, project_id: str, region: str, name: str, timeout: int = 60 * 5):
-        addresses_service = get_service('compute', 'v1').addresses()
+        addresses_service = self._get_service('compute', 'v1').addresses()
         result = addresses_service.insert(project=project_id,
                                           region=region,
                                           body={'name': name}).execute()
@@ -429,7 +429,7 @@ class GcpServices:
                                                  timeout=timeout)
 
     def wait_for_compute_regional_operation(self, project_id: str, region: str, operation: dict, timeout: int = 60 * 5):
-        operations_service = get_service('compute', 'v1').regionOperations()
+        operations_service = self._get_service('compute', 'v1').regionOperations()
 
         interval = 5
         counter = 0
@@ -450,7 +450,7 @@ class GcpServices:
 
     def get_compute_global_ip_address(self, project_id: str, name: str) -> Union[None, dict]:
         try:
-            return get_service('compute', 'v1').globalAddresses().get(project=project_id, address=name).execute()
+            return self._get_service('compute', 'v1').globalAddresses().get(project=project_id, address=name).execute()
         except HttpError as e:
             if e.resp.status == 404:
                 return None
@@ -458,12 +458,12 @@ class GcpServices:
                 raise
 
     def create_compute_global_ip_address(self, project_id: str, name: str, timeout: int = 60 * 5):
-        addresses_service = get_service('compute', 'v1').globalAddresses()
+        addresses_service = self._get_service('compute', 'v1').globalAddresses()
         result = addresses_service.insert(project=project_id, body={'name': name}).execute()
         self.wait_for_compute_global_operation(project_id=project_id, operation=result, timeout=timeout)
 
     def wait_for_compute_global_operation(self, project_id: str, operation: dict, timeout: int = 60 * 5):
-        operations_service = get_service('compute', 'v1').globalOperations()
+        operations_service = self._get_service('compute', 'v1').globalOperations()
 
         interval = 5
         counter = 0
@@ -482,47 +482,5 @@ class GcpServices:
                 raise Exception(f"Timed out waiting for Google Compute global operation: {json.dumps(result,indent=2)}")
 
 
-services = {}
-
-
 def region_from_zone(zone: str) -> str:
     return zone[0:zone.rfind('-')]
-
-
-def get_service(service_name, version):
-    service_key = service_name + '_' + version
-    if service_key not in services:
-        services[service_key] = build(serviceName=service_name, version=version)
-    return services[service_key]
-
-
-def get_iam():
-    return get_service('iam', 'v1')
-
-
-def get_compute():
-    return get_service('compute', 'v1')
-
-
-def get_container():
-    return get_service('container', 'v1')
-
-
-def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=300):
-    operations_service = get_compute().zoneOperations()
-
-    interval = 5
-    counter = 0
-    while True:
-        sleep(interval)
-        counter = counter + interval
-
-        result = operations_service.get(project=project_id, zone=zone, operation=operation['name']).execute()
-
-        if 'status' in result and result['status'] == 'DONE':
-            if 'error' in result:
-                raise Exception("ERROR: %s" % json.dumps(result['error']))
-            else:
-                return result
-        if counter >= timeout:
-            raise Exception(f"Timed out waiting for Google Compute zonal operation: {json.dumps(result,indent=2)}")
