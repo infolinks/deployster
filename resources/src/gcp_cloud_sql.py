@@ -394,6 +394,7 @@ class GcpCloudSql(GcpResource):
             "additionalProperties": False,
             "definitions": definitions,
             "properties": {
+                "project_id": {"type": "string"},
                 "zone": {"type": "string"},
                 "name": {"type": "string"},
                 "machine-type": {"type": "string"},
@@ -444,32 +445,37 @@ class GcpCloudSql(GcpResource):
                     }
                 },
                 "maintenance": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["day", "hour"],
-                    "properties": {
-                        "day": {
-                            "oneOf": [
-                                {
-                                    "type": "string",
-                                    "enum": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
-                                             "Saturday"]
+                    "oneOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["day", "hour"],
+                            "properties": {
+                                "day": {
+                                    "oneOf": [
+                                        {
+                                            "type": "string",
+                                            "enum": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+                                                     "Saturday"]
+                                        },
+                                        {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 7,
+                                            "exclusiveMaximum": False
+                                        }
+                                    ]
                                 },
-                                {
+                                "hour": {
                                     "type": "integer",
-                                    "minimum": 1,
-                                    "maximum": 7,
+                                    "minimum": 0,
+                                    "maximum": 23,
                                     "exclusiveMaximum": False
                                 }
-                            ]
-                        },
-                        "hour": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 23,
-                            "exclusiveMaximum": False
+                            }
                         }
-                    }
+                    ]
                 },
                 "storage-auto-resize": {
                     "type": "object",
@@ -510,7 +516,6 @@ class GcpCloudSql(GcpResource):
                             },
                             "when": {
                                 "type": "array",
-                                "minItems": 1,
                                 "items": {"$ref": "#/definitions/CONDITION"}
                             }
                         }
