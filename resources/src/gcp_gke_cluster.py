@@ -219,7 +219,7 @@ class GkeCluster(GcpResource):
                                                              pool_name=pool_name)
             if actual_pool is None:
                 actions.append(DAction(name='create-node-pool',
-                                       description=f"'Create node pool '{pool_name}' in cluster '{cluster_name}'",
+                                       description=f"Create node pool '{pool_name}' in cluster '{cluster_name}'",
                                        args=['create_node_pool', pool_name]))
                 continue
 
