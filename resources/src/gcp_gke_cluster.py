@@ -124,16 +124,11 @@ class GkeCluster(GcpResource):
             raise Exception(f"Cluster exists, but not running ('{actual_cluster['status']}')")
 
         # validate cluster primary zone & locations
-        actual_cluster_zone: str = actual_cluster['zone']
         desired_cluster_zone = self.info.config['zone']
         actual_cluster_locations: Sequence[str] = actual_cluster['locations']
-        if desired_cluster_zone != actual_cluster_zone:
+        if [desired_cluster_zone] != actual_cluster_locations:
             raise Exception(
-                f"Cluster primary zone is '{actual_cluster_zone}' instead of '{desired_cluster_zone}'. "
-                f"Updating this is not allowed in GKE APIs unfortunately.")
-        elif [desired_cluster_zone] != actual_cluster_locations:
-            raise Exception(
-                f"Cluster locations are '{actual_cluster_locations}' instead of '{[desired_cluster_zone]}'. "
+                f"Cluster locations are {actual_cluster_locations} instead of {[desired_cluster_zone]}. "
                 f"Updating this is not allowed in GKE APIs unfortunately.")
 
         # validate cluster master version & cluster node pools version
