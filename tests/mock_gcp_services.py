@@ -7,9 +7,9 @@ from typing import Mapping, Sequence, Union, Tuple, MutableSequence, Any
 from gcp_services import GcpServices, SqlExecutor
 
 
-def load_scenarios(scenarios_dir: str, scenario_pattern: str) -> Sequence[Tuple[dict, dict, dict]]:
+def load_scenarios(scenarios_dir: str, scenario_pattern: str) -> Sequence[Tuple[str, dict, dict, dict]]:
     print("", file=sys.stderr)
-    scenarios: MutableSequence[Tuple[dict, dict, dict]] = []
+    scenarios: MutableSequence[Tuple[str, dict, dict, dict]] = []
     for scenario_file in os.listdir(scenarios_dir):
         if re.match(scenario_pattern, scenario_file):
             file_name = os.path.join(scenarios_dir, scenario_file)
@@ -51,7 +51,9 @@ class MockGcpServices(GcpServices):
                  sql_tiers: Mapping[str, dict] = None,
                  sql_flags: Mapping[str, dict] = None,
                  sql_instances: Mapping[str, dict] = None,
-                 sql_execution_results: Mapping[str, Sequence[dict]] = None) -> None:
+                 sql_execution_results: Mapping[str, Sequence[dict]] = None,
+                 gke_clusters: Mapping[str, dict] = None,
+                 gke_server_config: Mapping[str, Any] = None) -> None:
         super().__init__()
         self._projects: Mapping[str, dict] = projects
         self._project_billing_infos: Mapping[str, dict] = project_billing_infos
@@ -60,6 +62,8 @@ class MockGcpServices(GcpServices):
         self._sql_flags = sql_flags
         self._sql_instances = sql_instances
         self._sql_execution_results = sql_execution_results
+        self._gke_clusters = gke_clusters
+        self._gke_server_config = gke_server_config
 
     def _get_service(self, service_name, version) -> Any:
         raise NotImplementedError()
@@ -117,3 +121,61 @@ class MockGcpServices(GcpServices):
 
     def create_sql_executor(self, **kwargs) -> SqlExecutor:
         return MockSqlExecutor(gcp_services=self, sql_execution_results=self._sql_execution_results)
+
+    def get_gke_cluster(self, project_id: str, zone: str, name: str):
+        key = f"{project_id}-{zone}-{name}"
+        return self._gke_clusters[key] if key in self._gke_clusters else None
+
+    def get_gke_cluster_node_pool(self, project_id: str, zone: str, name: str, pool_name: str):
+        cluster = self.get_gke_cluster(project_id=project_id, zone=zone, name=name)
+        if cluster is not None and 'nodePools' in cluster:
+            try:
+                return next([pool for pool in cluster['nodePools'] if pool['name'] == pool_name])
+            except StopIteration:
+                pass
+        return None
+
+    def get_gke_server_config(self, project_id: str, zone: str) -> Mapping[str, Any]:
+        return self._gke_server_config
+
+    def create_gke_cluster(self, project_id: str, zone: str, body: dict, timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_master_version(self, project_id: str, zone: str, name: str, version: str,
+                                          timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_legacy_abac(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_monitoring(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_logging(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_addons(self, project_id: str, zone: str, name: str, body: dict, timeout: int = 60 * 15):
+        pass
+
+    def create_gke_cluster_node_pool(self, project_id: str, zone: str, name: str, node_pool_body: dict,
+                                     timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_node_pool(self, project_id: str, zone: str, cluster_name: str, pool_name: str, body: dict,
+                                     timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_node_pool_management(self, project_id: str, zone: str, cluster_name: str, pool_name: str,
+                                                body: dict, timeout: int = 60 * 15):
+        pass
+
+    def update_gke_cluster_node_pool_autoscaling(self, project_id: str, zone: str, cluster_name: str, pool_name: str,
+                                                 body: dict, timeout: int = 60 * 15):
+        pass
+
+    def wait_for_gke_zonal_operation(self, project_id: str, zone: str, operation: dict,
+                                     timeout: int = 60 * 15):
+        pass
