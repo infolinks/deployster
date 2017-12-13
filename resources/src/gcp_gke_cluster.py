@@ -2,9 +2,9 @@
 
 import argparse
 import json
-import subprocess
+import os
 import sys
-from subprocess import PIPE
+from pathlib import Path
 from typing import Mapping, Sequence, MutableSequence
 
 import yaml
@@ -67,19 +67,11 @@ class GkeCluster(GcpResource):
         })
 
     def authenticate(self, properties: dict) -> None:
-        # generate a kubectl config file using the cluster properties and the service account's access token
         sa_plug = self.get_plug('gcp-service-account')
 
-        # first, make gcloud use our service account
-        command = f"gcloud auth activate-service-account --key-file={sa_plug.container_path}"
-        subprocess.run(command, check=True, shell=True)
-
-        # extract our service account's GCP access token
-        process = subprocess.run(f"gcloud auth print-access-token", check=True, shell=True, stdout=PIPE)
-        access_token: str = process.stdout.decode('utf-8').strip()
-
-        # update the user object to use the gcloud access token instead of GCP helper, then write back to the file
+        # generate a kubectl config file using the cluster properties and the service account's access token
         cluster_full_id = f"gke_{self.info.config['project_id']}_{self.info.config['zone']}_{self.info.config['name']}"
+        os.makedirs(self.get_plug('kube').container_path, exist_ok=True)
         with open(self.get_plug('kube').container_path + '/config', 'w') as stream:
             stream.write(yaml.dump({
                 'apiVersion': 'v1',
@@ -98,7 +90,7 @@ class GkeCluster(GcpResource):
                     {
                         'name': cluster_full_id,
                         'user': {
-                            'token': access_token
+                            'token': self.gcp.generate_gcloud_access_token(Path(sa_plug.container_path))
                         }
                     }
                 ],
@@ -286,12 +278,12 @@ class GkeCluster(GcpResource):
                               desired_pool_max_size]))
 
             # infer node VM configuration
-            node_config: dict = actual_pool['config'] if 'config' in actual_pool else {}
+            pool_cfg: dict = actual_pool['config'] if 'config' in actual_pool else {}
 
             # validate node pool service account
             desired_service_account: str = pool['service_account'] if 'service_account' in pool else 'default'
-            actual_service_account: str = node_config[
-                'serviceAccount'] if 'serviceAccount' in node_config else 'default'
+            actual_service_account: str = pool_cfg[
+                'serviceAccount'] if 'serviceAccount' in pool_cfg else 'default'
             if desired_service_account != actual_service_account:
                 raise Exception(
                     f"Node pool '{pool_name}' service account is '{actual_service_account}' instead of "
@@ -300,7 +292,7 @@ class GkeCluster(GcpResource):
             # validate node pool OAuth scopes
             desired_oauth_scopes: Sequence[str] = \
                 pool['oauth_scopes'] if 'oauth_scopes' in pool else DEFAULT_OAUTH_SCOPES
-            actual_oauth_scopes: Sequence[str] = node_config["oauthScopes"] if 'oauthScopes' in node_config else []
+            actual_oauth_scopes: Sequence[str] = pool_cfg["oauthScopes"] if 'oauthScopes' in pool_cfg else []
             if desired_oauth_scopes != actual_oauth_scopes:
                 raise Exception(
                     f"Node pool '{pool_name}' OAuth scopes are '{actual_oauth_scopes}' instead of "
@@ -308,7 +300,7 @@ class GkeCluster(GcpResource):
 
             # validate node pool preemptible usage
             desired_preemptible: bool = pool['preemptible'] if 'preemptible' in pool else True
-            actual_preemptible: bool = node_config['preemptible'] if 'preemptible' in node_config else False
+            actual_preemptible: bool = pool_cfg['preemptible'] if 'preemptible' in pool_cfg else False
             if desired_preemptible != actual_preemptible:
                 if desired_preemptible:
                     raise Exception(f"Node pool '{pool_name}' uses preemptibles, though it shouldn't be. "
@@ -320,7 +312,7 @@ class GkeCluster(GcpResource):
             # validate machine type
             desired_machine_type: str = pool[
                 'machine_type'] if 'machine_type' in pool else 'n1-standard-1'
-            actual_machine_type: str = node_config["machineType"] if "machineType" in node_config else 'n1-standard-1'
+            actual_machine_type: str = pool_cfg["machineType"] if "machineType" in pool_cfg else 'n1-standard-1'
             if desired_machine_type != actual_machine_type:
                 raise Exception(
                     f"Node pool '{pool_name}' uses '{actual_machine_type}' instead of '{desired_machine_type}'. "
@@ -328,7 +320,7 @@ class GkeCluster(GcpResource):
 
             # validate machine disk type
             desired_disk_size_gb: int = pool['disk_size_gb'] if 'disk_size_gb' in pool else 20
-            actual_disk_size_gb: int = node_config["diskSizeGb"] if "diskSizeGb" in node_config else 100
+            actual_disk_size_gb: int = pool_cfg["diskSizeGb"] if "diskSizeGb" in pool_cfg else 100
             if desired_disk_size_gb != actual_disk_size_gb:
                 raise Exception(
                     f"Node pool '{pool_name}' allocates {actual_disk_size_gb}GB disk space instead of "
@@ -336,7 +328,7 @@ class GkeCluster(GcpResource):
 
             # validate network tags
             desired_tags: Sequence[str] = pool['tags'] if 'tags' in pool else []
-            actual_tags: Sequence[str] = node_config["tags"] if "tags" in node_config else []
+            actual_tags: Sequence[str] = pool_cfg["tags"] if "tags" in pool_cfg else []
             if desired_tags != actual_tags:
                 raise Exception(
                     f"Node pool '{pool_name}' network tags are '{actual_tags}' instead of '{desired_tags}'. "
@@ -344,7 +336,7 @@ class GkeCluster(GcpResource):
 
             # validate GCE metadata
             desired_metadata: Mapping[str, str] = pool['metadata'] if 'metadata' in pool else {}
-            actual_metadata: Mapping[str, str] = node_config["metadata"] if "metadata" in node_config else {}
+            actual_metadata: Mapping[str, str] = pool_cfg["metadata"] if "metadata" in pool_cfg else {}
             if desired_metadata != actual_metadata:
                 raise Exception(
                     f"Node pool '{pool_name}' GCE metadata is '{actual_metadata}' instead of '{desired_metadata}'. "
@@ -352,7 +344,7 @@ class GkeCluster(GcpResource):
 
             # validate Kubernetes labels
             desired_labels: Mapping[str, str] = pool['labels'] if 'labels' in pool else {}
-            actual_labels: Mapping[str, str] = node_config["labels"] if "labels" in node_config else {}
+            actual_labels: Mapping[str, str] = pool_cfg["labels"] if "labels" in pool_cfg else {}
             if desired_labels != actual_labels:
                 raise Exception(
                     f"Node pool '{pool_name}' Kubernetes labels are '{actual_labels}' instead of '{desired_labels}'. "

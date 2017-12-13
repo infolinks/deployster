@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Mapping, Sequence, Union, Tuple, MutableSequence, Any
 
 from gcp_services import GcpServices, SqlExecutor
@@ -45,6 +46,7 @@ class MockSqlExecutor(SqlExecutor):
 
 class MockGcpServices(GcpServices):
     def __init__(self,
+                 gcloud_access_token: str = 'random-string-here',
                  projects: Mapping[str, dict] = None,
                  project_billing_infos: Mapping[str, dict] = None,
                  project_apis: Mapping[str, Sequence[str]] = None,
@@ -55,6 +57,7 @@ class MockGcpServices(GcpServices):
                  gke_clusters: Mapping[str, dict] = None,
                  gke_server_config: Mapping[str, Any] = None) -> None:
         super().__init__()
+        self._gcloud_access_token: str = gcloud_access_token
         self._projects: Mapping[str, dict] = projects
         self._project_billing_infos: Mapping[str, dict] = project_billing_infos
         self._project_apis: Mapping[str, Sequence[str]] = project_apis
@@ -130,8 +133,8 @@ class MockGcpServices(GcpServices):
         cluster = self.get_gke_cluster(project_id=project_id, zone=zone, name=name)
         if cluster is not None and 'nodePools' in cluster:
             try:
-                return next([pool for pool in cluster['nodePools'] if pool['name'] == pool_name])
-            except StopIteration:
+                return [pool for pool in cluster['nodePools'] if pool['name'] == pool_name][0]
+            except IndexError:
                 pass
         return None
 
@@ -179,3 +182,6 @@ class MockGcpServices(GcpServices):
     def wait_for_gke_zonal_operation(self, project_id: str, zone: str, operation: dict,
                                      timeout: int = 60 * 15):
         pass
+
+    def generate_gcloud_access_token(self, json_credentials_file: Path) -> str:
+        return self._gcloud_access_token

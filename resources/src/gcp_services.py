@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 from abc import abstractmethod
+from pathlib import Path
 from time import sleep
 from typing import Sequence, MutableMapping, Union, Any, Mapping
 
@@ -396,6 +397,15 @@ class GcpServices:
                     return result
             if counter >= timeout:
                 raise Exception(f"Timed out waiting for GKE zonal operation: {json.dumps(result,indent=2)}")
+
+    def generate_gcloud_access_token(self, json_credentials_file: Path) -> str:
+        # first, make gcloud use our service account
+        command = f"gcloud auth activate-service-account --key-file={json_credentials_file}"
+        subprocess.run(command, check=True, shell=True)
+
+        # extract our service account's GCP access token
+        process = subprocess.run(f"gcloud auth print-access-token", check=True, shell=True, stdout=subprocess.PIPE)
+        return process.stdout.decode('utf-8').strip()
 
 
 services = {}
