@@ -485,15 +485,10 @@ class GkeCluster(GcpResource):
 
     @action
     def create_node_pool(self, args):
-        pool_name: str = args.pool
-        pool: dict = next(pool for pool in self.info.config['node_pools'] if pool['name'] == pool_name)
-
-        if not self.is_version_node_valid(self.info.config['version']):
-            raise Exception(f"version '{self.info.config['version']}' is not supported as a node version in GKE")
-
+        pool: dict = next(pool for pool in self.info.config['node_pools'] if pool['name'] == args.pool)
         min_node_count = pool['min_size'] if 'min_size' in pool else 1
         pool_config = {
-            "name": pool_name,
+            "name": args.pool,
             "management": {"autoRepair": True, "autoUpgrade": False},
             "initialNodeCount": min_node_count,
             "autoscaling": {
@@ -520,13 +515,10 @@ class GkeCluster(GcpResource):
 
     @action
     def update_node_pool_version(self, args):
-        pool_name: str = args.pool
-        if not self.is_version_node_valid(self.info.config['version']):
-            raise Exception(f"version '{self.info.config['version']}' is not supported as a node version in GKE")
         self.gcp.update_gke_cluster_node_pool(project_id=self.info.config['project_id'],
                                               zone=self.info.config['zone'],
                                               cluster_name=self.info.config['name'],
-                                              pool_name=pool_name,
+                                              pool_name=args.pool,
                                               body={"nodeVersion": self.info.config['version']})
 
     @action
