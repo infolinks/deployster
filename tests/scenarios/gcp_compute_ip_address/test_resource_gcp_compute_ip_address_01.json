@@ -1,0 +1,22 @@
+{
+    "description": "Test create GCP Compute regional IP address.",
+    "actual": {
+        "compute_regional_ip_addresses": { },
+        "compute_global_ip_addresses": { }
+    },
+    "config": {
+        "project_id": "prj",
+        "region": "europe-west1",
+        "name": "test"
+    },
+    "expected": {
+        "status": "STALE",
+        "actions": [
+            {
+                "name": "create",
+                "description": "Create regional IP address 'test'",
+                "args": [ "create" ]
+            }
+        ]
+    }
+}

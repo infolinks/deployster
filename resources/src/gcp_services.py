@@ -407,6 +407,80 @@ class GcpServices:
         process = subprocess.run(f"gcloud auth print-access-token", check=True, shell=True, stdout=subprocess.PIPE)
         return process.stdout.decode('utf-8').strip()
 
+    def get_compute_regional_ip_address(self, project_id: str, region: str, name: str) -> Union[None, dict]:
+        try:
+            return get_service('compute', 'v1').addresses().get(project=project_id,
+                                                                region=region,
+                                                                address=name).execute()
+        except HttpError as e:
+            if e.resp.status == 404:
+                return None
+            else:
+                raise
+
+    def create_compute_regional_ip_address(self, project_id: str, region: str, name: str, timeout: int = 60 * 5):
+        addresses_service = get_service('compute', 'v1').addresses()
+        result = addresses_service.insert(project=project_id,
+                                          region=region,
+                                          body={'name': name}).execute()
+        self.wait_for_compute_regional_operation(project_id=project_id,
+                                                 region=region,
+                                                 operation=result,
+                                                 timeout=timeout)
+
+    def wait_for_compute_regional_operation(self, project_id: str, region: str, operation: dict, timeout: int = 60 * 5):
+        operations_service = get_service('compute', 'v1').regionOperations()
+
+        interval = 5
+        counter = 0
+        while True:
+            sleep(interval)
+            counter = counter + interval
+
+            result = operations_service.get(project=project_id, region=region, operation=operation['name']).execute()
+
+            if 'status' in result and result['status'] == 'DONE':
+                if 'error' in result:
+                    raise Exception("ERROR: %s" % json.dumps(result['error']))
+                else:
+                    return result
+            if counter >= timeout:
+                raise Exception(
+                    f"Timed out waiting for Google Compute regional operation: {json.dumps(result,indent=2)}")
+
+    def get_compute_global_ip_address(self, project_id: str, name: str) -> Union[None, dict]:
+        try:
+            return get_service('compute', 'v1').globalAddresses().get(project=project_id, address=name).execute()
+        except HttpError as e:
+            if e.resp.status == 404:
+                return None
+            else:
+                raise
+
+    def create_compute_global_ip_address(self, project_id: str, name: str, timeout: int = 60 * 5):
+        addresses_service = get_service('compute', 'v1').globalAddresses()
+        result = addresses_service.insert(project=project_id, body={'name': name}).execute()
+        self.wait_for_compute_global_operation(project_id=project_id, operation=result, timeout=timeout)
+
+    def wait_for_compute_global_operation(self, project_id: str, operation: dict, timeout: int = 60 * 5):
+        operations_service = get_service('compute', 'v1').globalOperations()
+
+        interval = 5
+        counter = 0
+        while True:
+            sleep(interval)
+            counter = counter + interval
+
+            result = operations_service.get(project=project_id, operation=operation['name']).execute()
+
+            if 'status' in result and result['status'] == 'DONE':
+                if 'error' in result:
+                    raise Exception("ERROR: %s" % json.dumps(result['error']))
+                else:
+                    return result
+            if counter >= timeout:
+                raise Exception(f"Timed out waiting for Google Compute global operation: {json.dumps(result,indent=2)}")
+
 
 services = {}
 
@@ -432,46 +506,6 @@ def get_compute():
 
 def get_container():
     return get_service('container', 'v1')
-
-
-def wait_for_compute_region_operation(project_id, region, operation, timeout=300):
-    operations_service = get_compute().regionOperations()
-
-    interval = 5
-    counter = 0
-    while True:
-        sleep(interval)
-        counter = counter + interval
-
-        result = operations_service.get(project=project_id, region=region, operation=operation['name']).execute()
-
-        if 'status' in result and result['status'] == 'DONE':
-            if 'error' in result:
-                raise Exception("ERROR: %s" % json.dumps(result['error']))
-            else:
-                return result
-        if counter >= timeout:
-            raise Exception(f"Timed out waiting for Google Compute regional operation: {json.dumps(result,indent=2)}")
-
-
-def wait_for_compute_global_operation(project_id, operation, timeout=300):
-    operations_service = get_compute().globalOperations()
-
-    interval = 5
-    counter = 0
-    while True:
-        sleep(interval)
-        counter = counter + interval
-
-        result = operations_service.get(project=project_id, operation=operation['name']).execute()
-
-        if 'status' in result and result['status'] == 'DONE':
-            if 'error' in result:
-                raise Exception("ERROR: %s" % json.dumps(result['error']))
-            else:
-                return result
-        if counter >= timeout:
-            raise Exception(f"Timed out waiting for Google Compute global operation: {json.dumps(result,indent=2)}")
 
 
 def wait_for_compute_zonal_operation(project_id, zone, operation, timeout=300):

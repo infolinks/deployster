@@ -1,0 +1,21 @@
+{
+    "description": "Test create GCP Compute global IP address.",
+    "actual": {
+        "compute_regional_ip_addresses": { },
+        "compute_global_ip_addresses": { }
+    },
+    "config": {
+        "project_id": "prj",
+        "name": "test"
+    },
+    "expected": {
+        "status": "STALE",
+        "actions": [
+            {
+                "name": "create",
+                "description": "Create global IP address 'test'",
+                "args": [ "create" ]
+            }
+        ]
+    }
+}

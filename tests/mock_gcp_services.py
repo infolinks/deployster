@@ -55,7 +55,9 @@ class MockGcpServices(GcpServices):
                  sql_instances: Mapping[str, dict] = None,
                  sql_execution_results: Mapping[str, Sequence[dict]] = None,
                  gke_clusters: Mapping[str, dict] = None,
-                 gke_server_config: Mapping[str, Any] = None) -> None:
+                 gke_server_config: Mapping[str, Any] = None,
+                 compute_regional_ip_addresses: Mapping[str, Any] = None,
+                 compute_global_ip_addresses: Mapping[str, Any] = None) -> None:
         super().__init__()
         self._gcloud_access_token: str = gcloud_access_token
         self._projects: Mapping[str, dict] = projects
@@ -67,6 +69,8 @@ class MockGcpServices(GcpServices):
         self._sql_execution_results = sql_execution_results
         self._gke_clusters = gke_clusters
         self._gke_server_config = gke_server_config
+        self._compute_regional_ip_addresses = compute_regional_ip_addresses
+        self._compute_global_ip_addresses = compute_global_ip_addresses
 
     def _get_service(self, service_name, version) -> Any:
         raise NotImplementedError()
@@ -185,3 +189,23 @@ class MockGcpServices(GcpServices):
 
     def generate_gcloud_access_token(self, json_credentials_file: Path) -> str:
         return self._gcloud_access_token
+
+    def get_compute_regional_ip_address(self, project_id: str, region: str, name: str) -> Union[None, dict]:
+        key = f"{project_id}-{region}-{name}"
+        return self._compute_regional_ip_addresses[key] if key in self._compute_regional_ip_addresses else None
+
+    def create_compute_regional_ip_address(self, project_id: str, region: str, name: str, timeout: int = 60 * 5):
+        pass
+
+    def wait_for_compute_regional_operation(self, project_id: str, region: str, operation: dict, timeout: int = 60 * 5):
+        pass
+
+    def get_compute_global_ip_address(self, project_id: str, name: str) -> Union[None, dict]:
+        key = f"{project_id}-{name}"
+        return self._compute_global_ip_addresses[key] if key in self._compute_global_ip_addresses else None
+
+    def create_compute_global_ip_address(self, project_id: str, name: str, timeout: int = 60 * 5):
+        pass
+
+    def wait_for_compute_global_operation(self, project_id: str, operation: dict, timeout: int = 60 * 5):
+        pass
