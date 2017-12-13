@@ -17,5 +17,8 @@
         "billing_account_id": "ABC123",
         "apis": { "enabled": [ "api1" ], "disabled": [ "api1", "api2", "api3" ] }
     },
-    "expected": {}
+    "expected": {
+        "exception": "Exception",
+        "match": "cannot be both enabled & disabled"
+    }
 }
