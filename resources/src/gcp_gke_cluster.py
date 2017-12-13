@@ -107,9 +107,15 @@ class GkeCluster(GcpResource):
             }))
 
     def discover_state(self):
-        return self.gcp.get_gke_cluster(project_id=self.info.config['project_id'],
-                                        zone=self.info.config['zone'],
-                                        name=self.info.config['name'])
+        desired_version: str = self.info.config['version']
+        if not self.is_version_master_valid(desired_version):
+            raise Exception(f"version '{desired_version}' is not supported as a master version in GKE")
+        elif not self.is_version_node_valid(desired_version):
+            raise Exception(f"version '{desired_version}' is not supported as a node version in GKE")
+        else:
+            return self.gcp.get_gke_cluster(project_id=self.info.config['project_id'],
+                                            zone=self.info.config['zone'],
+                                            name=self.info.config['name'])
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
         return [DAction(name=f"create-cluster", description=f"Create cluster '{self.info.config['name']}'")]
@@ -369,24 +375,17 @@ class GkeCluster(GcpResource):
     def is_version_master_valid(self, version) -> bool:
         config = self.gcp.get_gke_server_config(project_id=self.info.config['project_id'],
                                                 zone=self.info.config['zone'])
-        return version in config['validNodeVersions'] and self.info.config['version'] in config['validMasterVersions']
+        return version in config['validMasterVersions']
 
     def is_version_node_valid(self, version) -> bool:
         config = self.gcp.get_gke_server_config(project_id=self.info.config['project_id'],
                                                 zone=self.info.config['zone'])
-        return version in config['validNodeVersions'] and self.info.config['version'] in config['validNodeVersions']
+        return version in config['validNodeVersions']
 
     @action
     def create_cluster(self, args):
         if args: pass
         desired_version: str = self.info.config['version']
-
-        if not self.is_version_master_valid(self.info.config['version']):
-            print(f"version '{desired_version}' is not supported as a master version in GKE", file=sys.stderr)
-            exit(1)
-        elif not self.is_version_node_valid(self.info.config['version']):
-            print(f"version '{desired_version}' is not supported as a node version in GKE", file=sys.stderr)
-            exit(1)
 
         def build_node_pool(pool: dict):
             min_node_count = pool['min_size'] if 'min_size' in pool else 1
@@ -440,10 +439,6 @@ class GkeCluster(GcpResource):
     @action
     def update_cluster_master_version(self, args):
         if args: pass
-        if not self.is_version_master_valid(self.info.config['version']):
-            print(f"version '{self.info.config['version']}' is not supported as a master version in GKE",
-                  file=sys.stderr)
-            exit(1)
         self.gcp.update_gke_cluster_master_version(project_id=self.info.config['project_id'],
                                                    zone=self.info.config['zone'],
                                                    name=self.info.config['name'],
@@ -494,8 +489,7 @@ class GkeCluster(GcpResource):
         pool: dict = next(pool for pool in self.info.config['node_pools'] if pool['name'] == pool_name)
 
         if not self.is_version_node_valid(self.info.config['version']):
-            print(f"version '{self.info.config['version']}' is not supported as a node version in GKE", file=sys.stderr)
-            exit(1)
+            raise Exception(f"version '{self.info.config['version']}' is not supported as a node version in GKE")
 
         min_node_count = pool['min_size'] if 'min_size' in pool else 1
         pool_config = {
@@ -528,8 +522,7 @@ class GkeCluster(GcpResource):
     def update_node_pool_version(self, args):
         pool_name: str = args.pool
         if not self.is_version_node_valid(self.info.config['version']):
-            print(f"version '{self.info.config['version']}' is not supported as a node version in GKE", file=sys.stderr)
-            exit(1)
+            raise Exception(f"version '{self.info.config['version']}' is not supported as a node version in GKE")
         self.gcp.update_gke_cluster_node_pool(project_id=self.info.config['project_id'],
                                               zone=self.info.config['zone'],
                                               cluster_name=self.info.config['name'],

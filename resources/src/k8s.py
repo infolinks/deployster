@@ -191,11 +191,9 @@ class K8sResource(DResource):
                        shell=True)
 
         if not self.wait_for_availability():
-            print(f"{self.k8s_kind} '{self.name}' was not created successfully.\n"
-                  f"Use this command to find out more:\n"
-                  f"    {self.kubectl_command('get')}",
-                  file=sys.stderr)
-            exit(1)
+            raise Exception(f"{self.k8s_kind} '{self.name}' was not created successfully.\n"
+                            f"Use this command to find out more:\n"
+                            f"    {self.kubectl_command('get')}")
 
     @action
     def update_annotation(self, args) -> None:
