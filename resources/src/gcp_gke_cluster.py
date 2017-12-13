@@ -269,8 +269,8 @@ class GkeCluster(GcpResource):
                         description=f"Configure auto-scaling of node pool '{pool_name}' in cluster '{cluster_name}'",
                         args=['configure_node_pool_autoscaling',
                               pool_name,
-                              desired_pool_min_size,
-                              desired_pool_max_size]))
+                              str(desired_pool_min_size),
+                              str(desired_pool_max_size)]))
 
             # infer node VM configuration
             pool_cfg: dict = actual_pool['config'] if 'config' in actual_pool else {}
@@ -367,8 +367,8 @@ class GkeCluster(GcpResource):
             argparser.add_argument('pool', metavar='POOL-NAME', help="name of the node pool to update")
         elif action == 'configure_node_pool_autoscaling':
             argparser.add_argument('pool', metavar='POOL-NAME', help="name of the node pool to update")
-            argparser.add_argument('min-size', type=int, metavar='MIN-SIZE', help="minimum size of nodes in the pool")
-            argparser.add_argument('max-size', type=int, metavar='MAX-SIZE', help="maximum size of nodes in the pool")
+            argparser.add_argument('min_size', type=int, metavar='MIN-SIZE', help="minimum size of nodes in the pool")
+            argparser.add_argument('max_size', type=int, metavar='MAX-SIZE', help="maximum size of nodes in the pool")
 
     def is_version_master_valid(self, version) -> bool:
         config = self.gcp.get_gke_server_config(project_id=self.info.config['project_id'],
