@@ -290,19 +290,15 @@ class GkeCluster(GcpResource):
             actual_oauth_scopes: Sequence[str] = pool_cfg["oauthScopes"] if 'oauthScopes' in pool_cfg else []
             if desired_oauth_scopes != actual_oauth_scopes:
                 raise Exception(
-                    f"Node pool '{pool_name}' OAuth scopes are '{actual_oauth_scopes}' instead of "
-                    f"'{desired_oauth_scopes}' (updating OAuth scopes is not allowed in GKE APIs unfortunately)")
+                    f"Node pool '{pool_name}' OAuth scopes are {actual_oauth_scopes} instead of "
+                    f"{desired_oauth_scopes} (updating OAuth scopes is not allowed in GKE APIs unfortunately)")
 
             # validate node pool preemptible usage
             desired_preemptible: bool = pool['preemptible'] if 'preemptible' in pool else True
             actual_preemptible: bool = pool_cfg['preemptible'] if 'preemptible' in pool_cfg else False
             if desired_preemptible != actual_preemptible:
-                if desired_preemptible:
-                    raise Exception(f"Node pool '{pool_name}' uses preemptibles, though it shouldn't be. "
-                                    f"Updating this is not allowed in GKE APIs unfortunately.")
-                else:
-                    raise Exception(f"Node pool '{pool_name}' should be using preemptibles, though it isn't. "
-                                    f"Updating this is not allowed in GKE APIs unfortunately.")
+                raise Exception(f"GKE node pools APIs do not allow enabling/disabling preemptibles usage mode "
+                                f"(required for node pool '{pool_name}' in cluster '{cluster_name}')")
 
             # validate machine type
             desired_machine_type: str = pool[
