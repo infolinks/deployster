@@ -553,7 +553,7 @@ class GkeCluster(GcpResource):
 
 
 def main():
-    GkeCluster(data=json.loads(sys.stdin.read())).execute()
+    GkeCluster(data=json.loads(sys.stdin.read())).execute()  # pragma: no cover
 
 
 if __name__ == "__main__":
