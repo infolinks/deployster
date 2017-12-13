@@ -1,5 +1,5 @@
 {
-    "description": "Test auto-enabling built-in logging & monitoring services for GKE clusters.",
+    "description": "Test auto-enabling HTTP addon for GKE clusters.",
     "actual": {
         "gke_server_config": {
             "validMasterVersions": [
@@ -16,8 +16,8 @@
                 "locations": [ "europe-west1-a" ],
                 "currentMasterVersion": "1.8",
                 "currentNodeVersion": "1.8",
-                "monitoringService": "monitoring.acme.com",
-                "loggingService": "logging.acme.com",
+                "monitoringService": "monitoring.googleapis.com",
+                "loggingService": "logging.googleapis.com",
                 "masterAuth": {
                     "clusterCaCertificate": "abcdefghijklmnopqrstuvwxyz"
                 },
@@ -26,6 +26,11 @@
                 },
                 "legacyAbac": {
                     "enabled": false
+                },
+                "addonsConfig": {
+                    "httpLoadBalancing": {
+                        "disabled": true
+                    }
                 },
                 "endpoint": "http://1.2.3.4",
                 "nodePools": [
@@ -76,8 +81,8 @@
             "locations": [ "europe-west1-a" ],
             "currentMasterVersion": "1.8",
             "currentNodeVersion": "1.8",
-            "monitoringService": "monitoring.acme.com",
-            "loggingService": "logging.acme.com",
+            "monitoringService": "monitoring.googleapis.com",
+            "loggingService": "logging.googleapis.com",
             "masterAuth": {
                 "clusterCaCertificate": "abcdefghijklmnopqrstuvwxyz"
             },
@@ -86,6 +91,11 @@
             },
             "legacyAbac": {
                 "enabled": false
+            },
+            "addonsConfig": {
+                "httpLoadBalancing": {
+                    "disabled": true
+                }
             },
             "endpoint": "http://1.2.3.4",
             "nodePools": [
@@ -116,14 +126,9 @@
         },
         "actions": [
             {
-                "name": "enable-monitoring-service",
-                "description": "Enable GCP monitoring for cluster 'test'",
-                "args": [ "enable_monitoring_service" ]
-            },
-            {
-                "name": "enable-logging-service",
-                "description": "Enable GCP logging for cluster 'test'",
-                "args": [ "enable_logging_service" ]
+                "name": "enable-http-load-balancer-addon",
+                "description": "Enable HTTP load-balancing addon for cluster 'test'",
+                "args": [ "set_addon_status", "httpLoadBalancing", "enabled" ]
             }
         ]
     }
