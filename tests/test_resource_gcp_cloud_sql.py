@@ -6,7 +6,8 @@ import pytest
 from gcp_cloud_sql import GcpCloudSql, _translate_day_name_to_number, Condition, ConditionFactory
 from gcp_services import SqlExecutor
 from manifest import Resource
-from mock_gcp_services import MockGcpServices, load_scenarios
+from mock_gcp_services import MockGcpServices
+from scenario_util import load_scenarios
 
 
 @pytest.mark.parametrize("day_name,expected", [

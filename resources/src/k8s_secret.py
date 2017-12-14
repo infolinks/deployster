@@ -1,33 +1,17 @@
-#!/usr/bin/env python3
+from base64 import b64encode
 
-import base64
-import json
-import sys
-from typing import Mapping
-
-from k8s_configmap import K8sConfigMap
+from k8s import K8sResource
+from k8s_services import K8sServices
 
 
-class K8sSecret(K8sConfigMap):
+class K8sSecret(K8sResource):
 
-    @property
-    def k8s_kind(self) -> str:
-        return "Secret"
+    def __init__(self, data: dict, k8s_services: K8sServices = K8sServices()) -> None:
+        super().__init__(data, k8s_services)
 
-    def build_creation_manifest(self) -> dict:
+    def build_kubectl_manifest(self) -> dict:
+        manifest: dict = super().build_kubectl_manifest()
+
         # overwrite with encoded data
-        manifest: dict = super().build_creation_manifest()
-        manifest['data'] = self.data
+        manifest['data'] = {key: b64encode(str(val).encode()).decode() for key, val in manifest['data'].items()}
         return manifest
-
-    @property
-    def data(self) -> Mapping[str, str]:
-        return {key: base64.b64encode(str(val).encode()).decode() for key, val in super().data.items()}
-
-
-def main():
-    K8sSecret(json.loads(sys.stdin.read())).execute()
-
-
-if __name__ == "__main__":
-    main()

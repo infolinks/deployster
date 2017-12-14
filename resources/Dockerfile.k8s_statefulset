@@ -1,5 +1,0 @@
-FROM infolinks/deployster-k8s:local
-COPY src/k8s_statefulset.py /deployster/lib/
-RUN chmod +x /deployster/lib/k8s_statefulset.py
-ENTRYPOINT ["/deployster/lib/k8s_statefulset.py"]
-CMD ["init"]

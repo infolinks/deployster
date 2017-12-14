@@ -5,7 +5,8 @@ import pytest
 
 from gcp_compute_ip_address import GcpIpAddress
 from manifest import Resource
-from mock_gcp_services import MockGcpServices, load_scenarios
+from mock_gcp_services import MockGcpServices
+from scenario_util import load_scenarios
 
 
 @pytest.mark.parametrize("description,actual,config,expected",

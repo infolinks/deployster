@@ -5,7 +5,8 @@ import pytest
 
 from gcp_gke_cluster import GkeCluster
 from manifest import Resource
-from mock_gcp_services import MockGcpServices, load_scenarios
+from mock_gcp_services import MockGcpServices
+from scenario_util import load_scenarios
 
 
 @pytest.mark.parametrize("description,actual,config,expected",
