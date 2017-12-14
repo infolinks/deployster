@@ -32,6 +32,33 @@ for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
     docker build --tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" --file "${dockerfile}.local" "${RESOURCES_HOME}"
 done
 
+# create k8s docker image aliases
+echo "Building Docker images for Kubernetes resources..." >&2
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-clusterrole:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-clusterrolebinding:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-configmap:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-cronjob:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-daemonset:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-deployment:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-horizontalpodautoscaler:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-ingress:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-job:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-namespace:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-networkpolicy:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-node:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-persistentvolume:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-persistentvolumeclaim:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-pod:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-replicaset:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-replicationcontroller:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-role:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-rolebinding:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-secret:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-service:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-serviceaccount:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-statefulset:${TAG}"
+docker tag "infolinks/deployster-k8s:${TAG}" "infolinks/deployster-k8s-storageclass:${TAG}"
+
 # build deployster image
 echo ""
 echo ""
