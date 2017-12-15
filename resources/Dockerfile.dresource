@@ -1,7 +1,16 @@
-FROM infolinks/cloud-sdk:178.0.0-alpine
-MAINTAINER Arik Kfir <arik@infolinks.com>
-RUN apk --no-cache --update add jq tree bash python3 py3-pip && \
-    pip3 install PyYAML google-api-python-client ansicolors
+FROM centos:7.4.1708
+
+# install dependencies
+COPY google-cloud-sdk.repo /etc/yum.repos.d/
+RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
+    yum install -y python36u python36u-pip && \
+    yum install -y google-cloud-sdk kubectl && \
+    yum clean all && \
+    pip3.6 install PyYAML PyMySQL google-api-python-client ansicolors
+
+# setup Python execution
 ENV PYTHONPATH "/deployster/lib:$PYTHONPATH"
 ENV PYTHONUNBUFFERED="1"
+
+# copy sources
 COPY src/dresources.py /deployster/lib/
