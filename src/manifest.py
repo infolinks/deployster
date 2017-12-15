@@ -463,7 +463,7 @@ class Manifest:
 
             dependencies: MutableMapping[str, Resource] = {}
             if 'dependencies' in data:
-                for alias, dep_resource_name in data['dependencies']:
+                for alias, dep_resource_name in data['dependencies'].items():
                     alias = post_process(alias, self.context.data)
                     dep_resource_name = post_process(dep_resource_name, self.context.data)
                     if dep_resource_name not in composite_manifest['resources']:
