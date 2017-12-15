@@ -7,7 +7,7 @@ from typing import Any, Callable
 import emoji
 from colors import *
 from jinja2 import Environment, Template, Undefined
-from jinja2.exceptions import TemplateSyntaxError
+from jinja2.exceptions import TemplateSyntaxError, UndefinedError
 
 
 class UserError(Exception):
@@ -134,6 +134,8 @@ def post_process(value: Any, context: dict) -> Any:
                 return template.render(context)
             else:
                 return expr
+        except UndefinedError as e:
+            raise UserError(f"undefined variable used in expression '{expr}': {e.message}") from e
         except TemplateSyntaxError as e:
             raise UserError(f"expression error in '{expr}': {e.message}") from e
 
