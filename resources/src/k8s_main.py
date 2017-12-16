@@ -4,17 +4,17 @@ import json
 import sys
 from typing import Callable, Mapping
 
+from external_services import ExternalServices
 from k8s import K8sResource
 from k8s_deployment import K8sDeployment
 from k8s_ingress import K8sIngress
 from k8s_secret import K8sSecret
 from k8s_service import K8sService
-from k8s_services import K8sServices
 
 
 def main():
     # mapping between resource types (docker images) to the K8sResource subclass to handle it
-    k8s_resource_types: Mapping[str, Callable[[dict, K8sServices], K8sResource]] = {
+    k8s_resource_types: Mapping[str, Callable[[dict, ExternalServices], K8sResource]] = {
         "infolinks/deployster-k8s-deployment": K8sDeployment,
         "infolinks/deployster-k8s-ingress": K8sIngress,
         "infolinks/deployster-k8s-secret": K8sSecret,

@@ -3,7 +3,9 @@ import json
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Mapping, Sequence, Any, Callable, MutableSequence, MutableMapping
+from typing import Mapping, Sequence, Any, Callable, MutableMapping
+
+from external_services import ExternalServices
 
 
 def action(fun):
@@ -173,15 +175,20 @@ class DResource(ABC):
     - dependency handling
     """
 
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict, svc: ExternalServices) -> None:
         super().__init__()
         self._info = DResourceInfo(data)
+        self._svc: ExternalServices = svc
         self._plugs: MutableMapping[str, DPlug] = {}
         self._config_schema = {
             "type": "object",
             "additionalProperties": True,
             "properties": {}
         }
+
+    @property
+    def svc(self) -> ExternalServices:
+        return self._svc
 
     @property
     def info(self) -> DResourceInfo:
@@ -207,7 +214,7 @@ class DResource(ABC):
 
         This method must be implemented by subclasses, and either return a dictionary describing the resource, or, if
         the resource is not found, return None."""
-        raise NotImplementedError(f"internal error: 'discover_state' not implemented")
+        raise NotImplementedError(f"internal error: 'discover_state' not implemented")  # pragma: no cover
 
     @abstractmethod
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
@@ -215,7 +222,8 @@ class DResource(ABC):
 
         Must be implemented by subclasses. It will be called when the "discover_actual_properties" method returns
         None."""
-        raise NotImplementedError(f"internal error: 'get_actions_for_missing_state' not implemented")
+        raise NotImplementedError(
+            f"internal error: 'get_actions_for_missing_state' not implemented")  # pragma: no cover
 
     @abstractmethod
     def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
@@ -225,7 +233,8 @@ class DResource(ABC):
         return None.
 
         This method can return an empty list, signaling in essence that the resource is VALID."""
-        raise NotImplementedError(f"internal error: 'get_actions_for_discovered_state' not implemented")
+        raise NotImplementedError(
+            f"internal error: 'get_actions_for_discovered_state' not implemented")  # pragma: no cover
 
     # noinspection PyUnusedLocal
     def configure_action_argument_parser(self, action: str, argparser: argparse.ArgumentParser):

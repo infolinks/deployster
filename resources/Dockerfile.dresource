@@ -13,4 +13,4 @@ ENV PYTHONPATH "/deployster/lib:$PYTHONPATH"
 ENV PYTHONUNBUFFERED="1"
 
 # copy sources
-COPY src/dresources.py /deployster/lib/
+COPY src/dresources_util.py src/dresources.py src/external_services.py /deployster/lib/

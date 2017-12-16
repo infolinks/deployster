@@ -3,17 +3,18 @@
 import argparse
 import json
 import sys
+from pprint import pprint
 from typing import Sequence, MutableSequence
 
 from dresources import DAction, action
+from external_services import ExternalServices
 from gcp import GcpResource
-from gcp_services import GcpServices
 
 
 class GcpProject(GcpResource):
 
-    def __init__(self, data: dict, gcp_services: GcpServices = GcpServices()) -> None:
-        super().__init__(data=data, gcp_services=gcp_services)
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
         self.config_schema.update({
             "type": "object",
             "required": ["project_id"],
@@ -47,17 +48,18 @@ class GcpProject(GcpResource):
                         [api for api in apis['disabled'] if api in apis['enabled']]:
                     raise Exception(f"illegal config: APIs cannot be both enabled & disabled!")
 
-        project: dict = self.gcp.find_project(self.info.config['project_id'])
+        project: dict = self.svc.find_gcp_project(self.info.config['project_id'])
         if project is None:
             return None
 
-        actual_billing: dict = self.gcp.find_project_billing_info(self.info.config['project_id'])
+        actual_billing: dict = self.svc.find_gcp_project_billing_info(self.info.config['project_id'])
         if actual_billing is not None and 'billingAccountName' in actual_billing:
             project['billing_account_id']: str = actual_billing['billingAccountName'][len('billingAccounts/'):]
         else:
             project['billing_account_id']: str = None
 
-        project['apis']: dict = {'enabled': self.gcp.find_project_enabled_apis(self.info.config['project_id'])}
+        enabled_apis = self.svc.find_gcp_project_enabled_apis(self.info.config['project_id'])
+        project['apis']: dict = {'enabled': enabled_apis if enabled_apis is not None else []}
         return project
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
@@ -116,7 +118,6 @@ class GcpProject(GcpResource):
 
             # fetch currently enabled project APIs
             actual_enabled_api_names: Sequence[str] = sorted(state['apis']['enabled'])
-
             if 'disabled' in apis:
                 # disable APIs that are currently enabled, but user requested them to be disabled
                 for api_name in [api_name for api_name in apis['disabled'] if api_name in actual_enabled_api_names]:
@@ -146,7 +147,7 @@ class GcpProject(GcpResource):
     def create_project(self, args):
         if args: pass
         config = self.info.config
-        self.gcp.create_project(body={
+        self.svc.create_gcp_project(body={
             "projectId": self.info.config['project_id'],
             "name": self.info.config['project_id'],
             "parent": {
@@ -158,7 +159,7 @@ class GcpProject(GcpResource):
     @action
     def set_parent(self, args):
         if args: pass
-        self.gcp.update_project(project_id=self.info.config['project_id'], body={
+        self.svc.update_gcp_project(project_id=self.info.config['project_id'], body={
             'parent': {
                 'type': 'organization',
                 'id': str(self.info.config['organization_id'])
@@ -169,17 +170,17 @@ class GcpProject(GcpResource):
     def set_billing_account(self, args):
         if args: pass
         desired_billing_account_id = self.info.config['billing_account_id']
-        self.gcp.update_project_billing_info(project_id=self.info.config['project_id'], body={
+        self.svc.update_gcp_project_billing_info(project_id=self.info.config['project_id'], body={
             'billingAccountName': f"billingAccounts/{desired_billing_account_id}" if desired_billing_account_id else ""
         })
 
     @action
     def disable_api(self, args):
-        self.gcp.disable_project_api(project_id=self.info.config['project_id'], api=args.api)
+        self.svc.disable_gcp_project_api(project_id=self.info.config['project_id'], api=args.api)
 
     @action
     def enable_api(self, args):
-        self.gcp.enable_project_api(project_id=self.info.config['project_id'], api=args.api)
+        self.svc.enable_gcp_project_api(project_id=self.info.config['project_id'], api=args.api)
 
 
 def main():

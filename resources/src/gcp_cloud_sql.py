@@ -8,8 +8,9 @@ from abc import ABC, abstractmethod
 from typing import Sequence, MutableSequence
 
 from dresources import DAction, action
+from external_services import ExternalServices
+from external_services import region_from_zone, SqlExecutor
 from gcp import GcpResource
-from gcp_services import region_from_zone, GcpServices, SqlExecutor
 
 
 def _translate_day_name_to_number(day_name: str) -> int:
@@ -340,10 +341,10 @@ class ScriptEvaluator:
     def __init__(self, sql_resource: 'GcpCloudSql') -> None:
         super().__init__()
         self._sql_executor: SqlExecutor = \
-            sql_resource.gcp.create_sql_executor(project_id=sql_resource.info.config['project_id'],
-                                                 instance=sql_resource.info.config['name'],
-                                                 password=sql_resource.info.config['root-password'],
-                                                 region=region_from_zone(sql_resource.info.config['zone']))
+            sql_resource.svc.create_gcp_sql_executor(project_id=sql_resource.info.config['project_id'],
+                                                     instance=sql_resource.info.config['name'],
+                                                     password=sql_resource.info.config['root-password'],
+                                                     region=region_from_zone(sql_resource.info.config['zone']))
 
         condition_factory: ConditionFactory = ConditionFactory()
         self._scripts: Sequence[Script] = \
@@ -372,8 +373,8 @@ class ScriptEvaluator:
 
 class GcpCloudSql(GcpResource):
 
-    def __init__(self, data: dict, gcp_services: GcpServices = GcpServices()) -> None:
-        super().__init__(data=data, gcp_services=gcp_services)
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
 
         # build definitions for condition types
         condition_definitions = {}
@@ -533,7 +534,7 @@ class GcpCloudSql(GcpResource):
         cfg: dict = self.info.config
 
         if 'flags' in cfg:
-            allowed_flags: dict = self.gcp.get_sql_allowed_flags()
+            allowed_flags: dict = self.svc.get_gcp_sql_allowed_flags()
             for desired_flag in cfg['flags']:
                 desired_name = desired_flag['name']
                 if desired_name not in allowed_flags:
@@ -581,7 +582,7 @@ class GcpCloudSql(GcpResource):
                         f"illegal state: unsupported flag type ('{flag_type}') found for flag '{desired_name}'")
 
         # validate machine-type against allowed tiers (tier=machine-type in Cloud SQL lingo)
-        allowed_tiers: dict = self.gcp.get_sql_allowed_tiers(project_id=self.info.config['project_id'])
+        allowed_tiers: dict = self.svc.get_gcp_sql_allowed_tiers(project_id=self.info.config['project_id'])
         desired_tier = cfg["machine-type"]
         if desired_tier not in allowed_tiers:
             raise Exception(f"illegal config: unsupported machine_type '{desired_tier}'")
@@ -597,22 +598,21 @@ class GcpCloudSql(GcpResource):
                     if not os.path.exists(path):
                         raise Exception(f"illegal config: could not find script '{path}'")
 
-        # if the SQL Admin API is not enabled, there can be no SQL instances; we will, however, have to enable
-        # that API for the project later on.
-        enabled_apis = self.gcp.find_project_enabled_apis(project_id=cfg['project_id'])
-        if 'sqladmin.googleapis.com' in enabled_apis and 'sql-component.googleapis.com' in enabled_apis:
-            # using "instances().list(..)" because "get" throws 403 when instance does not exist
-            # also, it seems the "filter" parameter for "list" does not work; so we fetch all instances and filter here
-            return self.gcp.get_sql_instance(project_id=cfg['project_id'], instance_name=cfg['name'])
-        else:
-            return None
+        # if the SQL Admin API is not enabled, there can be no SQL instances
+        enabled_apis = self.svc.find_gcp_project_enabled_apis(project_id=cfg['project_id'])
+        if enabled_apis is not None:
+            if 'sqladmin.googleapis.com' in enabled_apis and 'sql-component.googleapis.com' in enabled_apis:
+                return self.svc.get_gcp_sql_instance(project_id=cfg['project_id'], instance_name=cfg['name'])
+        return None
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
         cfg: dict = self.info.config
 
-        enabled_apis = self.gcp.find_project_enabled_apis(project_id=cfg['project_id'])
-        if 'sqladmin.googleapis.com' not in enabled_apis or 'sql-component.googleapis.com' not in enabled_apis:
+        enabled_apis = self.svc.find_gcp_project_enabled_apis(project_id=cfg['project_id'])
+        if enabled_apis is None \
+                or 'sqladmin.googleapis.com' not in enabled_apis \
+                or 'sql-component.googleapis.com' not in enabled_apis:
             # if the SQL Admin API is not enabled, there can be no SQL instances; we will, however, have to enable
             # that API for the project later on.
             actions.append(DAction(name='enable-sql-apis',
@@ -723,19 +723,20 @@ class GcpCloudSql(GcpResource):
         # validate authorized networks
         if "authorized-networks" in cfg:
             desired_authorized_networks: list = cfg["authorized-networks"]
+
+            # validate network names are unique
+            names = set()
+            for desired_network in desired_authorized_networks:
+                if desired_network['name'] in names:
+                    raise Exception(f"illegal config: network '{desired_network['name']}' defined more than once")
+                else:
+                    names.add(desired_network['name'])
+
             actual_auth_networks = actual_settings['ipConfiguration']['authorizedNetworks']
             if len(actual_auth_networks) != len(desired_authorized_networks):
-                actions.append(DAction(name='update-authorized-networks',
-                                       description=f"Update SQL instance authorized networks"))
+                actions.append(
+                    DAction(name='update-authorized-networks', description=f"Update SQL instance authorized networks"))
             else:
-                # validate network names are unique
-                names = set()
-                for desired_network in desired_authorized_networks:
-                    if desired_network['name'] in names:
-                        raise Exception(f"illegal config: network '{desired_network['name']}' defined more than once")
-                    else:
-                        names.add(desired_network['name'])
-
                 # validate each network
                 for desired_network in desired_authorized_networks:
                     try:
@@ -813,7 +814,7 @@ class GcpCloudSql(GcpResource):
     def enable_sql_apis(self, args):
         if args: pass
         for api in ['sqladmin.googleapis.com', 'sql-component.googleapis.com']:
-            self.gcp.enable_project_api(project_id=self.info.config['project_id'], api=api)
+            self.svc.enable_gcp_project_api(project_id=self.info.config['project_id'], api=api)
 
     @action
     def create_sql_instance(self, args) -> None:
@@ -860,10 +861,10 @@ class GcpCloudSql(GcpResource):
 
         # create instance
         project_id: str = cfg['project_id']
-        self.gcp.create_sql_instance(project_id=project_id, body=body)
+        self.svc.create_gcp_sql_instance(project_id=project_id, body=body)
 
         # set 'root' password
-        self.gcp.update_sql_user(project_id=project_id, instance=cfg['name'], password=cfg['root-password'])
+        self.svc.update_gcp_sql_user(project_id=project_id, instance=cfg['name'], password=cfg['root-password'])
 
         # check for scripts that need to be executed
         if "scripts" in cfg:
@@ -880,7 +881,7 @@ class GcpCloudSql(GcpResource):
     def update_zone(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'locationPreference': {
                     'zone': cfg['zone']
@@ -892,7 +893,7 @@ class GcpCloudSql(GcpResource):
     def update_machine_type(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'tier': cfg["machine-type"]
             }
@@ -913,13 +914,13 @@ class GcpCloudSql(GcpResource):
         if cfg['backup']['enabled'] and 'time' in cfg['backup']:
             body['settings']['backupConfiguration']['startTime'] = cfg['backup']['time']
 
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
 
     @action
     def update_data_disk_size(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'dataDiskSizeGb': str(cfg["data-disk-size-gb"])
             }
@@ -929,7 +930,7 @@ class GcpCloudSql(GcpResource):
     def update_data_disk_type(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'dataDiskType': cfg["data-disk-type"]
             }
@@ -939,7 +940,7 @@ class GcpCloudSql(GcpResource):
     def update_flags(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'databaseFlags': cfg['flags']
             }
@@ -949,7 +950,7 @@ class GcpCloudSql(GcpResource):
     def update_require_ssl(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'ipConfiguration': {
                     'requireSsl': cfg["require-ssl"]
@@ -961,7 +962,7 @@ class GcpCloudSql(GcpResource):
     def update_authorized_networks(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'ipConfiguration': {
                     'authorizedNetworks': cfg["authorized-networks"]
@@ -973,7 +974,7 @@ class GcpCloudSql(GcpResource):
     def update_maintenance_window(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'maintenanceWindow': cfg["maintenance"]
             }
@@ -990,14 +991,14 @@ class GcpCloudSql(GcpResource):
         }
         if cfg["storage-auto-resize"]['enabled']:  # pragma: no cover
             body['settings']['storageAutoResizeLimit'] = cfg["storage-auto-resize"]['limit']
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body=body)
 
     @action
     def update_labels(self, args) -> None:
         if args: pass
         cfg = self.info.config
         # TODO: currently, this DOES NOT remove old labels, just adds new ones and updates existing ones
-        self.gcp.patch_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
+        self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'userLabels': cfg['labels']
             }

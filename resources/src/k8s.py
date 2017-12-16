@@ -4,14 +4,13 @@ from typing import Sequence, MutableSequence
 
 from dresources import DAction, action, DResource
 from dresources_util import collect_differences
-from k8s_services import K8sServices
+from external_services import ExternalServices
 
 
 class K8sResource(DResource):
 
-    def __init__(self, data: dict, k8s_services: K8sServices = K8sServices()) -> None:
-        super().__init__(data)
-        self.k8s: K8sServices = k8s_services
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
         self.add_plug(name='kube', container_path='/root/.kube', optional=False, writable=False)
         self.config_schema.update({
             "required": ["manifest"],
@@ -58,9 +57,9 @@ class K8sResource(DResource):
 
     def discover_state(self):
         if 'namespace' in self.info.config['manifest']['metadata']:
-            return self.k8s.find_namespace_object(self.info.config['manifest'])
+            return self.svc.find_k8s_namespace_object(self.info.config['manifest'])
         else:
-            return self.k8s.find_cluster_object(self.info.config['manifest'])
+            return self.svc.find_k8s_cluster_object(self.info.config['manifest'])
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
         manifest = self.info.config['manifest']
@@ -84,13 +83,13 @@ class K8sResource(DResource):
     @action
     def create(self, args) -> None:
         if args: pass
-        self.k8s.create_object(self.build_kubectl_manifest(), self.timeout)
+        self.svc.create_k8s_object(self.build_kubectl_manifest(), self.timeout)
         self.check_availability()
 
     @action
     def update(self, args) -> None:
         if args: pass
-        self.k8s.update_object(self.build_kubectl_manifest(), self.timeout)
+        self.svc.update_k8s_object(self.build_kubectl_manifest(), self.timeout)
         self.check_availability()
 
     def is_available(self, state: dict) -> bool:

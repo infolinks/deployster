@@ -5,14 +5,14 @@ import sys
 from typing import Sequence
 
 from dresources import DAction, action
+from external_services import ExternalServices
 from gcp import GcpResource
-from gcp_services import GcpServices
 
 
 class GcpIpAddress(GcpResource):
 
-    def __init__(self, data: dict, gcp_services: GcpServices = GcpServices()) -> None:
-        super().__init__(data=data, gcp_services=gcp_services)
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
         self.config_schema.update({
             "required": ["project_id", "name"],
             "additionalProperties": False,
@@ -25,12 +25,12 @@ class GcpIpAddress(GcpResource):
 
     def discover_state(self):
         if 'region' in self.info.config:
-            return self.gcp.get_compute_regional_ip_address(project_id=self.info.config['project_id'],
-                                                            region=self.info.config['region'],
-                                                            name=self.info.config['name'])
+            return self.svc.get_gcp_compute_regional_ip_address(project_id=self.info.config['project_id'],
+                                                                region=self.info.config['region'],
+                                                                name=self.info.config['name'])
         else:
-            return self.gcp.get_compute_global_ip_address(project_id=self.info.config['project_id'],
-                                                          name=self.info.config['name'])
+            return self.svc.get_gcp_compute_global_ip_address(project_id=self.info.config['project_id'],
+                                                              name=self.info.config['name'])
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
         type = "global" if 'region' not in self.info.config else "regional"
@@ -45,12 +45,12 @@ class GcpIpAddress(GcpResource):
     def create(self, args):
         if args: pass
         if 'region' not in self.info.config:
-            self.gcp.create_compute_global_ip_address(project_id=self.info.config['project_id'],
-                                                      name=self.info.config['name'])
+            self.svc.create_gcp_compute_global_ip_address(project_id=self.info.config['project_id'],
+                                                          name=self.info.config['name'])
         else:
-            self.gcp.create_compute_regional_ip_address(project_id=self.info.config['project_id'],
-                                                        region=self.info.config['region'],
-                                                        name=self.info.config['name'])
+            self.svc.create_gcp_compute_regional_ip_address(project_id=self.info.config['project_id'],
+                                                            region=self.info.config['region'],
+                                                            name=self.info.config['name'])
 
 
 def main():

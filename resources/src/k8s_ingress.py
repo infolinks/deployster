@@ -1,11 +1,11 @@
+from external_services import ExternalServices
 from k8s import K8sResource
-from k8s_services import K8sServices
 
 
 class K8sIngress(K8sResource):
 
-    def __init__(self, data: dict, k8s_services: K8sServices = K8sServices()) -> None:
-        super().__init__(data, k8s_services)
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
 
     def is_available(self, state: dict) -> bool:
         # TODO: consider waiting for kube-lego to generate the TLS certificate from LetsEncrypt (if it's installed)
