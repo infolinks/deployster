@@ -1,0 +1,96 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1]}
+  gcp_sql_instances:
+    sql1:
+      state: RUNNABLE
+      region: europe-west1
+      settings:
+        locationPreference: {zone: europe-west1-a}
+        tier: db-1
+        maintenanceWindow: {day: 2, hour: 18}
+        dataDiskSizeGb: '15'
+        dataDiskType: PD_SSD
+        ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+        storageAutoResize: true
+        storageAutoResizeLimit: 150
+scenarios:
+  - description: any_missing_with_existing_table
+    mock:
+      gcp_sql_execution_results:
+        'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES':
+          - TABLE_SCHEMA: my_schema
+            TABLE_NAME: my_table
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
+            when: [{if: ANY_TABLE_MISSING, tables: [my_schema.my_table]}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: any_missing_with_missing_table
+    mock:
+      gcp_sql_execution_results:
+        'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES': []
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
+            when: [{if: ANY_TABLE_MISSING, tables: [my_schema.my_table]}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
+  - description: no_missing_with_existing_table
+    mock:
+      gcp_sql_execution_results:
+        'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES':
+          - TABLE_SCHEMA: my_schema
+            TABLE_NAME: my_table
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
+            when: [{if: NO_TABLE_MISSING, tables: [my_schema.my_table]}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
+  - description: no_missing_with_missing_table
+    mock:
+      gcp_sql_execution_results:
+        'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES': []
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
+            when: [{if: NO_TABLE_MISSING, tables: [my_schema.my_table]}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}

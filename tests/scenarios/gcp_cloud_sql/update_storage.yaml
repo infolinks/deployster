@@ -1,0 +1,81 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1, europe-west2]}
+  gcp_sql_instances:
+    sql1:
+      state: RUNNABLE
+      region: europe-west1
+      settings:
+        locationPreference: {zone: europe-west1-a}
+        tier: db-1
+        maintenanceWindow: {day: 2, hour: 18}
+        dataDiskSizeGb: '15'
+        dataDiskType: PD_SSD
+        ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+        storageAutoResize: true
+        storageAutoResizeLimit: 150
+scenarios:
+  - description: decrease_data_disk_size
+    resource:
+      config:
+        data-disk-size-gb: 10
+    expected:
+      exception: Exception
+      match: 'cannot reduce disk size'
+  - description: increase_data_disk_size
+    resource:
+      config:
+        data-disk-size-gb: 20
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-data-disk-size, description: 'Update SQL instance data disk size from 15gb to 20gb', args: [update_data_disk_size]}
+  - description: update_data_disk_type
+    resource:
+      config:
+        data-disk-type: PD_HDD
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-data-disk-type, description: 'Update SQL instance data disk type to ''PD_HDD''', args: [update_data_disk_type]}
+  - description: autoresize_limit_not_allowed_when_disabled
+    resource:
+      config:
+        storage-auto-resize: {enabled: false, limit: 100}
+    expected:
+      exception: Exception
+      match: 'cannot specify storage auto-resize limit when it''s disabled'
+  - description: disabling_autoresize_not_allowed
+    resource:
+      config:
+        storage-auto-resize: {enabled: false}
+    expected:
+      exception: Exception
+      match: 'it''s impossible to switch storage auto-resize'
+  - description: update_autoresize_limit
+    resource:
+      config:
+        storage-auto-resize: {enabled: true, limit: 200}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-storage-auto-resize, description: 'Update SQL instance storage auto-resizing', args: [update_storage_auto_resize]}

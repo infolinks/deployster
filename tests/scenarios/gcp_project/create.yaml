@@ -1,0 +1,72 @@
+default_resource:
+  module: gcp_project
+  class: GcpProject
+  name: project
+  config:
+    project_id: prj
+scenarios:
+  - description: 'create simple project'
+    expected:
+      status: STALE
+      actions:
+        - {name: create-project, description: 'Create GCP project ''prj''', args: [create_project]}
+  - description: 'create project with billing account'
+    resource:
+      config:
+        billing_account_id: ABC123
+    expected:
+      status: STALE
+      actions:
+        - {name: create-project, description: 'Create GCP project ''prj''', args: [create_project]}
+        - {name: set-billing-account, description: 'Set billing account to ''ABC123''', args: [set_billing_account]}
+  - description: 'create project with billing account and apis'
+    resource:
+      config:
+        billing_account_id: ABC123
+        apis: {enabled: [api1], disabled: [api2, api3]}
+    expected:
+      status: STALE
+      actions:
+        - {name: create-project, description: 'Create GCP project ''prj''', args: [create_project]}
+        - {name: set-billing-account, description: 'Set billing account to ''ABC123''', args: [set_billing_account]}
+        - {name: disable-api-api2, description: 'Disable API ''api2''', args: [disable_api, api2]}
+        - {name: disable-api-api3, description: 'Disable API ''api3''', args: [disable_api, api3]}
+        - {name: enable-api-api1, description: 'Enable API ''api1''', args: [enable_api, api1]}
+  - description: 'create project with both enabled and disabled apis'
+    resource:
+      config:
+        apis: {enabled: [api1], disabled: [api2, api3]}
+    expected:
+      status: STALE
+      actions:
+        - {name: create-project, description: 'Create GCP project ''prj''', args: [create_project]}
+        - {name: disable-api-api2, description: 'Disable API ''api2''', args: [disable_api, api2]}
+        - {name: disable-api-api3, description: 'Disable API ''api3''', args: [disable_api, api3]}
+        - {name: enable-api-api1, description: 'Enable API ''api1''', args: [enable_api, api1]}
+  - description: 'create project with disabled apis'
+    resource:
+      config:
+        apis: {disabled: [api1, api2]}
+    expected:
+      status: STALE
+      actions:
+        - {name: create-project, description: 'Create GCP project ''prj''', args: [create_project]}
+        - {name: disable-api-api1, description: 'Disable API ''api1''', args: [disable_api, api1]}
+        - {name: disable-api-api2, description: 'Disable API ''api2''', args: [disable_api, api2]}
+  - description: 'create project with enabled apis'
+    resource:
+      config:
+        apis: {enabled: [api1, api2]}
+    expected:
+      status: STALE
+      actions:
+        - {name: create-project, description: 'Create GCP project ''prj''', args: [create_project]}
+        - {name: enable-api-api1, description: 'Enable API ''api1''', args: [enable_api, api1]}
+        - {name: enable-api-api2, description: 'Enable API ''api2''', args: [enable_api, api2]}
+  - description: 'create project with same api enabled and disabled'
+    resource:
+      config:
+        apis: {enabled: [api1], disabled: [api1, api2, api3]}
+    expected:
+      exception: Exception
+      match: 'cannot be both enabled & disabled'

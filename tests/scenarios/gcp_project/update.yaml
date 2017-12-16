@@ -1,0 +1,127 @@
+mock:
+  gcp_projects:
+    prj:
+      projectId: prj
+      name: prj
+      parent:
+        type: organization
+        id: '123'
+  gcp_project_apis:
+    prj:
+      - api1
+      - api2
+default_resource:
+  module: gcp_project
+  class: GcpProject
+  name: project
+  config:
+    project_id: prj
+scenarios:
+  - description: 'disable and enable apis'
+    resource:
+      config:
+        organization_id: 123
+        apis: {enabled: [api1, api3], disabled: [api2, api4]}
+    expected:
+      status: STALE
+      staleState:
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+        billing_account_id: null
+        apis: {enabled: [api1, api2]}
+      actions:
+        - {name: disable-api-api2, description: 'Disable API ''api2''', args: [disable_api, api2]}
+        - {name: enable-api-api3, description: 'Enable API ''api3''', args: [enable_api, api3]}
+  - description: 'update billing account from null'
+    resource:
+      config:
+        organization_id: 123
+        billing_account_id: ABC123
+    expected:
+      status: STALE
+      staleState:
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+        billing_account_id: null
+        apis: {enabled: [api1, api2]}
+      actions:
+        - {name: set-billing-account, description: 'Set billing account to ''ABC123''', args: [set_billing_account]}
+  - description: 'update parent organization'
+    resource:
+      config:
+        organization_id: 1234
+    expected:
+      status: STALE
+      staleState:
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+        billing_account_id: null
+        apis: {enabled: [api1, api2]}
+      actions:
+        - {name: set-parent, description: 'Set organization to ''1234''', args: [set_parent]}
+  - description: 'valid when no changes found'
+    mock:
+      gcp_project_billing_accounts:
+        prj: {billingAccountName: billingAccounts/ABC123}
+    resource:
+      config:
+        organization_id: 123
+        billing_account_id: ABC123
+        apis: {enabled: [api1, api2], disabled: [api3, api4]}
+    expected:
+      status: VALID
+      state:
+        apis: {enabled: [api1, api2]}
+        billing_account_id: ABC123
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+  - description: 'valid when no changes, without apis'
+    expected:
+      status: VALID
+      state:
+        apis: {enabled: [api1, api2]}
+        billing_account_id: null
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+  - description: 'valid when no changes, without billing account'
+    resource:
+      config:
+        organization_id: 123
+        apis: {enabled: [api1, api2], disabled: [api3]}
+    expected:
+      status: VALID
+      state:
+        apis: {enabled: [api1, api2]}
+        billing_account_id: null
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+  - description: 'valid when no changes, without disabled apis clause'
+    resource:
+      config:
+        apis: {}
+    expected:
+      status: VALID
+      state:
+        apis: {enabled: [api1, api2]}
+        billing_account_id: null
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj
+  - description: 'valid when no changes, without parent'
+    resource:
+      config:
+        apis: {enabled: [api1, api2], disabled: [api3]}
+    expected:
+      status: VALID
+      state:
+        apis: {enabled: [api1, api2]}
+        billing_account_id: null
+        name: prj
+        parent: {type: organization, id: '123'}
+        projectId: prj

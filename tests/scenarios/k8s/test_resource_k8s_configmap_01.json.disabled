@@ -1,0 +1,26 @@
+{
+    "description": "Test create ConfigMap",
+    "actual": {
+        "objects": { }
+    },
+    "config": {
+        "manifest": {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {
+                "name": "test",
+                "namespace": "test-namespace"
+            }
+        }
+    },
+    "expected": {
+        "status": "STALE",
+        "actions": [
+            {
+                "name": "create",
+                "description": "Create configmap 'test'",
+                "args": [ "create" ]
+            }
+        ]
+    }
+}

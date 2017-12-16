@@ -1,0 +1,43 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1, europe-west2]}
+  gcp_sql_instances:
+    sql1:
+      state: RUNNABLE
+      region: europe-west1
+      settings:
+        locationPreference: {zone: europe-west1-a}
+        tier: db-1
+        maintenanceWindow: {day: 2, hour: 18}
+        dataDiskSizeGb: '15'
+        dataDiskType: PD_SSD
+        ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+        storageAutoResize: true
+        storageAutoResizeLimit: 150
+scenarios:
+  - description: region_update_not_allowed
+    resource:
+      config:
+        zone: europe-west2-b
+    expected:
+      exception: Exception
+      match: 'changing SQL instances regions is not allowed'
+  - description: change_zone_same_region
+    resource:
+      config:
+        zone: europe-west1-b
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-zone, description: 'Update SQL instance preferred zone to ''europe-west1-b''', args: [update_zone]}

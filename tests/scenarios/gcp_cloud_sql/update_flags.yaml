@@ -1,0 +1,256 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_flags:
+    bool-flag: {kind: 'sql#flag', name: bool-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: BOOLEAN}
+    int-flag: {kind: 'sql#flag', name: int-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], maxValue: 100, minValue: 1, type: INTEGER}
+    str-enum-flag: {kind: 'sql#flag', name: str-enum-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], allowedStringValues: [v1, v2, v3], type: STRING}
+    str-flag: {kind: 'sql#flag', name: str-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: STRING}
+    none-flag: {kind: 'sql#flag', name: none-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: NONE}
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1]}
+  gcp_sql_instances:
+    sql1:
+      state: RUNNABLE
+      region: europe-west1
+      settings:
+        locationPreference: {zone: europe-west1-a}
+        tier: db-1
+        maintenanceWindow: {day: 2, hour: 18}
+        dataDiskSizeGb: '15'
+        dataDiskType: PD_SSD
+        ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+        storageAutoResize: true
+        storageAutoResizeLimit: 150
+scenarios:
+  - description: boolean_flag_requires_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: bool-flag, value: 'off'}]}}}
+    resource:
+      config:
+        flags: [{name: bool-flag}]
+    expected:
+      exception: Exception
+      match: 'flag ''bool-flag'' requires a value'
+  - description: boolean_flag_value_must_be_on_or_off
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: bool-flag, value: 'off'}]}}}
+    resource:
+      config:
+        flags: [{name: bool-flag, value: 'false'}]
+    expected:
+      exception: Exception
+      match: 'flag ''bool-flag'' value must be ''on'' or ''off'''
+  - description: boolean_flag_value_changed_to_on
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: bool-flag, value: 'off'}]}}}
+    resource:
+      config:
+        flags: [{name: bool-flag, value: 'on'}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: bool-flag, value: 'off'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
+  - description: boolean_flag_off_value_the_same
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: bool-flag, value: 'off'}]}}}
+    resource:
+      config:
+        flags: [{name: bool-flag, value: 'off'}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: bool-flag, value: 'off'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: int_flag_value_not_numeric
+    resource:
+      config:
+        flags: [{name: int-flag, value: abc}]
+    expected:
+      exception: Exception
+      match: 'flag ''int-flag'' value must be an integer'
+  - description: int_flag_value_too_small
+    resource:
+      config:
+        flags: [{name: int-flag, value: '0'}]
+    expected:
+      exception: Exception
+      match: 'flag ''int-flag'' value must be greater than 1'
+  - description: int_flag_value_too_great
+    resource:
+      config:
+        flags: [{name: int-flag, value: '101'}]
+    expected:
+      exception: Exception
+      match: 'flag ''int-flag'' value must not be greater than 100'
+  - description: int_flag_requires_value
+    resource:
+      config:
+        flags: [{name: int-flag}]
+    expected:
+      exception: Exception
+      match: 'flag ''int-flag'' requires a value'
+  - description: int_flag_changed_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: int-flag, value: '10'}]}}}
+    resource:
+      config:
+        flags: [{name: int-flag, value: '50'}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: int-flag, value: '10'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
+  - description: int_flag_same_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: int-flag, value: '10'}]}}}
+    resource:
+      config:
+        flags: [{name: int-flag, value: '10'}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: int-flag, value: '10'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: none_flag_must_not_have_value
+    resource:
+      config:
+        flags: [{name: none-flag, value: fail}]
+    expected:
+      exception: Exception
+      match: 'flag ''none-flag'' does not accept values'
+  - description: none_flag_added
+    resource:
+      config:
+        flags: [{name: none-flag}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
+  - description: none_flag_kept
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: none-flag}]}}}
+    resource:
+      config:
+        flags: [{name: none-flag}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, databaseFlags: [{name: none-flag}], storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: str_flag_requires_value
+    resource:
+      config:
+        flags: [{name: str-flag}]
+    expected:
+      exception: Exception
+      match: 'flag ''str-flag'' requires a value'
+  - description: str_enum_flags_requires_value
+    resource:
+      config:
+        flags: [{name: str-enum-flag}]
+    expected:
+      exception: Exception
+      match: 'flag ''str-enum-flag'' requires a value'
+  - description: str_enum_flag_requires_enumerated_value
+    resource:
+      config:
+        flags: [{name: str-enum-flag, value: v4}]
+    expected:
+      exception: Exception
+      match: 'flag ''str-enum-flag'' value must be one of: \[''v1'', ''v2'', ''v3''\]'
+  - description: str_enum_flag_same_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: str-enum-flag, value: v2}]}}}
+    resource:
+      config:
+        flags: [{name: str-enum-flag, value: v2}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-enum-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: str_enum_flag_updates_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: str-enum-flag, value: v2}]}}}
+    resource:
+      config:
+        flags: [{name: str-enum-flag, value: v3}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-enum-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
+  - description: str_flag_requires_value
+    resource:
+      config:
+        flags: [{name: str-flag}]
+    expected:
+      exception: Exception
+      match: 'flag ''str-flag'' requires a value'
+  - description: str_flag_updates_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: str-flag, value: v2}]}}}
+    resource:
+      config:
+        flags: [{name: str-flag, value: v4}]
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
+  - description: str_flag_same_value
+    mock:
+      gcp_sql_instances: {sql1: {settings: {databaseFlags: [{name: str-flag, value: v2}]}}}
+    resource:
+      config:
+        flags: [{name: str-flag, value: v2}]
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: unsupported_flag_rejected
+    resource:
+      config:
+        flags: [{name: missing-flag, value: ignored}]
+    expected:
+      exception: Exception
+      match: 'flag ''missing-flag'' is not a supported'
+  - description: unsupported_flag_type_rejected
+    mock:
+      gcp_sql_flags:
+        bad-flag: {kind: 'sql#flag', name: bad-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: BAD}
+    resource:
+      config:
+        flags: [{name: bad-flag}]
+    expected:
+      exception: Exception
+      match: 'unsupported flag type \(''BAD''\) found for flag ''bad-flag'''
