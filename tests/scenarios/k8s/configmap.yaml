@@ -2,7 +2,15 @@ default_resource:
   module: k8s
   class: K8sResource
   name: cfg
-  config: {}
+  config:
+    manifest:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        namespace: ns
+      data:
+        k1: v1
+        k2: v2
 mock:
   k8s_objects:
     v1-ConfigMap-ns-cfg:
@@ -15,34 +23,22 @@ mock:
         k1: v1
         k2: v2
 scenarios:
-  - description: create_configmap
+  - description: create
     resource:
       config:
         manifest:
-          apiVersion: v1
-          kind: ConfigMap
           metadata:
             name: cfg-new
-            namespace: ns
-          data:
-            k1: v1
-            k2: v2
     expected:
       status: STALE
       actions:
         - {name: create, description: 'Create configmap ''cfg-new''', args: [create]}
-  - description: update_configmap
+  - description: update
     resource:
       config:
         manifest:
-          apiVersion: v1
-          kind: ConfigMap
           metadata:
             name: cfg
-            namespace: ns
-          data:
-            k1: v1
-            k2: v2
     expected:
       status: VALID
       state:
