@@ -1,0 +1,59 @@
+default_resource:
+  module: k8s
+  class: K8sResource
+  name: crole
+  config:
+    manifest:
+      apiVersion: v1
+      kind: ClusterRole
+      rules:
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["get", "watch", "list"]
+mock:
+  k8s_objects:
+    v1-ClusterRole-crole:
+      apiVersion: v1
+      kind: ClusterRole
+      metadata:
+        name: crole
+      rules:
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["get", "watch", "list"]
+scenarios:
+  - description: create
+    resource:
+      config:
+        manifest:
+          metadata:
+            name: crole-new
+          rules:
+            - apiGroups: [""]
+              resources: ["secrets"]
+              verbs: ["get", "watch", "list"]
+    expected:
+      status: STALE
+      actions:
+        - {name: create, description: 'Create clusterrole ''crole-new''', args: [create]}
+  - description: update
+    resource:
+      config:
+        manifest:
+          metadata:
+            name: crole
+          rules:
+            - apiGroups: [""]
+              resources: ["secrets"]
+              verbs: ["get", "watch", "list"]
+    expected:
+      status: VALID
+      state:
+        apiVersion: v1
+        kind: ClusterRole
+        metadata:
+          name: crole
+        rules:
+          - apiGroups: [""]
+            resources: ["secrets"]
+            verbs: ["get", "watch", "list"]
