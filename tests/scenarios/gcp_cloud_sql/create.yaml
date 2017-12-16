@@ -43,6 +43,42 @@ scenarios:
       status: STALE
       actions:
         - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_backup_disabled
+    resource:
+      config:
+        backup:
+          enabled: false
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_backup_and_implicit_time
+    resource:
+      config:
+        backup:
+          enabled: true
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_autoresize_disabled
+    resource:
+      config:
+        storage-auto-resize:
+          enabled: false
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_autoresize_and_implicit_limit
+    resource:
+      config:
+        storage-auto-resize:
+          enabled: true
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
   - description: with_script
     resource:
       config:
