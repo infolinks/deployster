@@ -131,3 +131,16 @@ scenarios:
         state: RUNNABLE
         region: europe-west1
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: false, binaryLogEnabled: false}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: enable_when_disabled_implicitly
+    resource:
+      config:
+        backup:
+          enabled: true
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-backup, description: 'Enable SQL instance backups', args: [update_backup]}

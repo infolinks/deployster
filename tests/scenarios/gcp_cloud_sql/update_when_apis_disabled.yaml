@@ -4,8 +4,6 @@ default_resource:
   name: db
   config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
 mock:
-  gcp_project_apis:
-    prj: []
   gcp_sql_tiers:
     db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1]}
   gcp_sql_instances:
@@ -21,7 +19,16 @@ mock:
         storageAutoResize: true
         storageAutoResizeLimit: 150
 scenarios:
+  - description: always_create_when_sql_apis_are_null
+    expected:
+      status: STALE
+      actions:
+        - {name: enable-sql-apis, description: 'Enable Cloud SQL APIs for project ''prj''', args: [enable_sql_apis]}
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
   - description: always_create_when_sql_apis_disabled
+    mock:
+      gcp_project_apis:
+        prj: []
     expected:
       status: STALE
       actions:
