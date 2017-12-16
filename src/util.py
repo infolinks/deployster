@@ -1,4 +1,3 @@
-import collections
 import termios
 import tty
 from contextlib import AbstractContextManager
@@ -116,8 +115,7 @@ def ask(logger: Logger, message: str, chars: str, default: str) -> str:
 
 
 def post_process(value: Any, context: dict) -> Any:
-
-    def _evaluate(expr: str)->Any:
+    def _evaluate(expr: str) -> Any:
         environment: Environment = Environment()
         try:
             if expr.startswith('{{') and expr.endswith('}}') and expr.find('{{') == expr.rfind('{{'):
