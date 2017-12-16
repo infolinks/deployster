@@ -7,6 +7,7 @@ import pytest
 from _pytest.capture import CaptureResult
 
 from dresources import DResource, DAction, DPlug
+from mock_external_services import MockExternalServices
 
 
 @pytest.mark.parametrize("name", ["test"])
@@ -26,7 +27,7 @@ def test_new_dresource(name: str,
     class TestResource(DResource):
 
         def __init__(self) -> None:
-            super().__init__(deepcopy({
+            super().__init__(data=deepcopy({
                 'name': name,
                 'type': type,
                 'version': version,
@@ -34,7 +35,7 @@ def test_new_dresource(name: str,
                 'workspace': workspace,
                 'config': config,
                 'staleState': stale_state
-            }))
+            }), svc=MockExternalServices())
 
         def discover_state(self):
             pass
@@ -59,7 +60,7 @@ def test_abstract_methods_fail():
     class TestResource(DResource):
 
         def __init__(self) -> None:
-            super().__init__({
+            super().__init__(data={
                 'name': 'test',
                 'type': 'test-resource',
                 'version': '1.2.3',
@@ -67,7 +68,7 @@ def test_abstract_methods_fail():
                 'workspace': '/workspace',
                 'config': {},
                 'staleState': {}
-            })
+            }, svc=MockExternalServices())
 
         def discover_state(self):
             return super().discover_state()
@@ -95,7 +96,7 @@ def test_plugs(plug_name: str, container_path: str, optional: bool, writable: bo
     class TestResource(DResource):
 
         def __init__(self) -> None:
-            super().__init__({
+            super().__init__(data={
                 'name': 'test',
                 'type': 'test-resource',
                 'version': '1.2.3',
@@ -103,7 +104,7 @@ def test_plugs(plug_name: str, container_path: str, optional: bool, writable: bo
                 'workspace': '/workspace',
                 'config': {},
                 'staleState': {}
-            })
+            }, svc=MockExternalServices())
 
         def discover_state(self):
             pass
@@ -137,7 +138,7 @@ def test_default_config_schema():
     class TestResource(DResource):
 
         def __init__(self) -> None:
-            super().__init__({
+            super().__init__(data={
                 'name': 'test',
                 'type': 'test-resource',
                 'version': '1.2.3',
@@ -145,7 +146,7 @@ def test_default_config_schema():
                 'workspace': '/workspace',
                 'config': {},
                 'staleState': {}
-            })
+            }, svc=MockExternalServices())
 
         def discover_state(self):
             pass
@@ -168,7 +169,7 @@ def test_init_action(capsys, plug_name: str, plug_container_path: str, plug_opti
     class TestResource(DResource):
 
         def __init__(self) -> None:
-            super().__init__({
+            super().__init__(data={
                 'name': 'test',
                 'type': 'test-resource',
                 'version': '1.2.3',
@@ -176,7 +177,7 @@ def test_init_action(capsys, plug_name: str, plug_container_path: str, plug_opti
                 'workspace': '/workspace',
                 'config': {},
                 'staleState': {}
-            })
+            }, svc=MockExternalServices())
             self.config_schema['properties'].update({
                 'myProperty': {
                     'type': 'string'
@@ -265,7 +266,7 @@ def test_state_action(capsys,
     class TestResource(DResource):
 
         def __init__(self) -> None:
-            super().__init__({
+            super().__init__(data={
                 'name': 'test',
                 'type': 'test-resource',
                 'version': '1.2.3',
@@ -273,7 +274,7 @@ def test_state_action(capsys,
                 'workspace': '/workspace',
                 'config': {},
                 'staleState': {}
-            })
+            }, svc=MockExternalServices())
 
         def discover_state(self):
             return state
