@@ -72,7 +72,7 @@ class K8sResource(DResource):
         differences: Sequence[str] = collect_differences(desired=self.info.config['manifest'], actual=state)
         if differences:
             kind: str = self.info.config['manifest']['kind']
-            name: str = self.info.config['manifest']['metadata']['kind']
+            name: str = self.info.config['manifest']['metadata']['name']
             actions.append(DAction(name='update', description=f"Update {kind} '{name}'", args=['update']))
 
         return actions
