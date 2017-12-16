@@ -38,6 +38,11 @@ scenarios:
       status: STALE
       actions:
         - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: minimal
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
   - description: with_script
     resource:
       config:

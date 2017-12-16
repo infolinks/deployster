@@ -60,3 +60,29 @@ scenarios:
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}
       actions:
         - {name: update-labels, description: 'Update SQL instance user-labels', args: [update_labels]}
+  - description: update_labels_diff_count
+    mock:
+      gcp_sql_instances: {sql1: {settings: {userLabels: {k1: v1, k2: v2}}}}
+    resource:
+      config:
+        labels: {k1: v12, k2: v2, k3: v3}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}
+      actions:
+        - {name: update-labels, description: 'Update SQL instance user-labels', args: [update_labels]}
+  - description: update_labels_same_count_same_values
+    mock:
+      gcp_sql_instances: {sql1: {settings: {userLabels: {k1: v1, k2: v2}}}}
+    resource:
+      config:
+        labels: {k1: v1, k2: v2}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}

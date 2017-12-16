@@ -133,3 +133,21 @@ scenarios:
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-require-ssl, description: 'Update SQL instance to not require SSL connections', args: [update_require_ssl]}
+  - description: same_ssl_requirement_stays_valid
+    resource:
+      config:
+        require-ssl: true
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings:
+          locationPreference: {zone: europe-west1-a}
+          tier: db-1
+          maintenanceWindow: {day: 2, hour: 18}
+          dataDiskSizeGb: '15'
+          dataDiskType: PD_SSD
+          ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+          storageAutoResize: true
+          storageAutoResizeLimit: 150

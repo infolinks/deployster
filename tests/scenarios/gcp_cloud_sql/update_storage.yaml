@@ -22,6 +22,25 @@ mock:
         storageAutoResize: true
         storageAutoResizeLimit: 150
 scenarios:
+  - description: valid_if_same_storage
+    resource:
+      config:
+        data-disk-size-gb: 15
+        data-disk-type: PD_SSD
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings:
+          locationPreference: {zone: europe-west1-a}
+          tier: db-1
+          maintenanceWindow: {day: 2, hour: 18}
+          dataDiskSizeGb: '15'
+          dataDiskType: PD_SSD
+          ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+          storageAutoResize: true
+          storageAutoResizeLimit: 150
   - description: decrease_data_disk_size
     resource:
       config:
@@ -79,3 +98,23 @@ scenarios:
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-storage-auto-resize, description: 'Update SQL instance storage auto-resizing', args: [update_storage_auto_resize]}
+  - description: storage_resize_no_change_is_valid
+    resource:
+      config:
+        storage-auto-resize:
+          enabled: true
+          limit: 150
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings:
+          locationPreference: {zone: europe-west1-a}
+          tier: db-1
+          maintenanceWindow: {day: 2, hour: 18}
+          dataDiskSizeGb: '15'
+          dataDiskType: PD_SSD
+          ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+          storageAutoResize: true
+          storageAutoResizeLimit: 150
