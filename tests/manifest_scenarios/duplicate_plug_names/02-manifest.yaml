@@ -1,0 +1,4 @@
+plugs:
+  p1:
+    path: ./p2
+    read_only: false
