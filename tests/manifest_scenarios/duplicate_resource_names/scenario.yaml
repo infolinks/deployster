@@ -1,0 +1,3 @@
+expected:
+  exception: Exception
+  match: Duplicate resource found
