@@ -16,18 +16,6 @@ from manifest import Resource
 from mock_external_services import MockExternalServices
 
 
-def load_scenarios(scenario_pattern: str) -> Sequence[Tuple[str, dict]]:
-    scenarios: MutableSequence[Tuple[str, dict]] = []
-    for dir_name, subdirList, fileList in os.walk('./tests/scenarios'):
-        for file_name in fileList:
-            full_file_name = os.path.join(dir_name, file_name)
-            if re.match(scenario_pattern, full_file_name):
-                with open(full_file_name, 'r') as f:
-                    scenarios.append((file_name[0:-5], json.loads(f.read())))
-
-    return scenarios
-
-
 def find_scenarios(scenario_pattern: str) -> Sequence[Tuple[str, dict, dict, dict]]:
     scenarios: MutableSequence[Tuple[str, dict, dict, dict]] = []
     for dir_name, subdir_list, file_list in os.walk('./tests/scenarios'):

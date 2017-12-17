@@ -5,7 +5,7 @@ import re
 from copy import deepcopy
 from enum import auto, Enum, unique
 from pathlib import Path
-from typing import Mapping, Sequence, Pattern, MutableMapping
+from typing import Mapping, Sequence, Pattern, MutableMapping, Callable
 
 import jsonschema
 import yaml
@@ -404,7 +404,8 @@ class Plug:
 class Manifest:
     schema = json.loads(pkgutil.get_data('schema', 'manifest.schema'))
 
-    def __init__(self, context: Context, manifest_files: Sequence[Path]) -> None:
+    def __init__(self, context: Context, manifest_files: Sequence[Path],
+                 resource_factory: Callable[..., Resource] = Resource) -> None:
         super().__init__()
         self._context = context
         self._manifest_files: Sequence[Path] = manifest_files
@@ -472,12 +473,13 @@ class Manifest:
                         dep_resource_data = composite_manifest['resources'][dep_resource_name]
                         dependencies[alias] = get_resource(dep_resource_name, dep_resource_data)
             resources[name] = \
-                Resource(manifest=self,
-                         name=post_process(name, self.context.data),
-                         type=post_process(data['type'], self.context.data),
-                         readonly=post_process(data['readonly'], self.context.data) if 'readonly' in data else False,
-                         config=data['config'] if 'config' in data else {},
-                         dependencies=dependencies)
+                resource_factory(
+                    manifest=self,
+                    name=post_process(name, self.context.data),
+                    type=post_process(data['type'], self.context.data),
+                    readonly=post_process(data['readonly'], self.context.data) if 'readonly' in data else False,
+                    config=data['config'] if 'config' in data else {},
+                    dependencies=dependencies)
             return resources[name]
 
         for resource_name, resource in composite_manifest['resources'].items():
