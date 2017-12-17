@@ -151,4 +151,7 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                     assert resource.status is None
                     assert resource.state is None
                     if 'dependencies' in expected_resource:
-                        assert resource.dependencies == expected_resource['dependencies']
+                        expected_dependencies: Mapping[str,Resource] = \
+                            {dep_name: manifest.resource(resource_name)
+                             for dep_name, resource_name in expected_resource['dependencies'].items()}
+                        assert resource.dependencies == expected_dependencies
