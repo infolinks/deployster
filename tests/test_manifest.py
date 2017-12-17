@@ -149,5 +149,6 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                     if 'type' in expected_resource: assert resource.type == expected_resource['type']
                     if 'config' in expected_resource: assert resource.config == expected_resource['config']
                     assert resource.status is None
+                    assert resource.state is None
                     if 'dependencies' in expected_resource:
                         assert resource.dependencies == expected_resource['dependencies']
