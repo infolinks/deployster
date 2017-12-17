@@ -1,0 +1,6 @@
+resources:
+  r1:
+    type: infolinks/deployster-test
+    config:
+      k1: v1
+      k2: v2
