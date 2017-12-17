@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Sequence, Tuple, MutableSequence, Mapping
 
 import pytest
+import yaml
 
 from context import Context
 from manifest import Action, Manifest, Resource
@@ -68,19 +69,6 @@ def test_plug(name: str,
     assert plug.allowed_for(resource_name, resource_type) == expect_allowed
 
 
-def find_scenarios() -> Sequence[Tuple[str, Path, Sequence[Path]]]:
-    scenarios: MutableSequence[Tuple[str, Path, Sequence[Path]]] = []
-    root: Path = Path('./tests/manifest_scenarios')
-    for scenario_dir in root.iterdir():
-        if scenario_dir.is_dir():
-            scenarios.append((
-                scenario_dir.name,
-                scenario_dir,
-                [scenario_dir / file for file in os.listdir(str(scenario_dir))]
-            ))
-    return scenarios
-
-
 class MockResource(Resource):
 
     def __init__(self,
@@ -99,8 +87,26 @@ class MockResource(Resource):
         super().execute()
 
 
-@pytest.mark.parametrize("description,dir,manifest_files", find_scenarios())
-def test_manifest(capsys, description: str, dir: Path, manifest_files: Sequence[Path]):
+def find_scenarios() -> Sequence[Tuple[str, Path, dict, Sequence[Path]]]:
+    scenarios: MutableSequence[Tuple[str, Path, dict, Sequence[Path]]] = []
+    root: Path = Path('./tests/manifest_scenarios').absolute()
+    for scenario_dir in root.iterdir():
+        if scenario_dir.is_dir():
+            scenario_file: Path = scenario_dir / 'scenario.yaml'
+            if scenario_file.exists():
+                with scenario_file.open('r') as sf:
+                    scenario: dict = yaml.load(sf)
+                scenarios.append((
+                    scenario_dir.name,
+                    scenario_dir,
+                    scenario,
+                    [scenario_dir / file for file in scenario_dir.iterdir() if file.name != 'scenario.yaml']
+                ))
+    return scenarios
+
+
+@pytest.mark.parametrize("description,dir,scenario,manifest_files", find_scenarios())
+def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_files: Sequence[Path]):
     context: Context = Context(version_file_path='./tests/test_version', env={
         "CONF_DIR": str(dir.absolute() / 'conf'),
         "WORKSPACE_DIR": str(dir.absolute()),
@@ -109,4 +115,37 @@ def test_manifest(capsys, description: str, dir: Path, manifest_files: Sequence[
     context.add_variable("k1", "v1")
     context.add_variable("k2", "v2")
 
-    Manifest(context=context, manifest_files=manifest_files, resource_factory=MockResource)
+    def create_manifest():
+        manifest: Manifest = Manifest(context=context, manifest_files=manifest_files, resource_factory=MockResource)
+        assert manifest.manifest_files == manifest_files
+        assert manifest.context == context
+        return manifest
+
+    if 'expected' not in scenario:
+        create_manifest()
+    else:
+        expected: dict = scenario['expected']
+        if 'exception' in expected:
+            with pytest.raises(eval(expected['exception']), match=expected["match"] if 'match' in expected else r'.*'):
+                create_manifest()
+        else:
+            manifest: Manifest = create_manifest()
+            if 'plugs' in expected:
+                expected_plugs: dict = expected['plugs']
+                for plug_name, expected_plug in expected_plugs.items():
+                    plug: Plug = manifest.plug(plug_name)
+                    assert plug.name == expected_plug['name']
+                    assert plug.path == Path(expected_plug['path'])
+                    assert plug.readonly == expected_plug['readonly']
+                    assert plug.resource_name_patterns == expected_plug['resource_name_patterns']
+                    assert plug.resource_type_patterns == expected_plug['resource_type_patterns']
+            if 'resources' in expected:
+                expected_resources: dict = expected['resources']
+                for resource_name, expected_resource in expected_resources.items():
+                    resource: Resource = manifest.resource(resource_name)
+                    assert resource.readonly == expected_resource['readonly']
+                    assert resource.name == expected_resource['name']
+                    assert resource.type == expected_resource['type']
+                    assert resource.config == expected_resource['config']
+                    assert resource.status is None
+                    assert resource.dependencies == expected_resource['dependencies']

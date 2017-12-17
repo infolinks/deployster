@@ -1,0 +1,17 @@
+expected:
+  plugs:
+    p1:
+      name: p1
+      path: ./p1
+      readonly: true
+      resource_name_patterns: []
+      resource_type_patterns: []
+  resources:
+    r1:
+      name: r1
+      type: r1:1.0.0
+      readonly: false
+      dependencies: {}
+      config:
+        k1: v1
+        k2: v2

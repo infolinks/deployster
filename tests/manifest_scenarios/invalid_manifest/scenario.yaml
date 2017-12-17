@@ -1,0 +1,3 @@
+expected:
+  exception: Exception
+  match: 'Manifest ''.*'' failed validation'
