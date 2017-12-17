@@ -1,0 +1,3 @@
+expected:
+  exception: Exception
+  match: 'resource ''r2'' depends on an unknown resource: r3'
