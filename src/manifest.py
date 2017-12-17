@@ -177,7 +177,7 @@ class Resource:
                             f"illegal config: plug '{plug_name}' required by '{self.name}' does not exist")
 
                 plug = self._manifest.plug(plug_name)
-                if not plug.allowed_for(self):
+                if not plug.allowed_for(self.name, self.type):
                     if optional:
                         logger.warn(f"Optional plug '{plug_name}' is not allowed for this resource (skipped)")
                         continue
@@ -388,13 +388,13 @@ class Plug:
     def resource_type_patterns(self) -> Sequence[str]:
         return [re.pattern for re in self._resource_type_patterns]
 
-    def allowed_for(self, resource: Resource) -> bool:
+    def allowed_for(self, name: str, type: str) -> bool:
         for pattern in self._resource_name_patterns:
-            if pattern.match(resource.name):
+            if pattern.match(name):
                 # matched a name pattern; allowed!
                 return True
         for pattern in self._resource_type_patterns:
-            if pattern.match(resource.type):
+            if pattern.match(type):
                 # matched a type pattern; allowed!
                 return True
         # only allowed if this plug allows everything (ie. no name patterns and no type patterns)
