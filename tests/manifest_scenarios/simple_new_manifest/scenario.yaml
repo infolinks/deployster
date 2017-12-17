@@ -6,6 +6,16 @@ expected:
       readonly: true
       resource_name_patterns: []
       resource_type_patterns: []
+    p2:
+      name: p2
+      path: ./p2
+      readonly: false
+      resource_name_patterns:
+        - abc
+        - def
+      resource_type_patterns:
+        - a123
+        - b456
   resources:
     r1:
       name: r1
