@@ -129,6 +129,10 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                 create_manifest()
         else:
             manifest: Manifest = create_manifest()
+            manifest.display_plugs()
+            output: str = capsys.readouterr().out
+            assert output.find('Plugs:') >= 0
+
             if 'plugs' in expected:
                 expected_plugs: dict = expected['plugs']
                 for plug_name, expected_plug in expected_plugs.items():
