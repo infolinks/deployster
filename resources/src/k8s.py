@@ -2,6 +2,8 @@ from copy import deepcopy
 from time import sleep
 from typing import Sequence, MutableSequence
 
+import time
+
 from dresources import DAction, action, DResource
 from dresources_util import collect_differences
 from external_services import ExternalServices
@@ -16,8 +18,17 @@ class K8sResource(DResource):
             "required": ["manifest"],
             "additionalProperties": True,
             "properties": {
-                "timeout": {"type": "integer", "minValue": 1},
-                "timeout_interval": {"type": "integer", "minValue": 1},
+                "timeout_ms": {
+                    "description": "How long to wait for the resource to become available after creation/updates? "
+                                   "(seconds)",
+                    "type": "integer",
+                    "minValue": 1000
+                },
+                "timeout_interval_ms": {
+                    "description": "Sleep intervals progressing towards the timeout, in milli-seconds.",
+                    "type": "integer",
+                    "minValue": 100
+                },
                 "manifest": {
                     "type": "object",
                     "required": ["apiVersion", "kind", "metadata"],
@@ -47,13 +58,17 @@ class K8sResource(DResource):
             }
         })
 
-    @property
-    def timeout(self) -> int:
-        return self.info.config['timeout'] if 'timeout' in self.info.config else 60 * 5
+        if self.timeout_interval_ms >= self.timeout_ms:
+            raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
+                            f"than or equal to total timeout ({self.timeout_ms / 1000}) duration")
 
     @property
-    def timeout_interval(self) -> int:
-        return self.info.config['timeout_interval'] if 'timeout_interval' in self.info.config else 5
+    def timeout_ms(self) -> int:
+        return self.info.config['timeout_ms'] if 'timeout_ms' in self.info.config else 60 * 5 * 1000
+
+    @property
+    def timeout_interval_ms(self) -> int:
+        return self.info.config['timeout_interval_ms'] if 'timeout_interval_ms' in self.info.config else 100
 
     def discover_state(self):
         if 'namespace' in self.info.config['manifest']['metadata']:
@@ -83,28 +98,45 @@ class K8sResource(DResource):
     @action
     def create(self, args) -> None:
         if args: pass
-        self.svc.create_k8s_object(self.build_kubectl_manifest(), self.timeout)
-        self.check_availability()
+        start_ms: int = int(round(time.time() * 1000))
+        self.svc.create_k8s_object(self.build_kubectl_manifest(), self.timeout_ms)
+        finish_ms: int = int(round(time.time() * 1000))
+        creation_duration_ms: int = finish_ms - start_ms
+        remaining_timeout_ms: int = self.timeout_ms - creation_duration_ms
+        timeout_interval_ms: int = self.timeout_interval_ms
+        if self.timeout_interval_ms >= remaining_timeout_ms:
+            timeout_interval_ms: int = remaining_timeout_ms / 2
+        self.check_availability(timeout_ms=remaining_timeout_ms, timeout_interval_ms=timeout_interval_ms)
 
     @action
     def update(self, args) -> None:
         if args: pass
-        self.svc.update_k8s_object(self.build_kubectl_manifest(), self.timeout)
-        self.check_availability()
+        start_ms: int = int(round(time.time() * 1000))
+        self.svc.update_k8s_object(self.build_kubectl_manifest(), self.timeout_ms)
+        finish_ms: int = int(round(time.time() * 1000))
+        creation_duration_ms: int = finish_ms - start_ms
+        remaining_timeout_ms: int = self.timeout_ms - creation_duration_ms
+        timeout_interval_ms: int = self.timeout_interval_ms
+        if self.timeout_interval_ms >= remaining_timeout_ms:
+            timeout_interval_ms: int = remaining_timeout_ms / 2
+        self.check_availability(timeout_ms=remaining_timeout_ms, timeout_interval_ms=timeout_interval_ms)
 
     def is_available(self, state: dict) -> bool:
         return True
 
-    def check_availability(self):
-        # TODO: consider waiting for kube-lego to generate the TLS certificate from LetsEncrypt (if it's installed)
+    def check_availability(self, timeout_ms: int = None, timeout_interval_ms: int = None):
+        if timeout_ms is None:
+            timeout_ms: int = self.timeout_ms
+        if timeout_interval_ms is None:
+            timeout_interval_ms: int = self.timeout_interval_ms
 
-        waited = 0
-        while waited < self.timeout:
+        waited_ms: int = 0
+        while waited_ms <= timeout_ms:
             state: dict = self.discover_state()
             if self.is_available(state):
                 return True
-            sleep(self.timeout_interval)
-            waited += self.timeout_interval
+            sleep(timeout_interval_ms / 1000)
+            waited_ms += timeout_interval_ms
 
         kind: str = self.info.config['manifest']['kind']
         name: str = self.info.config['manifest']['metadata']['name']
