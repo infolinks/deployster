@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Mapping, Sequence, Union, Any
 
+import time
+
 from external_services import ExternalServices, SqlExecutor
 
 
@@ -38,7 +40,8 @@ class MockExternalServices(ExternalServices):
                  gke_server_config: Mapping[str, Any] = None,
                  gcp_compute_regional_ip_addresses: Mapping[str, Any] = None,
                  gcp_compute_global_ip_addresses: Mapping[str, Any] = None,
-                 k8s_objects: Mapping[str, dict] = None) -> None:
+                 k8s_objects: Mapping[str, dict] = None,
+                 k8s_create_times: Mapping[str, int] = None) -> None:
         super().__init__()
         self._gcloud_access_token: str = gcloud_access_token
         self._gcp_projects: Mapping[str, dict] = gcp_projects
@@ -53,6 +56,7 @@ class MockExternalServices(ExternalServices):
         self._gcp_compute_regional_ip_addresses = gcp_compute_regional_ip_addresses
         self._gcp_compute_global_ip_addresses = gcp_compute_global_ip_addresses
         self._k8s_objects: Mapping[str, dict] = k8s_objects
+        self._k8s_create_times: Mapping[str, int] = k8s_create_times
 
     def _get_gcp_service(self, service_name, version) -> Any:
         raise NotImplementedError()
@@ -211,7 +215,25 @@ class MockExternalServices(ExternalServices):
         return self._k8s_objects[key] if key in self._k8s_objects else None
 
     def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
-        pass
+        api_version: str = manifest["apiVersion"]
+        kind: str = manifest["kind"]
+        metadata: dict = manifest["metadata"]
+        name: str = metadata["name"]
+        if 'namespace' in metadata:
+            name: str = metadata['namespace'] + '-' + name
+        key = f"{api_version}-{kind}-{name}"
+        if self._k8s_create_times is not None and key in self._k8s_create_times:
+            duration: int = self._k8s_create_times[key]
+            time.sleep(duration / 1000)
 
     def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
-        pass
+        api_version: str = manifest["apiVersion"]
+        kind: str = manifest["kind"]
+        metadata: dict = manifest["metadata"]
+        name: str = metadata["name"]
+        if 'namespace' in metadata:
+            name: str = metadata['namespace'] + '-' + name
+        key = f"{api_version}-{kind}-{name}"
+        if self._k8s_create_times is not None and key in self._k8s_create_times:
+            duration: int = self._k8s_create_times[key]
+            time.sleep(duration / 1000)

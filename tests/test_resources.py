@@ -97,7 +97,8 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
             "gcp_compute_regional_ip_addresses"] if "gcp_compute_regional_ip_addresses" in mock else {},
         gcp_compute_global_ip_addresses=mock[
             "gcp_compute_global_ip_addresses"] if "gcp_compute_global_ip_addresses" in mock else {},
-        k8s_objects=mock["k8s_objects"] if "k8s_objects" in mock else {})
+        k8s_objects=mock["k8s_objects"] if "k8s_objects" in mock else {},
+        k8s_create_times=mock["k8s_create_times"] if "k8s_create_times" in mock else {})
 
     # TODO: verify mock calls (eg. verify that a cluster was indeed created by calling the mock, with the right values)
 
