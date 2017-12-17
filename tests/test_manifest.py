@@ -134,8 +134,8 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
             assert output.find('Plugs:') >= 0
 
             if 'plugs' in expected:
-                expected_plugs: dict = expected['plugs']
-                for plug_name, expected_plug in expected_plugs.items():
+                assert manifest.plugs == {name: manifest.plug(name) for name in expected['plugs'].keys()}
+                for plug_name, expected_plug in expected['plugs'].items():
                     plug: Plug = manifest.plug(plug_name)
                     if 'name' in expected_plug: assert plug.name == expected_plug['name']
                     if 'path' in expected_plug: assert plug.path == Path(expected_plug['path'])
@@ -145,8 +145,8 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                     if 'resource_type_patterns' in expected_plug:
                         assert plug.resource_type_patterns == expected_plug['resource_type_patterns']
             if 'resources' in expected:
-                expected_resources: dict = expected['resources']
-                for resource_name, expected_resource in expected_resources.items():
+                assert manifest.resources == {name: manifest.resource(name) for name in expected['resources'].keys()}
+                for resource_name, expected_resource in expected['resources'].items():
                     resource: Resource = manifest.resource(resource_name)
                     if 'readonly' in expected_resource: assert resource.readonly == expected_resource['readonly']
                     if 'name' in expected_resource: assert resource.name == expected_resource['name']
@@ -155,7 +155,7 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                     assert resource.status is None
                     assert resource.state is None
                     if 'dependencies' in expected_resource:
-                        expected_dependencies: Mapping[str,Resource] = \
+                        expected_dependencies: Mapping[str, Resource] = \
                             {dep_name: manifest.resource(resource_name)
                              for dep_name, resource_name in expected_resource['dependencies'].items()}
                         assert resource.dependencies == expected_dependencies
