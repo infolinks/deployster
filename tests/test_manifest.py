@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Sequence, Tuple, MutableSequence, Mapping
 
@@ -134,18 +133,21 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                 expected_plugs: dict = expected['plugs']
                 for plug_name, expected_plug in expected_plugs.items():
                     plug: Plug = manifest.plug(plug_name)
-                    assert plug.name == expected_plug['name']
-                    assert plug.path == Path(expected_plug['path'])
-                    assert plug.readonly == expected_plug['readonly']
-                    assert plug.resource_name_patterns == expected_plug['resource_name_patterns']
-                    assert plug.resource_type_patterns == expected_plug['resource_type_patterns']
+                    if 'name' in expected_plug: assert plug.name == expected_plug['name']
+                    if 'path' in expected_plug: assert plug.path == Path(expected_plug['path'])
+                    if 'readonly' in expected_plug: assert plug.readonly == expected_plug['readonly']
+                    if 'resource_name_patterns' in expected_plug:
+                        assert plug.resource_name_patterns == expected_plug['resource_name_patterns']
+                    if 'resource_type_patterns' in expected_plug:
+                        assert plug.resource_type_patterns == expected_plug['resource_type_patterns']
             if 'resources' in expected:
                 expected_resources: dict = expected['resources']
                 for resource_name, expected_resource in expected_resources.items():
                     resource: Resource = manifest.resource(resource_name)
-                    assert resource.readonly == expected_resource['readonly']
-                    assert resource.name == expected_resource['name']
-                    assert resource.type == expected_resource['type']
-                    assert resource.config == expected_resource['config']
+                    if 'readonly' in expected_resource: assert resource.readonly == expected_resource['readonly']
+                    if 'name' in expected_resource: assert resource.name == expected_resource['name']
+                    if 'type' in expected_resource: assert resource.type == expected_resource['type']
+                    if 'config' in expected_resource: assert resource.config == expected_resource['config']
                     assert resource.status is None
-                    assert resource.dependencies == expected_resource['dependencies']
+                    if 'dependencies' in expected_resource:
+                        assert resource.dependencies == expected_resource['dependencies']
