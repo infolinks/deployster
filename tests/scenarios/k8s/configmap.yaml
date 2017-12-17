@@ -72,4 +72,4 @@ scenarios:
           k1: v1
           k2: v2
       actions:
-        - {name: update, description: 'Update ConfigMap ''cfg''', args: [update]}
+        - {name: update, description: 'Update configmap ''cfg''', args: [update]}

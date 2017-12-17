@@ -88,7 +88,7 @@ class K8sResource(DResource):
         if differences:
             kind: str = self.info.config['manifest']['kind']
             name: str = self.info.config['manifest']['metadata']['name']
-            actions.append(DAction(name='update', description=f"Update {kind} '{name}'", args=['update']))
+            actions.append(DAction(name='update', description=f"Update {kind.lower()} '{name}'", args=['update']))
 
         return actions
 
@@ -140,4 +140,4 @@ class K8sResource(DResource):
 
         kind: str = self.info.config['manifest']['kind']
         name: str = self.info.config['manifest']['metadata']['name']
-        raise TimeoutError(f"timed out waiting for {kind} '{name}' to become available")
+        raise TimeoutError(f"timed out waiting for {kind.lower()} '{name}' to become available")
