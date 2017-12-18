@@ -9,6 +9,7 @@ RUN apk --no-cache --update add bash docker jq python3 py3-pip && \
 # setup environment & version
 ENV PYTHONPATH="/deployster/lib"
 ENV PYTHONUNBUFFERED="1"
+ENV PYTHONIOENCODING="utf-8"
 ARG VERSION="0.0.0"
 RUN echo "${VERSION}" > /deployster/VERSION
 COPY src /deployster/lib
