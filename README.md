@@ -8,34 +8,26 @@ developers to declare their _desired_ state of the deployment plane &
 toplogy, and then attempts to migrate from the _current_ state into the
 _desired_ state.
 
-The difference between Deployster and other similar tools such as
-[Google Deployment Manager][1], [Terraform][2] and others is its extensibility:
+## Documentation
 
-- Extensible: new resource types can be easily added
-- Docker-first philosophy: resources are written as Docker images, which
-allows resource implementors to use any tool they deem appropriate
-- Stateless: in contrast to similar tools, Deployster will never store
-your topology state (locally or remotely) which enables your to also
-work on your infrastructure & deployments manually or in other tools,
-side-by-side with Deployster.
-- Reproducible: deployments are meant to be idempotent, such that
-running the same deployment multiple times should yield the same result
-as running it just once, assuming that nothing else modified the state.
-- Smart: Deployster allows (and sometimes requires) inter-resource
-dependencies, which enable Deployster to roll out actions in the
-appropriate order.
-- Safe: everyone makes mistakes, and nobody likes dealing with them at
-midnight :)
-    - Deployster attempts to help by being fully transparent about
-    what it is about to do and what it actually does.
-    - Will support _Rollbacks_ which will enable you to more easily
-    recover from accidental roll-outs.
-
-#### Documentation status
-
+<aside class="warning">
 The documentation is still in its early phases. Some of the information
 may be a bit out of date or inaccurate. We are sorry for this temporary
 state and hope to finish documenting Deployster soon!
+</aside>
+
+Deployster documentation can be found at
+[http://www.deployster.online](http://www.deployster.online).
+
+## Credits
+
+Deployster was written by the team @ Infolinks as a means to improve
+our deployment process. We plan to gradually open source more & more
+components of that pipeline in the coming months.
+
+# Outdated
+
+Everything beyond this point _might be_ outdated and is pending review.
 
 ## Quick start
 

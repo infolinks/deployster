@@ -1,4 +1,4 @@
-# Introduction
+# Overview
 
 Deployster is an extensible resource-centric deployment tool. It works
 by enabling deployers (eg. _You!_) to declare the _desired_ state of the
