@@ -29,34 +29,6 @@ components of that pipeline in the coming months.
 
 Everything beyond this point _might be_ outdated and is pending review.
 
-## Quick start
-
-Follow the short [quick-start guide](docs/QUICK-START.md) to get up &
-running. We recommend you also take a look at the [examples](examples/)
-directory for some simplistic examples of how to use Deployster.
-
-## Architecture
-
-Deployster mechanics is built around three main components:
-
-- **Resource Types**: each resource type is essentially a Docker image
-that implements a simple contract that allows receiving configuration,
-querying the resource state, and performing an action.
-
-- **Manifest**: a YAML document written by the deployer or developer,
-that describes _what_ the final state should be. It's Deployster's job
-to use this manifest to _discover_ the current state, and then plan the
-set of actions that will migrate it to the _desired_ state as described
-in the manifest.
-
-- **Context**: a separate set of variables (inferred from command-line
-variables and/or YAML or JSON documents) augmenting the manifest with
-dynamic values, allowing you to use the same manifest in different
-environments or scenarios. For example, the manifest may specify that
-a Kubernetes cluster is to be deployed, but the number of nodes would
-probably be different between production & QA - this is a value you
-would store in the context instead of the manifest.
-
 ### Manifest
 
 The deployment manifest is a YAML document that lists a set of _plugs_
@@ -86,57 +58,6 @@ resources:
       project_id: acme-prod
       organization_id: 123
 ```
-
-Read the [manifests documentation](docs/MANIFESTS.md) for more in-depth
-information about deployment manifests.
-
-### Context
-
-It's often the case that elements in your deployment manifest need to be
-dynamic, based on things such as the target environment. Deployster
-allows you to avoid saving those elements inside the manifest by
-enabling you to provide them through the _context_.
-
-The context is a collection of variables (name & value) that is provided
-externally from the deployment manifest, through either the Deployster
-command line or from a set of one or more variable files (or both).
-
-Once the context has been initialized, it is used by Deployster for post
-processing the manifest. Post processing is performed using [Jinja2][3].
-
-Read the [context documentation](docs/CONTEXT.md) for more in-depth
-information about the deployment context.
-
-### Plugs
-
-Plugs are shared persistent directories by which resources can inter-
-communicate between themselves as well as a mechanism through which you
-can provide required configuration files to resources, such as
-Docker authentication configuration.
-
-You define available plugs in your manifest. For each plug, you define
-a local directory, mount mode (read-only or read-write), and optionally
-restrict which resources are allowed to receive the plug.
-
-Once plugs are defined in the context, resources can request some of the
-plugs for execution (see below on resource execution phases) and the
-relevant plugs will be mounted to the resources Docker images.
-
-Read the [plugs documentation](docs/PLUGS.md) for more in-depth
-information about resource plugs.
-
-### Resources
-
-Resources in Deployster are Docker images that comply to a simple
-protocol. The actual Docker image can be implemented using any language,
-eg. Bash, Python, Ruby, Java, or any other language that's able to read
-and write to `stdin` & `stdout`/`stderr` (ie. any technology).
-
-The protocol between Resource images and Deployster is composed of the
-following phases:
-
-Read the [resources documentation](docs/RESOURCES.md) for more in-depth
-information about resources.
 
 ## Running
 
@@ -210,19 +131,6 @@ Provide it on invocation, like so:
 
 You can now use `{{ my_var }}` in your manifest, as well as
 `{{ some_person.name }}` or `{{ some_person.age }}`.
-
-#### Planning
-
-To test your manifest without actually running it, you can add the
-`--plan` flag, which will instruct Deployster to print out the
-deployment plan and exit immediately (don't worry - even if you don't
-add this flag, Deployster will compute ask you for confirmation before
-actually executing the deployment, unless you add `--yes` to the command
-line).
-
-## Available resources
-
-See [built-in resource types](docs/BUILTIN_RESOURCES.md).
 
 [1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
 [2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
