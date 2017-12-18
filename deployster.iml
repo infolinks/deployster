@@ -12,6 +12,7 @@
       <sourceFolder url="file://$MODULE_DIR$/resources/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/resources/k8s/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/resources/k8s/k8s-namespace" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.6 (deployster)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
@@ -26,5 +27,9 @@
       </list>
     </option>
     <option name="TEMPLATE_CONFIGURATION" value="Jinja2" />
+  </component>
+  <component name="TestRunnerService">
+    <option name="projectConfiguration" value="py.test" />
+    <option name="PROJECT_TEST_RUNNER" value="py.test" />
   </component>
 </module>

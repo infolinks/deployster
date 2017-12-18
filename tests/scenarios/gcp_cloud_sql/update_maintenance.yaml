@@ -1,0 +1,90 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1, europe-west2]}
+  gcp_sql_instances:
+    sql1:
+      state: RUNNABLE
+      region: europe-west1
+      settings:
+        locationPreference: {zone: europe-west1-a}
+        tier: db-1
+        maintenanceWindow: {day: 1, hour: 1}
+        dataDiskSizeGb: '15'
+        dataDiskType: PD_SSD
+        ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+        storageAutoResize: true
+        storageAutoResizeLimit: 150
+scenarios:
+  - description: disable
+    resource:
+      config:
+        maintenance: null
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-maintenance-window, description: 'Disable SQL instance maintenance window', args: [update_maintenance_window]}
+  - description: use_day_name_same_value_still_valid
+    resource:
+      config:
+        maintenance: {day: Monday, hour: 1}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: use_day_number_same_value_still_valid
+    resource:
+      config:
+        maintenance: {day: 1, hour: 1}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: use_day_name_diff_value
+    resource:
+      config:
+        maintenance: {day: Tuesday, hour: 1}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-maintenance-window, description: 'Update SQL instance maintenance window', args: [update_maintenance_window]}
+  - description: update_hour
+    resource:
+      config:
+        maintenance: {day: 1, hour: 2}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-maintenance-window, description: 'Update SQL instance maintenance window', args: [update_maintenance_window]}
+  - description: update_hour_same_value_still_valid
+    resource:
+      config:
+        maintenance: {day: 1, hour: 1}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}

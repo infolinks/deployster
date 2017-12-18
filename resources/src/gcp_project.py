@@ -1,24 +1,20 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.6
 
 import argparse
 import json
 import sys
+from pprint import pprint
 from typing import Sequence, MutableSequence
 
-import time
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
 from dresources import DAction, action
+from external_services import ExternalServices
 from gcp import GcpResource
-from gcp_services import get_resource_manager, get_billing, wait_for_resource_manager_operation, \
-    get_service_management, wait_for_service_manager_operation, get_project_enabled_apis
 
 
 class GcpProject(GcpResource):
 
-    def __init__(self, data: dict) -> None:
-        super().__init__(data)
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
         self.config_schema.update({
             "type": "object",
             "required": ["project_id"],
@@ -44,183 +40,151 @@ class GcpProject(GcpResource):
             }
         })
 
-    @property
-    def project_id(self) -> str:
-        return self.resource_config['project_id']
+    def discover_state(self):
+        if 'apis' in self.info.config:
+            apis = self.info.config['apis']
+            if 'enabled' in apis and 'disabled' in apis:
+                if [api for api in apis['enabled'] if api in apis['disabled']] or \
+                        [api for api in apis['disabled'] if api in apis['enabled']]:
+                    raise Exception(f"illegal config: APIs cannot be both enabled & disabled!")
 
-    @property
-    def organization_id(self) -> int:
-        return self.resource_config['organization_id'] if 'organization_id' in self.resource_config else None
-
-    @property
-    def billing_account_id(self) -> str:
-        return self.resource_config['billing_account_id'] if 'billing_account_id' in self.resource_config else None
-
-    @property
-    def enabled_apis(self) -> Sequence[str]:
-        apis: dict = self.resource_config['apis'] if 'apis' in self.resource_config else {}
-        return apis['enabled'] if 'enabled' in apis else None
-
-    @property
-    def disabled_apis(self) -> Sequence[str]:
-        apis: dict = self.resource_config['apis'] if 'apis' in self.resource_config else {}
-        return apis['disabled'] if 'disabled' in apis else None
-
-    def discover_actual_properties(self):
-        filter: str = f"name:{self.project_id}"
-        result: dict = get_resource_manager().projects().list(filter=filter).execute()
-
-        if 'projects' not in result:
+        project: dict = self.svc.find_gcp_project(self.info.config['project_id'])
+        if project is None:
             return None
 
-        projects: Sequence[dict] = result['projects']
-        if len(projects) == 0:
-            return None
-        elif len(projects) > 1:
-            raise Exception(f"too many GCP projects matched filter '{filter}'")
+        actual_billing: dict = self.svc.find_gcp_project_billing_info(self.info.config['project_id'])
+        if actual_billing is not None and 'billingAccountName' in actual_billing:
+            project['billing_account_id']: str = actual_billing['billingAccountName'][len('billingAccounts/'):]
         else:
-            project = projects[0]
+            project['billing_account_id']: str = None
 
-            try:
-                actual_billing: dict = get_billing().projects().getBillingInfo(name=f"projects/{self.project_id}").execute()
-                if 'billingAccountName' in actual_billing:
-                    project['billing_account_id']: str = actual_billing['billingAccountName'][len('billingAccounts/'):]
-                else:
-                    project['billing_account_id']: str = None
-            except HttpError as e:
-                if e.resp.status == 404:
-                    project['billing_account_id']: str = None
-                else:
-                    raise
+        enabled_apis = self.svc.find_gcp_project_enabled_apis(self.info.config['project_id'])
+        project['apis']: dict = {'enabled': enabled_apis if enabled_apis is not None else []}
+        return project
 
-            project['apis']: dict = {'enabled': get_project_enabled_apis(project_id=self.project_id)}
+    def get_actions_for_missing_state(self) -> Sequence[DAction]:
+        config = self.info.config
 
-            return project
-
-    def get_actions_when_missing(self) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = [
-            DAction(name=f"create-project", description=f"Create GCP project '{self.project_id}'"),
-            DAction(name='set-billing-account',
-                    description=f"Set billing account of '{self.project_id}' to '{self.billing_account_id}'"),
+            DAction(name=f"create-project",
+                    description=f"Create GCP project '{self.info.config['project_id']}'")
         ]
-        if self.enabled_apis:
-            for api_name in [api_name for api_name in self.enabled_apis]:
-                actions.append(
-                    DAction(name=f"enable-api-{api_name}",
-                            description=f"Enable API '{api_name}' for '{self.project_id}'",
-                            args=['enable_api', api_name]))
-        return actions
 
-    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
-        actions: MutableSequence[DAction] = []
-
-        actual_parent: dict = actual_properties['parent'] if 'parent' in actual_properties else {}
-        actual_parent_id: int = int(actual_parent['id']) if 'id' in actual_parent else None
-        actual_billing: dict = get_billing().projects().getBillingInfo(name=f"projects/{self.project_id}").execute()
-        actual_billing_account_id: str = actual_billing['billingAccountName'][len('billingAccounts/'):] \
-            if 'billingAccountName' in actual_billing else None
-
-        # update project organization if necessary
-        if self.organization_id != actual_parent_id:
-            actions.append(DAction(name='set-organization',
-                                   description=f"Set organization of '{self.project_id}' to '{self.organization_id}'"))
-
-        # update project billing account if necessary
-        if self.billing_account_id != actual_billing_account_id:
+        if 'billing_account_id' in config:
+            desired_billing_account = config['billing_account_id']
             actions.append(
                 DAction(name='set-billing-account',
-                        description=f"Set billing account of '{self.project_id}' to '{self.billing_account_id}'"))
+                        description=f"Set billing account to '{desired_billing_account}'"))
 
-        # fetch currently enabled project APIs
-        actual_enabled_api_names: Sequence[str] = get_project_enabled_apis(project_id=self.project_id)
+        if 'apis' in config:
+            # TODO: fail if the same API is both enabled & disabled
 
-        # disable APIs that user desires to be disable, if currently enabled
-        if self.disabled_apis:
-            for api_name in [api_name for api_name in self.disabled_apis if api_name in actual_enabled_api_names]:
-                actions.append(
-                    DAction(name=f"disable-api-{api_name}",
-                            description=f"Disable API '{api_name}' for '{self.project_id}'",
-                            args=['disable_api', api_name]))
+            apis = config['apis']
+            if 'disabled' in apis:
+                for api_name in apis['disabled']:
+                    actions.append(
+                        DAction(name=f"disable-api-{api_name}",
+                                description=f"Disable API '{api_name}'",
+                                args=['disable_api', api_name]))
+            if 'enabled' in apis:
+                for api_name in apis['enabled']:
+                    actions.append(
+                        DAction(name=f"enable-api-{api_name}",
+                                description=f"Enable API '{api_name}'",
+                                args=['enable_api', api_name]))
+        return actions
 
-        # enable APIs that user desires to be enabled, if not already enabled
-        if self.enabled_apis:
-            for api_name in [api_name for api_name in self.enabled_apis if api_name not in actual_enabled_api_names]:
-                actions.append(
-                    DAction(name=f"enable-api-{api_name}",
-                            description=f"Enable API '{api_name}' for '{self.project_id}'",
-                            args=['enable_api', api_name]))
+    def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
+        actions: MutableSequence[DAction] = []
+        config = self.info.config
+
+        # update project organization if requested to (and if necessary)
+        if 'organization_id' in config:
+            actual_parent: dict = state['parent'] if 'parent' in state else {}
+            actual_parent_id: int = int(actual_parent['id']) if 'id' in actual_parent else None
+            desired_parent_id: int = config['organization_id']
+            if desired_parent_id != actual_parent_id:
+                actions.append(DAction(name='set-parent', description=f"Set organization to '{desired_parent_id}'"))
+
+        # update project billing account if requested to (and if necessary)
+        if 'billing_account_id' in config and config['billing_account_id'] != state['billing_account_id']:
+            actions.append(
+                DAction(name='set-billing-account',
+                        description=f"Set billing account to '{config['billing_account_id']}'"))
+
+        # enable/disable project APIs if requested to (and if necessary)
+        if 'apis' in config:
+            apis = config['apis']
+
+            # fetch currently enabled project APIs
+            actual_enabled_api_names: Sequence[str] = sorted(state['apis']['enabled'])
+            if 'disabled' in apis:
+                # disable APIs that are currently enabled, but user requested them to be disabled
+                for api_name in [api_name for api_name in apis['disabled'] if api_name in actual_enabled_api_names]:
+                    actions.append(
+                        DAction(name=f"disable-api-{api_name}",
+                                description=f"Disable API '{api_name}'",
+                                args=['disable_api', api_name]))
+
+            if 'enabled' in apis:
+                # enable APIs that are currently not enabled, but user requested them to be enabled
+                for api_name in [api_name for api_name in apis['enabled'] if api_name not in actual_enabled_api_names]:
+                    actions.append(
+                        DAction(name=f"enable-api-{api_name}",
+                                description=f"Enable API '{api_name}'",
+                                args=['enable_api', api_name]))
 
         return actions
 
-    def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
-        super().define_action_args(action, argparser)
+    def configure_action_argument_parser(self, action: str, argparser: argparse.ArgumentParser):
+        super().configure_action_argument_parser(action, argparser)
         if action == 'disable_api':
-            argparser.add_argument('api', metavar='API-NAME', help="API to disable (eg. 'cloudbuild.googleapis.com)")
+            argparser.add_argument('api', metavar='NAME', help="API to disable (eg. 'cloudbuild.googleapis.com)")
         elif action == 'enable_api':
-            argparser.add_argument('api', metavar='API-NAME', help="API to enable (eg. 'cloudbuild.googleapis.com)")
-
-    @action
-    def set_organization(self, args):
-        if args: pass
-        cloud_resource_manager = build(serviceName='cloudresourcemanager', version='v1')
-        body = {'parent': {'type': 'organization', 'id': str(self.organization_id)} if self.organization_id else None}
-        result = cloud_resource_manager.projects().update(projectId=self.project_id, body={body}).execute()
-        wait_for_resource_manager_operation(result)
-
-    @action
-    def set_billing_account(self, args):
-        if args: pass
-        body = {"billingAccountName": f"billingAccounts/{self.billing_account_id}" if self.billing_account_id else ""}
-        get_billing().projects().updateBillingInfo(name='projects/' + self.project_id, body=body).execute()
-
-    @action
-    def disable_api(self, args):
-        body = {'consumerId': f"project:{self.project_id}"}
-        op = get_service_management().services().disable(serviceName=args.api, body=body).execute()
-        wait_for_service_manager_operation(op)
-
-        # poll until actually enabled
-        timeout = 60
-        interval = 3
-        waited = 0
-        while waited < timeout and args.api in get_project_enabled_apis(project_id=self.project_id):
-            time.sleep(interval)
-            waited += interval
-        if waited >= interval:
-            raise Exception(f"Timed out while waiting for API '{args.api}' to enable.")
-
-    @action
-    def enable_api(self, args):
-        body = {'consumerId': f"project:{self.project_id}"}
-        op = get_service_management().services().enable(serviceName=args.api, body=body).execute()
-        wait_for_service_manager_operation(op)
-
-        # poll until actually enabled
-        timeout = 60
-        interval = 3
-        waited = 0
-        while waited < timeout and args.api not in get_project_enabled_apis(project_id=self.project_id):
-            time.sleep(interval)
-            waited += interval
-        if waited >= interval:
-            raise Exception(f"Timed out while waiting for API '{args.api}' to enable.")
+            argparser.add_argument('api', metavar='NAME', help="API to enable (eg. 'cloudbuild.googleapis.com)")
 
     @action
     def create_project(self, args):
         if args: pass
-        projects_service = build(serviceName='cloudresourcemanager', version='v1').projects()
-        wait_for_resource_manager_operation(projects_service.create(body={
-            "projectId": self.project_id,
-            "name": self.project_id,
+        config = self.info.config
+        self.svc.create_gcp_project(body={
+            "projectId": self.info.config['project_id'],
+            "name": self.info.config['project_id'],
             "parent": {
                 'type': 'organization',
-                'id': str(self.organization_id)
-            } if self.organization_id else None
-        }).execute())
+                'id': str(config['organization_id'])
+            } if 'organization_id' in config and config['organization_id'] is not None else None
+        })
+
+    @action
+    def set_parent(self, args):
+        if args: pass
+        self.svc.update_gcp_project(project_id=self.info.config['project_id'], body={
+            'parent': {
+                'type': 'organization',
+                'id': str(self.info.config['organization_id'])
+            } if self.info.config['organization_id'] is not None else None
+        })
+
+    @action
+    def set_billing_account(self, args):
+        if args: pass
+        desired_billing_account_id = self.info.config['billing_account_id']
+        self.svc.update_gcp_project_billing_info(project_id=self.info.config['project_id'], body={
+            'billingAccountName': f"billingAccounts/{desired_billing_account_id}" if desired_billing_account_id else ""
+        })
+
+    @action
+    def disable_api(self, args):
+        self.svc.disable_gcp_project_api(project_id=self.info.config['project_id'], api=args.api)
+
+    @action
+    def enable_api(self, args):
+        self.svc.enable_gcp_project_api(project_id=self.info.config['project_id'], api=args.api)
 
 
 def main():
-    GcpProject(json.loads(sys.stdin.read())).execute()
+    GcpProject(json.loads(sys.stdin.read())).execute()  # pragma: no cover
 
 
 if __name__ == "__main__":

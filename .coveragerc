@@ -1,0 +1,11 @@
+[run]
+omit = tests/*, */__init__.py
+branch = True
+cover_pylib = False
+source = src/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__.:

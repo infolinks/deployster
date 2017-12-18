@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
 
+# simple IntelliJ IDEA hack to prevent undefined-env-vars warnings
+if [[ "THIS_WILL" == "NEVER_BE_TRUE" ]]; then
+    VERSION=${VERSION}
+fi
+
 # default deployster version to "latest" unless supplied as environment variable already
-[[ "${DEPLOYSTER_VERSION}" == "" ]] && DEPLOYSTER_VERSION="${DVERSION}"
-[[ "${DEPLOYSTER_VERSION}" == "" ]] && DEPLOYSTER_VERSION="latest"
+[[ "${VERSION}" == "" ]] && VERSION="latest"
+
+# setup paths to mount
+CONF_DIR="$(mkdir -p ~/.deployster; cd ~/.deployster; pwd)"
+WORKSPACE_DIR="$(pwd)"
+WORK_DIR="$(mkdir -p ./work; cd ./work; pwd)"
 
 # set Docker flags
-[[ -t 1 ]] && DOCKER_FLAGS="${DOCKER_FLAGS} -it"
+[[ -t 1 ]] && TTY_FLAGS="${TTY_FLAGS} -it"
 
 # run!
-mkdir -vp ~/.deployster
-docker run ${DOCKER_FLAGS} \
-           -v $(cd ~/.deployster; pwd):/root/.deployster \
-           -v $(pwd):/deployster/workspace \
-           -v $(pwd)/work:/deployster/work \
+docker run ${TTY_FLAGS} \
+           -v ${CONF_DIR}:${CONF_DIR}:ro \
+           -v ${WORKSPACE_DIR}:${WORKSPACE_DIR}:ro \
+           -v ${WORK_DIR}:${WORK_DIR}:rw \
            -v /var/run/docker.sock:/var/run/docker.sock \
-           infolinks/deployster:${DEPLOYSTER_VERSION} \
-           --var _dir=$(pwd) \
+           -e CONF_DIR="${CONF_DIR}" \
+           -e WORKSPACE_DIR="${WORKSPACE_DIR}" \
+           -e WORK_DIR="${WORK_DIR}" \
+           --workdir="${WORKSPACE_DIR}" \
+           infolinks/deployster:${VERSION} \
            $@

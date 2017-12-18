@@ -1,0 +1,20 @@
+plugs:
+  p1:
+    path: ./p1
+    read_only: true
+  p2:
+    path: ./p2
+    read_only: false
+    resource_names:
+      - abc
+      - def
+    resource_types:
+      - a123
+      - b456
+
+resources:
+  r1:
+    type: r1:1.0.0
+    config:
+      k1: v1
+      k2: v2

@@ -1,0 +1,19 @@
+expected:
+  resources:
+    r1:
+      name: r1
+      type: r1
+      readonly: false
+      dependencies: {}
+      config:
+        k1: v1
+        k2: v2
+    r2:
+      name: r2
+      type: r2
+      readonly: false
+      dependencies:
+        d1: r1
+      config:
+        k3: v3
+        k4: v4

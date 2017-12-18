@@ -1,0 +1,14 @@
+resources:
+  r1:
+    type: r1
+    config:
+      k1: v1
+      k2: v2
+
+  r2:
+    type: r2
+    dependencies:
+      d1: r3
+    config:
+      k3: v3
+      k4: v4

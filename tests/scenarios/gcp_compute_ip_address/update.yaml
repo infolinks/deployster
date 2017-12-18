@@ -1,0 +1,26 @@
+default_resource:
+  module: gcp_compute_ip_address
+  class: GcpIpAddress
+  name: ip
+  config:
+    project_id: prj
+    name: ip
+mock:
+  gcp_compute_regional_ip_addresses:
+    prj-europe-west1-ip:
+      region: europe-west1
+  gcp_compute_global_ip_addresses:
+    prj-ip: {}
+scenarios:
+  - description: 'update global ip address'
+    expected:
+      status: VALID
+      state: {}
+  - description: 'update regional ip address'
+    resource:
+      config:
+        region: europe-west1
+    expected:
+      status: VALID
+      state:
+        region: europe-west1

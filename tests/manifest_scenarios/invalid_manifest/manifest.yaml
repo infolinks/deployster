@@ -1,0 +1,11 @@
+plugs:
+  - p1:
+      path: ./p1
+      read_only: true
+
+resources:
+  r1:
+    type: r1
+    config:
+      k1: v1
+      k2: v2

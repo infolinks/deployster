@@ -1,0 +1,421 @@
+default_resource:
+  module: gcp_gke_cluster
+  class: GkeCluster
+  name: cluster
+  config: {project_id: prj, zone: europe-west1-a, name: test, description: 'test cluster', version: '1.8', node_pools: [{name: pool1}]}
+mock:
+  gke_server_config: {validMasterVersions: ['1.6','1.7','1.8'], validNodeVersions: ['1.6','1.7','1.8']}
+  gke_clusters:
+    prj-europe-west1-a-test:
+      status: RUNNING
+      zone: europe-west1-a
+      locations: [europe-west1-a]
+      currentMasterVersion: '1.8'
+      currentNodeVersion: '1.8'
+      monitoringService: monitoring.googleapis.com
+      loggingService: logging.googleapis.com
+      masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+      endpoint: 'http://1.2.3.4'
+      nodePools:
+        - name: pool1
+          status: RUNNING
+          version: '1.8'
+          config:
+            serviceAccount: jack
+            machineType: n1-standard-1
+            diskSizeGb: 20
+            preemptible: true
+            oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+            tags: [t1, t2]
+            metadata: {k1: v1, k2: v2}
+            labels: {lk1: v1, lk2: v2}
+          management: {autoRepair: true}
+          autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+scenarios:
+  - description: disable_authorized_networks
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          masterAuthorizedNetworksConfig:
+            enabled: true
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        masterAuthorizedNetworksConfig:
+          enabled: true
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: disable-master-authorized-networks, description: 'Disable master authorized networks for cluster ''test''', args: [disable_master_authorized_networks]}
+  - description: disable_legacy_abac
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          legacyAbac:
+            enabled: true
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        legacyAbac:
+          enabled: true
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: disable-legacy-abac, description: 'Disable legacy ABAC for cluster ''test''', args: [disable_legacy_abac]}
+  - description: legacy_abac_explicitly_disabled_is_valid
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          legacyAbac:
+            enabled: false
+    expected:
+      status: VALID
+      state:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        legacyAbac:
+          enabled: false
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+  - description: legacy_abac_implicitly_disabled_is_valid
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          legacyAbac: {}
+    expected:
+      status: VALID
+      state:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        legacyAbac: {}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+  - description: use_gke_monitoring_and_logging
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          monitoringService: monitoring.acme.com
+          loggingService: logging.acme.com
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.acme.com
+        loggingService: logging.acme.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: enable-monitoring-service, description: 'Enable GCP monitoring for cluster ''test''', args: [enable_monitoring_service]}
+        - {name: enable-logging-service, description: 'Enable GCP logging for cluster ''test''', args: [enable_logging_service]}
+  - description: enable_http_addon
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          addonsConfig:
+            httpLoadBalancing: {disabled: true}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        addonsConfig:
+          httpLoadBalancing: {disabled: true}
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: enable-http-load-balancer-addon, description: 'Enable HTTP load-balancing addon for cluster ''test''', args: [set_addon_status, httpLoadBalancing, enabled]}
+  - description: enable_horiz_pod_autoscaling_addon
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          addonsConfig:
+            horizontalPodAutoscaling: {disabled: true}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        addonsConfig:
+          horizontalPodAutoscaling: {disabled: true}
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: enable-k8s-horiz-pod-auto-scaling-addon, description: 'Enable horizontal Pod auto-scaling addon for cluster ''test''', args: [set_addon_status, horizontalPodAutoscaling, enabled]}
+  - description: disable_legacy_dashboard
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          addonsConfig:
+            kubernetesDashboard: {disabled: false}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        addonsConfig:
+          kubernetesDashboard: {disabled: false}
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: disable-k8s-dashboard-addon, description: 'Disable legacy Kubernetes Dashboard addon for cluster ''test''', args: [set_addon_status, kubernetesDashboard, disabled]}
+  - description: alpha_features_not_allowed
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          enableKubernetesAlpha: true
+    expected:
+      exception: Exception
+      match: 'Cluster alpha features are enabled instead of disabled'
+  - description: enable_node_pool_autoscaling_default_sizes
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          nodePools:
+            - name: pool1
+              status: RUNNING
+              version: '1.8'
+              management: {autoRepair: true}
+              autoscaling: {enabled: false}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            management: {autoRepair: true}
+            autoscaling: {enabled: false}
+      actions:
+        - {name: configure-node-pool-autoscaling, description: 'Configure auto-scaling of node pool ''pool1'' in cluster ''test''', args: [configure_node_pool_autoscaling, pool1, '1', '1']}
+  - description: enable_node_pool_autorepair
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          nodePools:
+            - name: pool1
+              status: RUNNING
+              version: '1.8'
+              management: {autoRepair: false}
+              autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            management: {autoRepair: false}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: enable-node-pool-autorepair, description: 'Enable auto-repair for node pool ''pool1'' in cluster ''test''', args: [enable_node_pool_autorepair, pool1]}
+  - description: disable_node_pool_autoupgrade
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          nodePools:
+            - name: pool1
+              status: RUNNING
+              version: '1.8'
+              management: {autoRepair: true, autoUpgrade: true}
+              autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            management: {autoRepair: true, autoUpgrade: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: disable-node-pool-autoupgrade, description: 'Disable auto-upgrade for node pool ''pool1'' in cluster ''test''', args: [disable_node_pool_autoupgrade, pool1]}

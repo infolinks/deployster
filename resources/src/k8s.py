@@ -1,41 +1,48 @@
-import argparse
-import json
-import subprocess
-import sys
-from abc import abstractmethod
 from copy import deepcopy
-from subprocess import PIPE
 from time import sleep
-from typing import Sequence, MutableSequence, Mapping, Any
+from typing import Sequence, MutableSequence
+
+import time
 
 from dresources import DAction, action, DResource
-from gcp_gke_cluster import GkeCluster
+from dresources_util import collect_differences
+from external_services import ExternalServices
 
-
-# TODO: update subclasses to check availability in custom actions!
 
 class K8sResource(DResource):
 
-    def __init__(self, data: dict) -> None:
-        super().__init__(data)
+    def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
+        super().__init__(data=data, svc=svc)
         self.add_plug(name='kube', container_path='/root/.kube', optional=False, writable=False)
         self.config_schema.update({
             "required": ["manifest"],
             "additionalProperties": True,
             "properties": {
-                "timeout": {"type": "integer"},
-                "timeout_interval": {"type": "integer"},
+                "timeout_ms": {
+                    "description": "How long to wait for the resource to become available after creation/updates? "
+                                   "(seconds)",
+                    "type": "integer",
+                    "minValue": 1000
+                },
+                "timeout_interval_ms": {
+                    "description": "Sleep intervals progressing towards the timeout, in milli-seconds.",
+                    "type": "integer",
+                    "minValue": 100
+                },
                 "manifest": {
                     "type": "object",
-                    "required": ["metadata"],
+                    "required": ["apiVersion", "kind", "metadata"],
                     "additionalProperties": True,
                     "properties": {
+                        "apiVersion": {"type": "string", "minLength": 1},
+                        "kind": {"type": "string", "minLength": 1},
                         "metadata": {
                             "type": "object",
                             "required": ["name"],
                             "additionalProperties": True,
                             "properties": {
-                                "name": {"type": "string"},
+                                "name": {"type": "string", "minLength": 1},
+                                "namespace": {"type": "string", "minLength": 1},
                                 "annotations": {
                                     "type": "object",
                                     "additionalProperties": True
@@ -51,162 +58,86 @@ class K8sResource(DResource):
             }
         })
 
-    @property
-    @abstractmethod
-    def cluster(self) -> GkeCluster:
-        raise Exception(f"illegal state: 'cluster' not implemented for '{type(self).__name__}'")
+        if self.timeout_interval_ms >= self.timeout_ms:
+            raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
+                            f"than or equal to total timeout ({self.timeout_ms / 1000}) duration")
 
     @property
-    def namespace(self):
-        return None
+    def timeout_ms(self) -> int:
+        return self.info.config['timeout_ms'] if 'timeout_ms' in self.info.config else 60 * 5 * 1000
 
     @property
-    def timeout(self) -> int:
-        return self.resource_config['timeout'] if 'timeout' in self.resource_config else 60 * 5
+    def timeout_interval_ms(self) -> int:
+        return self.info.config['timeout_interval_ms'] if 'timeout_interval_ms' in self.info.config else 100
 
-    @property
-    def timeout_interval(self) -> int:
-        return self.resource_config['timeout_interval'] if 'timeout_interval' in self.resource_config else 5
+    def discover_state(self):
+        if 'namespace' in self.info.config['manifest']['metadata']:
+            return self.svc.find_k8s_namespace_object(self.info.config['manifest'])
+        else:
+            return self.svc.find_k8s_cluster_object(self.info.config['manifest'])
 
-    @property
-    @abstractmethod
-    def k8s_api_group(self) -> str:
-        raise Exception(f"illegal state: 'k8s_api_group' reference not implemented for {type(self)} resource type")
+    def get_actions_for_missing_state(self) -> Sequence[DAction]:
+        manifest = self.info.config['manifest']
+        metadata = manifest['metadata']
+        return [DAction(name='create', description=f"Create {manifest['kind'].lower()} '{metadata['name']}'")]
 
-    @property
-    @abstractmethod
-    def k8s_api_version(self) -> str:
-        raise Exception(f"illegal state: 'k8s_api_version' not implemented for {type(self)} resource type")
-
-    @property
-    @abstractmethod
-    def k8s_kind(self) -> str:
-        raise Exception(f"illegal state: 'k8s_kind' not implemented for {type(self)} resource type")
-
-    @property
-    def k8s_manifest(self) -> Mapping[str, Any]:
-        return self.resource_config['manifest']
-
-    @property
-    def metadata(self) -> Mapping[str, Any]:
-        return self.k8s_manifest['metadata']
-
-    @property
-    def name(self) -> str:
-        return self.metadata['name']
-
-    @property
-    def annotations(self) -> Mapping[str, str]:
-        return self.metadata['annotations'] if 'annotations' in self.metadata else {}
-
-    @property
-    def labels(self) -> Mapping[str, str]:
-        return self.metadata['labels'] if 'labels' in self.metadata else {}
-
-    def kubectl_command(self, verb):
-        namespace = f" --namespace {self.namespace.name}" if self.namespace is not None else ""
-        return f"kubectl {verb} {self.k8s_kind} {self.name}{namespace}"
-
-    def discover_actual_properties(self):
-        process = subprocess.run(f"{self.kubectl_command('get')} --ignore-not-found=true --output=json",
-                                 shell=True, check=True, stdout=PIPE)
-        return json.loads(process.stdout) if process.stdout else None
-
-    def get_actions_when_missing(self) -> Sequence[DAction]:
-        return [DAction(name='create', description=f"Create {self.k8s_kind.lower()} '{self.name}'")]
-
-    def get_actions_when_existing(self, actual_properties: dict) -> Sequence[DAction]:
+    def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
 
-        actual_metadata = actual_properties['metadata']
-        actual_anns = actual_metadata['annotations'] if 'annotations' in actual_metadata else {}
-        actual_labels = actual_metadata['labels'] if 'labels' in actual_metadata else {}
-
-        # add an action for each stale annotation
-        actions.extend([
-            DAction(name='update-annotation',
-                    description=f"Update annotation '{k}' to '{v}'",
-                    args=['update_annotation', k, v])
-            for k, v in self.annotations.items() if k not in actual_anns or v != actual_anns[k]
-        ])
-
-        # add an action for each stale label
-        actions.extend([
-            DAction(name='update-label',
-                    description=f"Update label '{k}' to '{v}'",
-                    args=['update_label', k, v])
-            for k, v in self.labels.items() if k not in actual_labels or v != actual_labels[k]
-        ])
+        differences: Sequence[str] = collect_differences(desired=self.info.config['manifest'], actual=state)
+        if differences:
+            kind: str = self.info.config['manifest']['kind']
+            name: str = self.info.config['manifest']['metadata']['name']
+            actions.append(DAction(name='update', description=f"Update {kind.lower()} '{name}'", args=['update']))
 
         return actions
 
-    def define_action_args(self, action: str, argparser: argparse.ArgumentParser):
-        super().define_action_args(action, argparser)
-        if action == 'update_annotation':
-            argparser.add_argument('name', help='annotation name')
-            argparser.add_argument('value', help='annotation value')
-        elif action == 'update_label':
-            argparser.add_argument('name', help='label name')
-            argparser.add_argument('value', help='label value')
-
-    def build_creation_manifest(self) -> dict:
-        api_group = self.k8s_api_group
-        api_version = self.k8s_api_version
-        manifest = {
-            "apiVersion": f"{api_group}/{api_version}" if api_group != 'core' else api_version,
-            "kind": self.k8s_kind
-        }
-        manifest.update(deepcopy(self.k8s_manifest))
-        if self.namespace is not None:
-            if 'metadata' not in manifest:
-                manifest['metadata'] = {}
-            # noinspection PyUnresolvedReferences
-            manifest['metadata']['namespace'] = self.namespace.name
-        return manifest
-
-    def check_availability(self, actual_properties: dict):
-        if actual_properties: pass
-        return True
-
-    def wait_for_availability(self) -> bool:
-        waited = 0
-        while waited < self.timeout:
-            actual_properties = self.discover_actual_properties()
-            if actual_properties is not None and self.check_availability(actual_properties):
-                return True
-            else:
-                sleep(self.timeout_interval)
-                waited = waited + self.timeout_interval
-        return False
+    def build_kubectl_manifest(self) -> dict:
+        return deepcopy(self.info.config['manifest'])
 
     @action
     def create(self, args) -> None:
         if args: pass
-
-        subprocess.run(f"kubectl create -f -",
-                       input=json.dumps(self.build_creation_manifest()),
-                       encoding='utf-8',
-                       check=True,
-                       timeout=self.timeout,
-                       shell=True)
-
-        if not self.wait_for_availability():
-            print(f"{self.k8s_kind} '{self.name}' was not created successfully.\n"
-                  f"Use this command to find out more:\n"
-                  f"    {self.kubectl_command('get')}",
-                  file=sys.stderr)
-            exit(1)
+        start_ms: int = int(round(time.time() * 1000))
+        self.svc.create_k8s_object(self.build_kubectl_manifest(), self.timeout_ms)
+        finish_ms: int = int(round(time.time() * 1000))
+        creation_duration_ms: int = finish_ms - start_ms
+        remaining_timeout_ms: int = self.timeout_ms - creation_duration_ms
+        timeout_interval_ms: int = self.timeout_interval_ms
+        if self.timeout_interval_ms >= remaining_timeout_ms:
+            timeout_interval_ms: int = remaining_timeout_ms / 2
+        self.check_availability(timeout_ms=remaining_timeout_ms, timeout_interval_ms=timeout_interval_ms)
 
     @action
-    def update_annotation(self, args) -> None:
-        subprocess.run(f"{self.kubectl_command('annotate')} --overwrite {args.name}='{args.value}'",
-                       check=True,
-                       timeout=self.timeout,
-                       shell=True)
+    def update(self, args) -> None:
+        if args: pass
+        start_ms: int = int(round(time.time() * 1000))
+        self.svc.update_k8s_object(self.build_kubectl_manifest(), self.timeout_ms)
+        finish_ms: int = int(round(time.time() * 1000))
+        creation_duration_ms: int = finish_ms - start_ms
+        remaining_timeout_ms: int = self.timeout_ms - creation_duration_ms
+        timeout_interval_ms: int = self.timeout_interval_ms
+        if self.timeout_interval_ms >= remaining_timeout_ms:
+            timeout_interval_ms: int = remaining_timeout_ms / 2
+        self.check_availability(timeout_ms=remaining_timeout_ms, timeout_interval_ms=timeout_interval_ms)
 
-    @action
-    def update_label(self, args) -> None:
-        subprocess.run(f"{self.kubectl_command('label')} --overwrite {args.name}='{args.value}'",
-                       check=True,
-                       timeout=self.timeout,
-                       shell=True)
+    def is_available(self, state: dict) -> bool:
+        return True
+
+    def check_availability(self, timeout_ms: int = None, timeout_interval_ms: int = None):
+        if timeout_ms is None:
+            timeout_ms: int = self.timeout_ms
+        if timeout_interval_ms is None:
+            timeout_interval_ms: int = self.timeout_interval_ms
+
+        waited_ms: int = 0
+        while waited_ms <= timeout_ms:
+            state: dict = self.discover_state()
+            if self.is_available(state):
+                return True
+            sleep(timeout_interval_ms / 1000)
+            waited_ms += timeout_interval_ms
+
+        kind: str = self.info.config['manifest']['kind']
+        name: str = self.info.config['manifest']['metadata']['name']
+        raise TimeoutError(f"timed out waiting for {kind.lower()} '{name}' to become available")

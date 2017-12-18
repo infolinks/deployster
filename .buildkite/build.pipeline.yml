@@ -1,5 +1,11 @@
 steps:
 
+  - label: Test
+    command:
+      - ./.buildkite/test.sh -s -vv
+
+  - wait
+
   - label: Build & push Docker images
     command:
       - ./.buildkite/build.sh ${BUILDKITE_COMMIT}

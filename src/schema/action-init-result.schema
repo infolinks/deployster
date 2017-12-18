@@ -12,7 +12,8 @@
                     "required": [ "container_path" ],
                     "properties": {
                         "container_path": {
-                            "type": "string"
+                            "type": "string",
+                            "minLength": 1
                         },
                         "optional": {
                             "type": "boolean"
@@ -24,39 +25,27 @@
                 }
             }
         },
-        "dependencies": {
-            "type": "object",
-            "patternProperties": {
-                "^[a-zA-Z][a-zA-Z0-9_\\-]*$": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [ "type" ],
-                    "properties": {
-                        "type": {
-                            "type": "string"
-                        },
-                        "optional": {
-                            "type": "boolean"
-                        }
-                    }
-                }
-            }
-        },
         "config_schema": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": true
         },
         "state_action": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
                 "image": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[^:]+(?::[^:]+)?$"
                 },
                 "entrypoint": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 },
                 "args": {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         }

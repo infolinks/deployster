@@ -1,0 +1,146 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1]}
+  gcp_sql_instances:
+    sql1:
+      state: RUNNABLE
+      region: europe-west1
+      settings:
+        locationPreference: {zone: europe-west1-a}
+        tier: db-1
+        maintenanceWindow: {day: 2, hour: 18}
+        dataDiskSizeGb: '15'
+        dataDiskType: PD_SSD
+        ipConfiguration: {requireSsl: true, authorizedNetworks: []}
+        storageAutoResize: true
+        storageAutoResizeLimit: 150
+scenarios:
+  - description: update_schedule_when_already_enabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}}}}
+    resource:
+      config:
+        backup: {enabled: true, time: '03:00'}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-backup, description: 'Update SQL instance backup schedule to ''03:00''', args: [update_backup]}
+  - description: disable_when_enabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}}}}
+    resource:
+      config:
+        backup: {enabled: false}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-backup, description: 'Disable SQL instance backups/binary-logging', args: [update_backup]}
+  - description: cannot_specify_schedule_when_disabling
+    resource:
+      config:
+        backup: {enabled: false, time: '02:00'}
+    expected:
+      exception: Exception
+      match: 'cannot specify backup time when backup is disabled'
+  - description: enable_without_schedule_when_already_enabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}}}}
+    resource:
+      config:
+        backup: {enabled: true}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: enable_when_disabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: false, binaryLogEnabled: false, startTime: '02:00'}}}}
+    resource:
+      config:
+        backup: {enabled: true, time: '02:00'}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: false, binaryLogEnabled: false, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-backup, description: 'Enable SQL instance backup/binary-logging', args: [update_backup]}
+  - description: enable_when_only_binary_logging_is_disabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: true, binaryLogEnabled: false, startTime: '02:00'}}}}
+    resource:
+      config:
+        backup: {enabled: true, time: '03:00'}
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: false, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-backup, description: 'Enable SQL instance backup/binary-logging', args: [update_backup]}
+  - description: enable_with_schedule_when_already_enabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}}}}
+    resource:
+      config:
+        backup: {enabled: true, time: '02:00'}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: disable_when_actual_state_has_no_backup_property
+    resource:
+      config:
+        backup: {enabled: false}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: enable_with_schedule_when_already_enabled
+    mock:
+      gcp_sql_instances: {sql1: {settings: {backupConfiguration: {enabled: false, binaryLogEnabled: false}}}}
+    resource:
+      config:
+        backup: {enabled: false}
+    expected:
+      status: VALID
+      state:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: false, binaryLogEnabled: false}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: enable_when_disabled_implicitly
+    resource:
+      config:
+        backup:
+          enabled: true
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: update-backup, description: 'Enable SQL instance backups', args: [update_backup]}

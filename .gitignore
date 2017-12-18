@@ -1,6 +1,8 @@
+/.cache
+/.coverage
 /.python3
 /examples/work
-/examples/.build.log
+/resources/Dockerfile.*.local
+/tests/.cache
 /work
 *.pyc
-Dockerfile.*.local

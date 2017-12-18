@@ -1,0 +1,75 @@
+default_resource:
+  module: k8s
+  class: K8sResource
+  name: cfg
+  config:
+    manifest:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        namespace: ns
+      data:
+        k1: v1
+        k2: v2
+mock:
+  k8s_objects:
+    v1-ConfigMap-ns-cfg:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: cfg
+        namespace: ns
+      data:
+        k1: v1
+        k2: v2
+scenarios:
+  - description: create
+    resource:
+      config:
+        manifest:
+          metadata:
+            name: cfg-new
+    expected:
+      status: STALE
+      actions:
+        - {name: create, description: 'Create configmap ''cfg-new''', args: [create]}
+  - description: same_data
+    resource:
+      config:
+        manifest:
+          metadata:
+            name: cfg
+    expected:
+      status: VALID
+      state:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: cfg
+          namespace: ns
+        data:
+          k1: v1
+          k2: v2
+  - description: diff_data
+    resource:
+      config:
+        manifest:
+          metadata:
+            name: cfg
+          data:
+            k1: v1
+            k2: v22
+            k3: v3
+    expected:
+      status: STALE
+      staleState:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: cfg
+          namespace: ns
+        data:
+          k1: v1
+          k2: v2
+      actions:
+        - {name: update, description: 'Update configmap ''cfg''', args: [update]}

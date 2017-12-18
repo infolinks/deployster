@@ -1,0 +1,21 @@
+FROM centos:7.4.1708
+RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
+    yum install -y python36u python36u-pip git
+
+ENV PYTHONUNBUFFERED="1"
+ENV PYTHONIOENCODING="utf-8"
+
+WORKDIR /app/
+COPY requirements.txt .coveragerc /app/
+RUN pip3.6 --disable-pip-version-check --no-cache-dir install -r requirements.txt
+
+COPY .buildkite/run-tests.sh /app/
+RUN chmod +x /app/run-tests.sh
+
+COPY .coveragerc /app/
+COPY src /app/src/
+COPY resources/src/*.py /app/resources/src/
+COPY tests /app/tests/
+COPY .git /app/.git/
+
+ENTRYPOINT ["/app/run-tests.sh"]

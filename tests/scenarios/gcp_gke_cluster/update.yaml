@@ -1,0 +1,224 @@
+default_resource:
+  module: gcp_gke_cluster
+  class: GkeCluster
+  name: cluster
+  config: {project_id: prj, zone: europe-west1-a, name: test, description: 'test cluster', version: '1.8', node_pools: [{name: pool1}]}
+mock:
+  gke_server_config: {validMasterVersions: ['1.6','1.7','1.8'], validNodeVersions: ['1.6','1.7','1.8']}
+  gke_clusters:
+    prj-europe-west1-a-test:
+      status: RUNNING
+      zone: europe-west1-a
+      locations: [europe-west1-a]
+      currentMasterVersion: '1.8'
+      currentNodeVersion: '1.8'
+      monitoringService: monitoring.googleapis.com
+      loggingService: logging.googleapis.com
+      masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+      endpoint: 'http://1.2.3.4'
+      nodePools:
+        - name: pool1
+          status: RUNNING
+          version: '1.8'
+          config:
+            serviceAccount: jack
+            machineType: n1-standard-1
+            diskSizeGb: 20
+            preemptible: true
+            oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+            tags: [t1, t2]
+            metadata: {k1: v1, k2: v2}
+            labels: {lk1: v1, lk2: v2}
+          management: {autoRepair: true}
+          autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+scenarios:
+  - description: valid_if_all_values_are_the_same
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            min_size: 1
+            max_size: 1
+            service_account: jack
+            oauth_scopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+            preemptible: true
+            machine_type: n1-standard-1
+            disk_size_gb: 20
+            tags: [t1, t2]
+            metadata: {k1: v1, k2: v2}
+            labels: {lk1: v1, lk2: v2}
+    expected:
+      status: VALID
+      state:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+  - description: empty_master_auth_networks_defaults_to_false
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          masterAuthorizedNetworksConfig: {}
+    expected:
+      status: VALID
+      state:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        masterAuthorizedNetworksConfig: {}
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+  - description: disabled_master_auth_networks_defaults_to_false
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          masterAuthorizedNetworksConfig: {enabled:}
+    expected:
+      status: VALID
+      state:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        masterAuthorizedNetworksConfig: {enabled:}
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+  - description: update_not_allowed_when_not_running
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          status: MIGRATING
+    expected:
+      exception: Exception
+      match: 'Cluster exists, but not running \(''MIGRATING''\)'
+  - description: update_not_supported_for_federated_clusters
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          locations: [europe-west1-a, europe-west2-b]
+    expected:
+      exception: Exception
+      match: 'Cluster locations are \[''europe-west1-a'', ''europe-west2-b''\] instead of \[''europe-west1-a''\]'
+  - description: update_node_version_not_allowed
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          currentNodeVersion: '1.7'
+    expected:
+      exception: Exception
+      match: 'Cluster node version is ''1.7'' instead of ''1.8'''
+  - description: update_not_supported_for_federated_clusters
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          locations: [europe-west1-a, europe-west2-b]
+    expected:
+      exception: Exception
+      match: 'Cluster locations are \[''europe-west1-a'', ''europe-west2-b''\] instead of \[''europe-west1-a''\]'
+  - description: update_master_version
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          currentMasterVersion: '1.7'
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.7'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: update-cluster-master-version, description: 'Update master version for cluster ''test''', args: [update_cluster_master_version]}
+  - description: update_illegal_master_version
+    resource:
+      config:
+        version: '2.1'
+    expected:
+      exception: Exception
+      match: 'version ''2.1'' is not supported as a master version in GKE'
+  - description: update_illegal_node_version
+    mock:
+      gke_server_config: {validMasterVersions: ['1.6','1.7','1.8', '2.1']}
+    resource:
+      config:
+        version: '2.1'
+    expected:
+      exception: Exception
+      match: 'version ''2.1'' is not supported as a node version in GKE'

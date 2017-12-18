@@ -1,0 +1,21 @@
+default_resource:
+  module: gcp_compute_ip_address
+  class: GcpIpAddress
+  name: ip
+  config:
+    project_id: prj
+    name: ip
+scenarios:
+  - description: 'create global ip address'
+    expected:
+      status: STALE
+      actions:
+        - {name: create, description: 'Create global IP address ''ip''', args: [create]}
+  - description: 'create regional ip address'
+    resource:
+      config:
+        region: europe-west1
+    expected:
+      status: STALE
+      actions:
+        - {name: create, description: 'Create regional IP address ''ip''', args: [create]}

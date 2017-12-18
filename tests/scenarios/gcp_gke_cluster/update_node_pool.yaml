@@ -1,0 +1,273 @@
+default_resource:
+  module: gcp_gke_cluster
+  class: GkeCluster
+  name: cluster
+  config: {project_id: prj, zone: europe-west1-a, name: test, description: 'test cluster', version: '1.8', node_pools: [{name: pool1}]}
+mock:
+  gke_server_config: {validMasterVersions: ['1.6','1.7','1.8'], validNodeVersions: ['1.6','1.7','1.8']}
+  gke_clusters:
+    prj-europe-west1-a-test:
+      status: RUNNING
+      zone: europe-west1-a
+      locations: [europe-west1-a]
+      currentMasterVersion: '1.8'
+      currentNodeVersion: '1.8'
+      monitoringService: monitoring.googleapis.com
+      loggingService: logging.googleapis.com
+      masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+      endpoint: 'http://1.2.3.4'
+      nodePools:
+        - name: pool1
+          status: RUNNING
+          version: '1.8'
+          config:
+            serviceAccount: jack
+            machineType: n1-standard-1
+            diskSizeGb: 20
+            preemptible: true
+            oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+            tags: [t1, t2]
+            metadata: {k1: v1, k2: v2}
+            labels: {lk1: v1, lk2: v2}
+          management: {autoRepair: true}
+          autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+scenarios:
+  - description: update_non_running_pool
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          nodePools:
+            - name: pool1
+              status: MIGRATING
+              version: '1.8'
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' exists, but not running \(''MIGRATING''\)'
+  - description: update_version
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          nodePools:
+            - name: pool1
+              status: RUNNING
+              version: '1.7'
+              management: {autoRepair: true}
+              autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.7'
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: update-node-pool-version, description: 'Update version of node pool ''pool1'' in cluster ''test''', args: [update_node_pool_version,pool1]}
+  - description: increase_size_with_inferred_max_size
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            min_size: 3
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: configure-node-pool-autoscaling, description: 'Configure auto-scaling of node pool ''pool1'' in cluster ''test''', args: [configure_node_pool_autoscaling, pool1, '3', '3']}
+  - description: increase_size_with_explicit_max_size
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            min_size: 3
+            max_size: 5
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: configure-node-pool-autoscaling, description: 'Configure auto-scaling of node pool ''pool1'' in cluster ''test''', args: [configure_node_pool_autoscaling, pool1, '3', '5']}
+  - description: service_account_change_fails
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            service_account: john
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' service account is ''jack'' instead of ''john'''
+  - description: oauth_scopes_change_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            oauth_scopes: [a,b]
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' OAuth scopes are .* instead of \[''a'', ''b''\]'
+  - description: preemptible_change1_fail
+    mock:
+      gke_clusters:
+        prj-europe-west1-a-test:
+          nodePools:
+            - name: pool1
+              status: RUNNING
+              version: '1.8'
+              config:
+                preemptible: false
+              management: {autoRepair: true}
+              autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            preemptible: true
+    expected:
+      exception: Exception
+      match: 'GKE node pools APIs do not allow enabling/disabling preemptibles usage mode'
+  - description: preemptible_change2_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            preemptible: false
+    expected:
+      exception: Exception
+      match: 'GKE node pools APIs do not allow enabling/disabling preemptibles usage mode'
+  - description: machine_type_change_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            machine_type: n1-standard-4
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' uses ''n1-standard-1'' instead of ''n1-standard-4'''
+  - description: disk_size_change_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            disk_size_gb: 50
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' allocates 20GB disk space instead of 50GB'
+  - description: network_tags_change_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            tags: [c]
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' network tags are .* instead of .*'
+  - description: metadata_change_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            metadata: {k3: v3}
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' GCE metadata is .* instead of .*'
+  - description: labels_change_fail
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+            labels: {lk3: v3}
+    expected:
+      exception: Exception
+      match: 'Node pool ''pool1'' Kubernetes labels are .* instead of .*'
+  - description: add_node_pool
+    resource:
+      config:
+        node_pools:
+          - name: pool1
+          - name: pool2
+    expected:
+      status: STALE
+      staleState:
+        status: RUNNING
+        zone: europe-west1-a
+        locations: [europe-west1-a]
+        currentMasterVersion: '1.8'
+        currentNodeVersion: '1.8'
+        monitoringService: monitoring.googleapis.com
+        loggingService: logging.googleapis.com
+        masterAuth: {clusterCaCertificate: abcdefghijklmnopqrstuvwxyz}
+        endpoint: 'http://1.2.3.4'
+        nodePools:
+          - name: pool1
+            status: RUNNING
+            version: '1.8'
+            config:
+              serviceAccount: jack
+              machineType: n1-standard-1
+              diskSizeGb: 20
+              preemptible: true
+              oauthScopes: ['https://www.googleapis.com/auth/compute', 'https://www.googleapis.com/auth/devstorage.read_only', 'https://www.googleapis.com/auth/logging.write', 'https://www.googleapis.com/auth/monitoring']
+              tags: [t1, t2]
+              metadata: {k1: v1, k2: v2}
+              labels: {lk1: v1, lk2: v2}
+            management: {autoRepair: true}
+            autoscaling: {enabled: true, minNodeCount: 1, maxNodeCount: 1}
+      actions:
+        - {name: create-node-pool, description: 'Create node pool ''pool2'' in cluster ''test''', args: [create_node_pool, pool2]}

@@ -1,3 +1,6 @@
 FROM infolinks/deployster-dresource:local
-RUN gcloud components install kubectl
-COPY src/gcp.py src/gcp_services.py src/gcp_project.py src/k8s.py src/gcp_gke_cluster.py /deployster/lib/
+RUN yum install -y kubectl && yum clean all
+COPY src/k8s*.py /deployster/lib/
+RUN chmod +x /deployster/lib/k8s_main.py
+ENTRYPOINT ["/deployster/lib/k8s_main.py"]
+CMD ["init"]

@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 
 VERSION="0.0.0"
+time $(dirname $0)/../.buildkite/build.sh ${VERSION}
+[[ $? != 0 ]] && echo "Build failed!" >&2 && exit 1
 
-echo "Building..." >&2
-$(dirname $0)/../.buildkite/build.sh ${VERSION} 2>&1 1>> ./.build.log
-[[ $? != 0 ]] && echo "Build failed! (inspect '.build.log' for details)" >&2 && exit 1
-
-DVERSION="${VERSION}" source \
-    $(dirname $0)/../deployster.sh --no-pull \
-                                   --var bar="hi!" \
-                                   --var-file vars.1.yaml \
-                                   --var-file vars.2.yaml \
-                                   $@
+DEPLOYSTER_VERSION="${VERSION}" \
+    source $(dirname $0)/../deployster.sh --var bar="hi!" \
+                                          --var-file vars.1.yaml \
+                                          --var-file vars.2.yaml \
+                                          $@

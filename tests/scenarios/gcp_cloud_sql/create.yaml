@@ -1,0 +1,108 @@
+default_resource:
+  module: gcp_cloud_sql
+  class: GcpCloudSql
+  name: db
+  config: {project_id: prj, zone: europe-west1-a, name: sql1, machine-type: db-1, root-password: abcdefg}
+mock:
+  gcp_project_apis:
+    prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
+  gcp_sql_tiers:
+    db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1]}
+  gcp_sql_flags:
+    bool-flag: {kind: 'sql#flag', name: bool-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: BOOLEAN}
+    int-flag: {kind: 'sql#flag', name: int-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], maxValue: 100, minValue: 1, type: INTEGER}
+    str-enum-flag: {kind: 'sql#flag', name: str-enum-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], allowedStringValues: [v1, v2, v3], type: STRING}
+    str-flag: {kind: 'sql#flag', name: str-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: STRING}
+    none-flag: {kind: 'sql#flag', name: none-flag, requiresRestart: true, appliesTo: [MYSQL_5_7], type: NONE}
+scenarios:
+  - description: all_properties
+    resource:
+      config:
+        backup: {enabled: true, time: '03:00'}
+        data-disk-size-gb: 15
+        data-disk-type: PD_SSD
+        flags:
+          - {name: bool-flag, value: 'on'}
+          - {name: str-flag, value: lalala}
+          - {name: str-enum-flag, value: v2}
+          - {name: int-flag, value: '99'}
+          - {name: none-flag}
+        require-ssl: true
+        authorized-networks:
+          - {expirationTime: '2012-11-15T16:19:00.094Z', name: office, value: 127.0.0.1}
+          - {expirationTime: '2016-11-15T16:19:00.094Z', name: home, value: 3.0.0.0}
+        maintenance: {day: Tuesday, hour: 18}
+        storage-auto-resize: {enabled: true, limit: 150}
+        labels: {key1: value1, key2: value2}
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: minimal
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_backup_disabled
+    resource:
+      config:
+        backup:
+          enabled: false
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_backup_and_implicit_time
+    resource:
+      config:
+        backup:
+          enabled: true
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_autoresize_disabled
+    resource:
+      config:
+        storage-auto-resize:
+          enabled: false
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_autoresize_and_implicit_limit
+    resource:
+      config:
+        storage-auto-resize:
+          enabled: true
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}
+  - description: with_script
+    resource:
+      config:
+        backup: {enabled: true, time: '03:00'}
+        data-disk-size-gb: 15
+        data-disk-type: PD_SSD
+        flags:
+          - {name: bool-flag, value: 'on'}
+          - {name: str-flag, value: lalala}
+          - {name: str-enum-flag, value: v2}
+          - {name: int-flag, value: '99'}
+          - {name: none-flag}
+        require-ssl: true
+        authorized-networks:
+          - {expirationTime: '2012-11-15T16:19:00.094Z', name: office, value: 127.0.0.1}
+          - {expirationTime: '2016-11-15T16:19:00.094Z', name: home, value: 3.0.0.0}
+        maintenance: {day: Tuesday, hour: 18}
+        storage-auto-resize: {enabled: true, limit: 150}
+        labels: {key1: value1, key2: value2}
+        scripts:
+          - name: my-script
+            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
+            when: []
+    expected:
+      status: STALE
+      actions:
+        - {name: create-sql-instance, description: 'Create SQL instance ''sql1''', args: [create_sql_instance]}

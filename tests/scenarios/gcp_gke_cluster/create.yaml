@@ -1,0 +1,14 @@
+default_resource:
+  module: gcp_gke_cluster
+  class: GkeCluster
+  name: cluster
+  config: {project_id: prj, zone: europe-west1-a, name: test, description: 'test cluster', version: '1.8', node_pools: [{name: pool1}]}
+mock:
+  gke_server_config: {validMasterVersions: ['1.6','1.7','1.8'], validNodeVersions: ['1.6','1.7','1.8']}
+  gke_clusters: {}
+scenarios:
+  - description: simple
+    expected:
+      status: STALE
+      actions:
+        - {name: create-cluster, description: 'Create cluster ''test''', args: [create_cluster]}
