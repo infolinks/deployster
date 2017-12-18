@@ -1,9 +1,28 @@
-from pathlib import Path
-from typing import Mapping, Sequence, Union, Any
-
 import time
+from pathlib import Path
+from typing import Mapping, Sequence, Union, Any, Tuple
 
+from docker import DockerInvoker
 from external_services import ExternalServices, SqlExecutor
+from util import Logger
+
+
+class MockDockerInvoker(DockerInvoker):
+
+    def __init__(self,
+                 volumes: Sequence[str] = None,
+                 return_code: int = -1,
+                 stderr: str = '',
+                 stdout: str = '') -> None:
+        super().__init__(volumes)
+        self._mock_return_code = return_code
+        self._mock_stderr = stderr
+        self._mock_stdout = stdout
+
+    def _invoke(self, local_work_dir: Path, container_work_dir: str, image: str, entrypoint: str = None,
+                args: Sequence[str] = None, input: dict = None, stderr_logger: Logger = None,
+                stdout_logger: Logger = None) -> Tuple[int, str, str]:
+        return self._mock_return_code, self._mock_stdout, self._mock_stderr
 
 
 class MockSqlExecutor(SqlExecutor):

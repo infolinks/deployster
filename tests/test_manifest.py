@@ -8,10 +8,10 @@ import pytest
 import yaml
 
 from context import Context
-from docker import DockerInvoker
 from manifest import Action, Manifest, Resource, ResourceStatus
 from manifest import Plug
-from util import Logger, UserError
+from mock_external_services import MockDockerInvoker
+from util import UserError
 
 
 @pytest.mark.parametrize("work_dir", [None, "/unknown/file", "./tests/.cache/action1"])
@@ -89,24 +89,6 @@ class MockResource(Resource):
 
     def execute(self) -> None:
         super().execute()
-
-
-class MockDockerInvoker(DockerInvoker):
-
-    def __init__(self,
-                 volumes: Sequence[str] = None,
-                 return_code: int = -1,
-                 stderr: str = '',
-                 stdout: str = '') -> None:
-        super().__init__(volumes)
-        self._mock_return_code = return_code
-        self._mock_stderr = stderr
-        self._mock_stdout = stdout
-
-    def _invoke(self, local_work_dir: Path, container_work_dir: str, image: str, entrypoint: str = None,
-                args: Sequence[str] = None, input: dict = None, stderr_logger: Logger = None,
-                stdout_logger: Logger = None) -> Tuple[int, str, str]:
-        return self._mock_return_code, self._mock_stdout, self._mock_stderr
 
 
 def find_scenarios() -> Sequence[Tuple[str, Path, dict, Sequence[Path]]]:
