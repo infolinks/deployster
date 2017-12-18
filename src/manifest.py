@@ -290,21 +290,6 @@ class Resource:
             except ValidationError as e:
                 raise UserError(f"illegal config for '{self.name}.config.{'.'.join(e.path)}': {e.message}\n"
                                 f"Must match schema: {e.schema}") from e
-                # raise UserError(f"illegal config for '{self.name}': {e.message}\n"
-                #                 f"path: {e.path}\n"
-                #                 f"context: {e.context}\n"
-                #                 f"absolute_path: {e.absolute_path}\n"
-                #                 f"absolute_schema_path: {e.absolute_schema_path}\n"
-                #                 f"cause: {e.cause}\n"
-                #                 f"instance: {e.instance}\n"
-                #                 f"parent: {e.parent}\n"
-                #                 f"relative_path: {e.relative_path}\n"
-                #                 f"relative_schema_path: {e.relative_schema_path}\n"
-                #                 f"schema: {e.schema}\n"
-                #                 f"schema_path: {e.schema_path}\n"
-                #                 f"validator: {e.validator}\n"
-                #                 f"validator_value: {e.validator_value}\n"
-                #                 f"args: {e.args}") from e
 
             # invoke the "state" action
             state_result = self._resolve_state(logger=logger)
