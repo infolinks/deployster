@@ -1,3 +1,6 @@
+import json
+import os
+from copy import deepcopy
 from pathlib import Path
 from typing import Sequence, Tuple, MutableSequence, Mapping
 
@@ -5,8 +8,10 @@ import pytest
 import yaml
 
 from context import Context
-from manifest import Action, Manifest, Resource
+from docker import DockerInvoker
+from manifest import Action, Manifest, Resource, ResourceStatus
 from manifest import Plug
+from util import Logger, UserError
 
 
 @pytest.mark.parametrize("work_dir", [None, "/unknown/file", "./tests/.cache/action1"])
@@ -86,6 +91,24 @@ class MockResource(Resource):
         super().execute()
 
 
+class MockDockerInvoker(DockerInvoker):
+
+    def __init__(self,
+                 volumes: Sequence[str] = None,
+                 return_code: int = -1,
+                 stderr: str = '',
+                 stdout: str = '') -> None:
+        super().__init__(volumes)
+        self._mock_return_code = return_code
+        self._mock_stderr = stderr
+        self._mock_stdout = stdout
+
+    def _invoke(self, local_work_dir: Path, container_work_dir: str, image: str, entrypoint: str = None,
+                args: Sequence[str] = None, input: dict = None, stderr_logger: Logger = None,
+                stdout_logger: Logger = None) -> Tuple[int, str, str]:
+        return self._mock_return_code, self._mock_stdout, self._mock_stderr
+
+
 def find_scenarios() -> Sequence[Tuple[str, Path, dict, Sequence[Path]]]:
     scenarios: MutableSequence[Tuple[str, Path, dict, Sequence[Path]]] = []
     root: Path = Path('./tests/manifest_scenarios').absolute()
@@ -159,3 +182,150 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                             {dep_name: manifest.resource(resource_name)
                              for dep_name, resource_name in expected_resource['dependencies'].items()}
                         assert resource.dependencies == expected_dependencies
+
+
+def test_resource_initialize(capsys):
+    scenario_dir: Path = Path('./tests/.cache/manifest_scenarios/test_resource_initialize')
+    os.makedirs(str(scenario_dir), exist_ok=True)
+    scenario_file: Path = scenario_dir / 'manifest.yaml'
+    with scenario_file.open('w') as f:
+        f.write(yaml.dump({
+            'plugs': {
+                'writable_plug': {'path': str(scenario_dir / 'p1'), 'read_only': False},
+                'readonly_plug': {'path': str(scenario_dir / 'p2'), 'read_only': True},
+                'restricted_plug': {'path': str(scenario_dir / 'p3'), 'resource_names': ['^rX$']}
+            },
+            'resources': {
+                'r1': {'type': 'r1:1'}
+            }
+        }))
+
+    context: Context = Context(version_file_path='./tests/test_version', env={
+        "CONF_DIR": scenario_dir / 'conf',
+        "WORKSPACE_DIR": scenario_dir / 'workspace',
+        "WORK_DIR": scenario_dir / 'work'
+    })
+    context.add_variable("k1", "v1")
+    context.add_variable("k2", "v2")
+    manifest: Manifest = Manifest(context=context, manifest_files=[scenario_file])
+    resource: Resource = manifest.resource('r1')
+
+    # test init action returning "-1"
+    resource._docker_invoker = MockDockerInvoker(return_code=-1, stderr='ERROR', stdout='ERROR')
+    with pytest.raises(UserError, match='Docker command terminated with exit code #-1'):
+        resource.initialize()
+
+    # test init action returning empty JSON
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps({}))
+    with pytest.raises(UserError, match='initialization result failed validation'):
+        resource.initialize()
+
+    # test init action result empty state action
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps({
+        'config_schema': {'type': 'object', 'additionalProperties': False},
+        'state_action': {}
+    }))
+    with pytest.raises(UserError, match='state action must not equal the default \'init\' action'):
+        resource.initialize()
+
+    # test init action result standard state action
+    init_result: dict = {
+        'config_schema': {'type': 'object', 'additionalProperties': False},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    resource.initialize()
+    assert resource._config_schema == deepcopy(init_result['config_schema'])
+
+    # test init action result requests optionally a missing plug
+    init_result: dict = {
+        'plugs': {'p0': {'container_path': '/some/where', 'optional': True}},
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    resource.initialize()
+    output: str = capsys.readouterr().out
+    assert output.find('Optional plug \'p0\' does not exist (skipped)') >= 0
+    assert resource._plugs == {}
+
+    # test init action result requires missing plug
+    init_result: dict = {
+        'plugs': {'p0': {'container_path': '/some/where', 'optional': False}},
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    with pytest.raises(UserError, match=f"plug \'p0\' required by \'r1\' does not exist"):
+        resource.initialize()
+
+    # test init action result requests optionally a restricted plug
+    init_result: dict = {
+        'plugs': {'restricted_plug': {'container_path': '/some/where', 'optional': True}},
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    resource.initialize()
+    output: str = capsys.readouterr().out
+    assert output.find('Optional plug \'restricted_plug\' is not allowed for this resource (skipped)') >= 0
+    assert resource._plugs == {}
+
+    # test init action result requires a restricted plug
+    init_result: dict = {
+        'plugs': {'restricted_plug': {'container_path': '/some/where', 'optional': False}},
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    with pytest.raises(UserError, match=f"plug \'restricted_plug\' required by \'r1\' is not allowed for it"):
+        resource.initialize()
+
+    # test init action result requests optionally a readonly plug as writable
+    init_result: dict = {
+        'plugs': {'readonly_plug': {'container_path': '/some/where', 'optional': True, 'writable': True}},
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    resource.initialize()
+    output: str = capsys.readouterr().out
+    assert output.find('Optional plug \'readonly_plug\' is readonly, but requested with write access (denied)') >= 0
+    assert resource._plugs == {}
+
+    # test init action result requires a readonly plug as writable
+    init_result: dict = {
+        'plugs': {'readonly_plug': {'container_path': '/some/where', 'optional': False, 'writable': True}},
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    with pytest.raises(UserError,
+                       match=f"plug \'readonly_plug\' required by \'r1\' is readonly, but requested with write access"):
+        resource.initialize()
+
+    # test init action result requests a valid plug
+    init_result: dict = {
+        'plugs': {
+            'readonly_plug': {'container_path': '/some/read/where', 'writable': False},
+            'writable_plug': {'container_path': '/some/write/where', 'writable': True}
+        },
+        'config_schema': {'type': 'object', 'additionalProperties': True},
+        'state_action': {'args': ['state']}
+    }
+    resource._docker_invoker = MockDockerInvoker(return_code=0, stderr='', stdout=json.dumps(init_result))
+    resource.initialize()
+    assert resource._plugs == {
+        '/some/read/where': manifest.plug('readonly_plug'),
+        '/some/write/where': manifest.plug('writable_plug')
+    }
+    assert resource._state_action.name == 'state'
+    assert resource._state_action.description == 'Discover state of resource \'r1\''
+    assert resource._state_action.image == resource.type
+    assert resource._state_action.entrypoint is None
+    assert resource._state_action.args == init_result['state_action']['args']
+    assert resource._status == ResourceStatus.INITIALIZED
+    assert resource._plug_volumes == [
+        f"{str(scenario_dir / 'p2')}:{init_result['plugs']['readonly_plug']['container_path']}:ro",
+        f"{str(scenario_dir / 'p1')}:{init_result['plugs']['writable_plug']['container_path']}:rw"
+    ]
