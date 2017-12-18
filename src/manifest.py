@@ -77,7 +77,8 @@ class Resource:
                  type: str,
                  readonly: bool,
                  config: dict = None,
-                 dependencies: Mapping[str, 'Resource'] = None) -> None:
+                 dependencies: Mapping[str, 'Resource'] = None,
+                 docker_invoker: DockerInvoker = None) -> None:
         super().__init__()
         self._manifest: 'Manifest' = manifest
         self._status: ResourceStatus = None
@@ -97,7 +98,8 @@ class Resource:
             f"{manifest.context.work_dir}:{manifest.context.work_dir}:rw",
         ]
         self._plug_volumes: Sequence[str] = None
-        self._docker_invoker: DockerInvoker = DockerInvoker(volumes=self._docker_volumes)
+        self._docker_invoker: DockerInvoker = \
+            docker_invoker if docker_invoker is not None else DockerInvoker(volumes=self._docker_volumes)
         self._plugs: MutableMapping[str, Plug] = {}
         self._state_action: Action = None
         self._state: dict = None
@@ -199,6 +201,12 @@ class Resource:
 
             # save actions
             state_action = result['state_action']
+            if ('image' not in state_action or not state_action['image']) \
+                    and ('entrypoint' not in state_action or not state_action['entrypoint']) \
+                    and ('args' not in state_action or not state_action['args']):
+                raise UserError(f"state action must not equal the default 'init' action (must have image, entrypoint, "
+                                f"args, or a combination of some of those.")
+
             self._state_action: Action = \
                 Action(work_dir=self._manifest.context.work_dir / self.name / "state",
                        name="state",
