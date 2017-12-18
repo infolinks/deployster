@@ -138,6 +138,9 @@ class DockerInvoker:
         if return_code != 0:
             raise UserError(f"Docker command terminated with exit code #{return_code}!")
         elif stdout:
-            return json.loads(stdout)
+            try:
+                return json.loads(stdout)
+            except json.decoder.JSONDecodeError as e:
+                raise UserError(f"Docker command provided invalid JSON: {e.msg}") from e
         else:
             raise UserError(f"Docker command did not provide any JSON back!")
