@@ -2,12 +2,11 @@ import os
 import shutil
 import subprocess
 from subprocess import PIPE
-from typing import Set
 
 from colors import underline, faint, bold
 
 from context import ConfirmationMode
-from manifest import Manifest, Resource
+from manifest import Manifest
 from util import UserError, Logger, italic, ask
 
 
