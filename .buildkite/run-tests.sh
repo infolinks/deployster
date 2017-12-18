@@ -6,6 +6,9 @@ PYTHONPATH="$(pwd)/src:$(pwd)/resources/src" \
             --cov-branch \
             --cov=./src/ \
             --cov=./resources/src/ \
+            --showlocals \
+            --capture=fd \
+            -vv \
             tests/ \
             $@
 [[ $? != 0 ]] && echo "Tests failed!" >&2 && exit 1
