@@ -49,3 +49,7 @@ state and hope to finish documenting Deployster soon!
 Deployster was written by the team @ Infolinks as a means to improve
 our deployment process. We plan to gradually open source more & more
 components of that pipeline in the coming months.
+
+[1]: https://cloud.google.com/deployment-manager/docs/configuration/supported-resource-types    "Google Deployment Manager"
+[2]: https://www.terraform.io/docs/providers/external/data_source.html                          "Terraform"
+[3]: http://jinja.pocoo.org/                                                                    "Jinja2"
