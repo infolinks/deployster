@@ -64,7 +64,6 @@ def parse_arguments(context: Context):
         argparser.add_argument('--var-file', action=VariablesFileAction, metavar='FILE', dest='context',
                                help='makes the variables in the given file available to the deployment manifest')
         argparser.add_argument('manifests', nargs='+', help='the deployment manifest to execute.')
-        argparser.add_argument('-p', '--plan', action='store_true', dest='plan', help="print deployment plan and exit")
         argparser.add_argument('-v', '--verbose', action='store_true', dest='verbose', help="increase verbosity")
         return argparser.parse_args()
 
