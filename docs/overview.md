@@ -19,6 +19,14 @@ how to search for, create or update GCP projects.
 resources to share state. Each resource type can request one or plugs
 from Deployster, and the deployer needs to satisfy those requirements.
 
+However, the most important aspect of Deployster is understanding what
+we call _the deployment lifecycle_ which is a bunch of fancy words to
+describe the different phases that Deployster walks through as it reads
+your manifests, discovers their state, and applies the relevant actions
+to them. However, it would be hard understand the lifecycle without
+first understanding the different entities that participate in it - so
+here are those main entities:
+
 ## Manifest
 
 The manifest represents the _desired_ state of your deployment topology.
@@ -132,3 +140,21 @@ it will only be mounted if the resource type requested the plug as such.
 
 If so, then when the resource type is run, the plug's file or directory
 is mounted to it.
+
+## What next?
+
+The following articles are a good place to go next:
+
+- [Quick start](./quickstart) in case you haven't read that yet
+- [Writing manifests](./manifests) is a more in-depth article on the
+available manifest syntax, options and best practices.
+- [Managing the context](./context) explains more on when & how to
+define variables, and how the context is built.
+- [Deployment lifecycle & protocol](./lifecycle) provides a good
+overview of how Deployster progresses through the phases of a deployment
+as well as the underlying _resource protocol_ that defines how
+Deployster and the _resource types_ communicate between them. Reading
+this enable you to create new resource types.
+- [Builtin resources](./builtin-resources) is the maintained list of
+resources that Deployster is pre-packaged with. It's still small, but
+we plan to grow this over time.

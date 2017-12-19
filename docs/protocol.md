@@ -1,4 +1,8 @@
-# Resources
+# Resource Protocol
+
+As mentioned in the [overview](./overview) page, each resource has a
+type, and that type is simply a Docker image. Deployster will run the
+image multiple times during the deployment lifecycle
 
 Resources in Deployster are Docker images that comply to a simple
 protocol. The actual Docker image can be implemented using any language,
