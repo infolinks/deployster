@@ -80,6 +80,33 @@ if [[ "${PUSH}" == "push" ]]; then
         docker push "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}"
     done
 
+    # push k8s docker image aliases
+    echo "Pushing Docker images for Kubernetes resources..." >&2
+    docker push "infolinks/deployster-k8s-clusterrole:${TAG}"
+    docker push "infolinks/deployster-k8s-clusterrolebinding:${TAG}"
+    docker push "infolinks/deployster-k8s-configmap:${TAG}"
+    docker push "infolinks/deployster-k8s-cronjob:${TAG}"
+    docker push "infolinks/deployster-k8s-daemonset:${TAG}"
+    docker push "infolinks/deployster-k8s-deployment:${TAG}"
+    docker push "infolinks/deployster-k8s-horizontalpodautoscaler:${TAG}"
+    docker push "infolinks/deployster-k8s-ingress:${TAG}"
+    docker push "infolinks/deployster-k8s-job:${TAG}"
+    docker push "infolinks/deployster-k8s-namespace:${TAG}"
+    docker push "infolinks/deployster-k8s-networkpolicy:${TAG}"
+    docker push "infolinks/deployster-k8s-node:${TAG}"
+    docker push "infolinks/deployster-k8s-persistentvolume:${TAG}"
+    docker push "infolinks/deployster-k8s-persistentvolumeclaim:${TAG}"
+    docker push "infolinks/deployster-k8s-pod:${TAG}"
+    docker push "infolinks/deployster-k8s-replicaset:${TAG}"
+    docker push "infolinks/deployster-k8s-replicationcontroller:${TAG}"
+    docker push "infolinks/deployster-k8s-role:${TAG}"
+    docker push "infolinks/deployster-k8s-rolebinding:${TAG}"
+    docker push "infolinks/deployster-k8s-secret:${TAG}"
+    docker push "infolinks/deployster-k8s-service:${TAG}"
+    docker push "infolinks/deployster-k8s-serviceaccount:${TAG}"
+    docker push "infolinks/deployster-k8s-statefulset:${TAG}"
+    docker push "infolinks/deployster-k8s-storageclass:${TAG}"
+
     # push deployster image
     echo "Pushing Docker image '${TAG_PREFIX}:${TAG}'..." >&2
     docker push "${TAG_PREFIX}:${TAG}"
