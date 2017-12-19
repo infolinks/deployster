@@ -52,7 +52,6 @@ optional arguments:
                         manifest
   --var-file FILE       makes the variables in the given file available to the
                         deployment manifest
-  -p, --plan            print deployment plan and exit
   -v, --verbose         increase verbosity
 
 Written by Infolinks @ https://github.com/infolinks/deployster
