@@ -26,13 +26,14 @@ def main():
     resource_type: str = data['type']
 
     # search for the K8sResource subclass to pass execution to
+    resource_factory: Callable[[dict], K8sResource] = K8sResource
     for type, resource_ctor in k8s_resource_types.items():
         if resource_type.startswith(type):
-            resource_ctor(data=data).execute()
-            return
+            resource_factory = resource_ctor
+            break
 
     # no resource handler found; use the default K8sResource class
-    K8sResource(data=data).execute()
+    resource_factory(data=data).execute()
 
 
 if __name__ == "__main__":
