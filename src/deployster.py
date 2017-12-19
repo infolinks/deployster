@@ -71,10 +71,6 @@ def parse_arguments(context: Context):
 def main():
     # create the shared context
     context: Context = Context()
-    print('')
-    with Logger(green(underline(bold(f":heavy_check_mark: Deployster v{context.version}")))) as logger:
-        logger.info(f":smile: {bold('Deploy with pleasure!')}")
-
     try:
         # load the auto files from user home and cwd
         context.load_auto_files()
@@ -83,6 +79,11 @@ def main():
         args = parse_arguments(context)
         context.verbose = args.verbose
         context.confirm = ConfirmationMode[args.confirm]
+
+        # print a cool header now...
+        print('')
+        with Logger(green(underline(bold(f":heavy_check_mark: Deployster v{context.version}")))) as logger:
+            logger.info(f":smile: {bold('Deploy with pleasure!')}")
 
         # display the context
         context.display()
