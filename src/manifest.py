@@ -259,19 +259,23 @@ class Resource:
         for dependency in self._dependencies.values():
             dependency.execute()
 
+        # if we're already resolving, we have a circular dependency loop
+        if self._status == ResourceStatus.RESOLVING:
+            # TODO: print dependency chain
+            raise UserError(f"illegal config: circular resource dependency encountered!")
+
+        # if we were already resolved, do nothing (this can happen)
+        elif self._status == ResourceStatus.VALID:
+            return
+
+        # fail if not initialized, or already resolving (circular dependency), and do nothing if already resolved
+        elif self._status is None:
+            raise Exception(f"internal error: cannot resolve un-initialized resource ('{self.name}')")
+
         with Logger(f":point_right: Inspecting {bold(self.name)} ({faint(self.type)})...") as logger:
             if self._manifest.context.confirm == ConfirmationMode.RESOURCE:
                 if util.ask(logger=logger, message=bold('Execute this resource?'), chars='yn', default='n') == 'n':
                     raise UserError(f"user aborted")
-
-            # fail if not initialized, or already resolving (circular dependency), and do nothing if already resolved
-            if self._status is None:
-                raise Exception(f"internal error: cannot resolve un-initialized resource ('{self.name}')")
-            elif self._status == ResourceStatus.RESOLVING:
-                # TODO: print dependency chain
-                raise UserError(f"illegal config: circular resource dependency encountered!")
-            elif self._status == ResourceStatus.VALID:
-                return
 
             # post-process configuration
             config_context: dict = deepcopy(self._manifest.context.data)

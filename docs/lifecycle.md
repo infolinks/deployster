@@ -102,7 +102,7 @@ and apply the `www_vm` resource.
 
 Here's a simple example showing how to declare resource dependencies:
 
-```YAML
+```yaml
 resources:
   
   my_data_disk:
@@ -152,7 +152,7 @@ Once all expressions under the `config` clause of the resource have been resolve
 Lets improve the example manifest above by adding an expression to the
 `www_vm` resource's `config` clause:
 
-```YAML
+```yaml
 resources:
   
   my_data_disk:
@@ -177,7 +177,7 @@ _"get the property `zone` from the `state` of the `www_data_disk` resource"_.
 
 So how would the input to the `state` action of `www_vm` resource look like? Lets assume that the `www_data_disk` resource exposed a `zone` property in its state with the value of `europe-west1-b`, the JSON sent to the `www_vm` resource on `stdin` would look like this:
 
-```JSON
+```json
 {
   "name": "www_vm",
   "type": "acme/deployster-aws-vm",
@@ -200,7 +200,7 @@ The response must match one of two possibilities:
 
 An example of a `VALID` resource would look as such:
 
-```JSON
+```json
 {
   "status": "VALID",
   "state": {
@@ -221,7 +221,7 @@ The `actions` property is **forbidden** in this scenario (ie. when `status` equa
 
 Alternatively, if the resource _does not_ match the provided configuration, the response should be something similar to this:
 
-```JSON
+```json
 {
   "status": "STALE",
   "actions": [
@@ -248,7 +248,7 @@ Such a response essentially signals to Deployster that:
 
 What if the resource _did_ exist, but is out of date for some reason - lets say its _machine-type_ is `n1-standard-1` instead of `n1-standard-4` because someone changed it manually few days ago. The response would look as such:
 
-```JSON
+```json
 {
   "status": "STALE",
   "staleState": {
@@ -274,6 +274,8 @@ Continuing the example from the _Resolving resources_ section above, assuming we
 
 If all the actions for a resource succeed, Deployster then re-queries that resource's `state` action, expecting it to now return the `VALID` status. Any action that fails (by returning a non-zero exit code) or if the subsequent invocation of the state action _does not_ return a `VALID` status, Deployster halts the execution with the appropriate error message.
 
+Actions do not need to return JSON in their `stdout` - in fact they can print anything they want into `stdout` & `stderr`, and it will be printed back to the user by Deployster.
 
-[1]: http://json-schema.org    "JSON Schema"
+
+[1]: http://json-schema.org "JSON Schema"
 [2]: https://github.com/infolinks/deployster/blob/master/src/schema/action-init-result.schema "init action JSON schema"
