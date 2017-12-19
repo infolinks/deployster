@@ -49,7 +49,7 @@ def test_k8s_resource_check_availability(capsys, timeout_ms, timeout_interval_ms
                                             r"or equal to total timeout \(\d+(.\d+)?\) duration"):
             MockK8sResource(time_until_available_ms=time_until_available_ms,
                             data=data,
-                            svc=MockExternalServices(k8s_objects={}))
+                            svc=MockExternalServices(k8s_objects={})).execute(["state"])
     else:
         resource = MockK8sResource(time_until_available_ms=time_until_available_ms,
                                    data=data,

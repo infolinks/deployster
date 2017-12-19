@@ -91,6 +91,7 @@ class K8sResource(DResource):
     def build_kubectl_manifest(self) -> dict:
         return deepcopy(self.info.config['manifest'])
 
+    @action
     def state(self, args) -> None:
         if self.timeout_interval_ms >= self.timeout_ms:
             raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
