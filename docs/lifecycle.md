@@ -92,9 +92,37 @@ same Docker image, but this time with an extra argument "state" (the
 Feel free to inspect the [`init` action JSON schema][2] for a detailed
 representation.
 
+## Resource sorting
+
+We haven't mentioned this yet, but you can declare dependencies between
+resources. Declaring that a resource `my_vm` _depends_ on the resource
+`my_data_disk`, means that Deployster will first resolve & apply the
+`my_data_disk` resource, and only if that succeeds, it will then resolve
+and apply the `my_vm` resource.
+
+Here's a simple example showing how to declare resource dependencies:
+
+```YAML
+resources:
+  
+  my_data_disk:
+    type: acme/deployster-gcp-disk
+    config:
+      name: www_data_disk
+      size: '200gb'
+
+  my_vm:
+    type: acme/deployster-gcp-vm
+    dependencies:    
+      disk: my_data_disk
+  hd
+```
+
 ## Execution
 
-Once all resources are initialized, we know each resource'
+Once all resources are initialized, Deployster will iterate the
+resources in
+`state action` for each resource. The
 
 [1]: http://json-schema.org    "JSON Schema"
 [2]: https://github.com/infolinks/deployster/blob/master/src/schema/action-init-result.schema "init action JSON schema"
