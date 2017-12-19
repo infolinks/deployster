@@ -58,10 +58,6 @@ class K8sResource(DResource):
             }
         })
 
-        if self.timeout_interval_ms >= self.timeout_ms:
-            raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
-                            f"than or equal to total timeout ({self.timeout_ms / 1000}) duration")
-
     @property
     def timeout_ms(self) -> int:
         return self.info.config['timeout_ms'] if 'timeout_ms' in self.info.config else 60 * 5 * 1000
@@ -94,6 +90,12 @@ class K8sResource(DResource):
 
     def build_kubectl_manifest(self) -> dict:
         return deepcopy(self.info.config['manifest'])
+
+    def state(self, args) -> None:
+        if self.timeout_interval_ms >= self.timeout_ms:
+            raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
+                            f"than or equal to total timeout ({self.timeout_ms / 1000}) duration")
+        super().state(args)
 
     @action
     def create(self, args) -> None:
