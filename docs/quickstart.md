@@ -100,8 +100,10 @@ plugs:
 resources:
   
   my-ip-address:
-    project_id: "${GCP_PROJECT}"
-    name: tutorial-ip
+    type: infolinks/deployster-gcp-compute-ip-address
+    config:
+      project_id: "${GCP_PROJECT}"
+      name: tutorial-ip
 EOT
 ```
 
