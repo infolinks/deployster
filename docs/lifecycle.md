@@ -277,5 +277,5 @@ If all the actions for a resource succeed, Deployster then re-queries that resou
 Actions do not need to return JSON in their `stdout` - in fact they can print anything they want into `stdout` & `stderr`, and it will be printed back to the user by Deployster.
 
 
-[1]: http://json-schema.org    "JSON Schema"
+[1]: http://json-schema.org "JSON Schema"
 [2]: https://github.com/infolinks/deployster/blob/master/src/schema/action-init-result.schema "init action JSON schema"
