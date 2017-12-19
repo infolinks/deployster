@@ -20,12 +20,13 @@ for dockerfile in $(ls -X ${RESOURCES_HOME}/Dockerfile.*|grep -v ".local"); do
     IMAGE_NAME=$(echo "${dockerfile}" | sed "s/.*\/Dockerfile\.\(.\+\)$/\1/g")
     IMAGE_NAME=${IMAGE_NAME//_/-}
 
-    echo "Re-tagging Docker image '${TAG_PREFIX}-${IMAGE_NAME}:${TAG}'..." >&2
+    echo "Re-tagging Docker image '${TAG_PREFIX}-${IMAGE_NAME}:${TAG}' to '${TAG_PREFIX}-${IMAGE_NAME}:latest'..." >&2
     docker tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" "${TAG_PREFIX}-${IMAGE_NAME}:latest"
     docker push "${TAG_PREFIX}-${IMAGE_NAME}:latest"
 done
 
 # re-tag k8s synonyms
+echo "Re-tagging Kubernetes resources to the 'latest' tag..."
 docker tag "${TAG_PREFIX}-${IMAGE_NAME}:${TAG}" "${TAG_PREFIX}-${IMAGE_NAME}:latest"
 docker tag "infolinks/deployster-k8s-clusterrole:${TAG}" "infolinks/deployster-k8s-clusterrole:latest"
 docker tag "infolinks/deployster-k8s-clusterrolebinding:${TAG}" "infolinks/deployster-k8s-clusterrolebinding:latest"
