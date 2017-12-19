@@ -24,7 +24,7 @@ to be printed out (for debugging or just for logging)
 
 All of this is sent via `stdin` as JSON, in the following format:
 
-```JSON
+```json
 {
   "name": "my_vm",
   "type": "acme/deployster-aws-vm",
@@ -95,5 +95,6 @@ representation.
 ## Execution
 
 Once all resources are initialized, we know each resource'
+
 [1]: http://json-schema.org    "JSON Schema"
 [2]: https://github.com/infolinks/deployster/blob/master/src/schema/action-init-result.schema "init action JSON schema"
