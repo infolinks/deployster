@@ -233,7 +233,7 @@ class MockExternalServices(ExternalServices):
         key = f"{api_version}-{kind}-{namespace}-{name}"
         return self._k8s_objects[key] if key in self._k8s_objects else None
 
-    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
+    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = True) -> None:
         api_version: str = manifest["apiVersion"]
         kind: str = manifest["kind"]
         metadata: dict = manifest["metadata"]
@@ -245,7 +245,7 @@ class MockExternalServices(ExternalServices):
             duration: int = self._k8s_create_times[key]
             time.sleep(duration / 1000)
 
-    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
+    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = True) -> None:
         api_version: str = manifest["apiVersion"]
         kind: str = manifest["kind"]
         metadata: dict = manifest["metadata"]
