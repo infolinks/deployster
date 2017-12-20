@@ -508,15 +508,19 @@ class ExternalServices:
         process = subprocess.run(f"{cmd}", shell=True, check=True, stdout=subprocess.PIPE)
         return json.loads(process.stdout) if process.stdout else None
 
-    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
-        subprocess.run(f"kubectl create -f -",
+    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = False) -> None:
+        if verbose:
+            print(f"Creating Kubernetes object from:\n{json.dumps(manifest, indent=2)}")
+        subprocess.run(f"kubectl create --save-config=true -f -",
                        input=json.dumps(manifest),
                        encoding='utf-8',
                        check=True,
                        timeout=timeout,
                        shell=True)
 
-    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
+    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = False) -> None:
+        if verbose:
+            print(f"Updating Kubernetes object from:\n{json.dumps(manifest, indent=2)}")
         subprocess.run(f"kubectl apply -f -",
                        input=json.dumps(manifest),
                        encoding='utf-8',
