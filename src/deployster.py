@@ -4,6 +4,7 @@ import argparse
 import os
 import termios
 import traceback
+from pathlib import Path
 
 from colors import bold, underline, green
 
@@ -89,7 +90,7 @@ def main():
         context.display()
 
         # load & display the manifest
-        manifest: Manifest = Manifest(context=context, manifest_files=args.manifests)
+        manifest: Manifest = Manifest(context=context, manifest_files=[Path(p).absolute() for p in args.manifests])
         manifest.display_plugs()
 
         # build the deployment plan, display, and potentially execute it

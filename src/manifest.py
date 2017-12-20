@@ -27,7 +27,7 @@ class Action:
                  entrypoint: str = None,
                  args: Sequence[str] = None) -> None:
         super().__init__()
-        self._work_dir = work_dir
+        self._work_dir = work_dir.absolute()
         self._name: str = name
         self._description: str = description
         self._image: str = image
@@ -273,9 +273,6 @@ class Resource:
             raise Exception(f"internal error: cannot resolve un-initialized resource ('{self.name}')")
 
         with Logger(f":point_right: Inspecting {bold(self.name)} ({faint(self.type)})...") as logger:
-            if self._manifest.context.confirm == ConfirmationMode.RESOURCE:
-                if util.ask(logger=logger, message=bold('Execute this resource?'), chars='yn', default='n') == 'n':
-                    raise UserError(f"user aborted")
 
             # post-process configuration
             config_context: dict = deepcopy(self._manifest.context.data)
@@ -313,6 +310,10 @@ class Resource:
                             entrypoint=action['entrypoint'] if 'entrypoint' in action else None,
                             args=action['args'] if 'args' in action else None) for action in state_result['actions']]
 
+                if self._manifest.context.confirm == ConfirmationMode.RESOURCE:
+                    if util.ask(logger=logger, message=bold('Execute this resource?'), chars='yn', default='n') == 'n':
+                        raise UserError(f"user aborted")
+
                 # execute the "apply" actions
                 for action in self._apply_actions:
                     with Logger(header=f":wrench: {action.description} ({action.name})") as action_logger:
@@ -340,6 +341,7 @@ class Resource:
                                 'staleState': state_result["staleState"] if "staleState" in state_result else {}
                             }
                         )
+                        # TODO: consider refreshing state after every action?
 
                 # verify that the resource is now VALID
                 updated_state_result: dict = self._resolve_state(logger=logger)
@@ -347,7 +349,7 @@ class Resource:
                     raise UserError(f"protocol error: expected '{self.name}' to be VALID after applying actions")
                 else:
                     self._status = ResourceStatus.VALID
-                    self._state = state_result['state']
+                    self._state = updated_state_result['state']
             else:
                 raise Exception(f"internal error: unrecognized status '{self._status}' for '{self.name}'")
 
@@ -360,7 +362,7 @@ class Plug:
                  allowed_resource_names: Sequence[str],
                  allowed_resource_types: Sequence[str]):
         self._name: str = name
-        self._path: Path = Path(os.path.expanduser(path=path))
+        self._path: Path = Path(os.path.expanduser(path=path)).absolute()
         self._readonly: bool = readonly
         self._resource_name_patterns: Sequence[Pattern] = [re.compile(name) for name in allowed_resource_names]
         self._resource_type_patterns: Sequence[Pattern] = [re.compile(type) for type in allowed_resource_types]
@@ -413,7 +415,7 @@ class Manifest:
         }
 
         # read manifest files
-        for manifest_file in manifest_files:
+        for manifest_file in self._manifest_files:
             with open(manifest_file, 'r') as f:
                 # read the manifest
                 try:
