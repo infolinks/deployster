@@ -138,6 +138,7 @@ class Resource:
                     spacious=False) as logger:
 
             # execute resource Docker image with the default entrypoint
+            # TODO: consider caching init results since they are not expected to change per resource-type
             result = self._docker_invoker.run_json(
                 logger=logger,
                 local_work_dir=self._manifest.context.work_dir / self.name / "init",
