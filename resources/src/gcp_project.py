@@ -51,9 +51,9 @@ class GcpProject(GcpResource):
         project: dict = self.svc.find_gcp_project(self.info.config['project_id'])
         if project is None:
             return None
-        elif project['lifecycleState'] == 'DELETE_REQUESTED':
+        elif 'lifecycleState' in project and project['lifecycleState'] == 'DELETE_REQUESTED':
             raise Exception(f"project '{self.info.config['project_id']}' is pending deletion, and is thus unusable")
-        elif project['lifecycleState'] != 'ACTIVE':
+        elif 'lifecycleState' in project and project['lifecycleState'] != 'ACTIVE':
             raise Exception(f"project '{self.info.config['project_id']}' is {project['lifecycleState']} "
                             f"(must be ACTIVE)")
 
