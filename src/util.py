@@ -1,3 +1,4 @@
+import pprint
 import termios
 import tty
 from contextlib import AbstractContextManager
@@ -123,7 +124,8 @@ def post_process(value: Any, context: dict) -> Any:
                 expr = expr[2:len(expr) - 2]
                 result = environment.compile_expression(source=expr, undefined_to_none=False)(context)
                 if type(result) == Undefined:
-                    raise UserError(f"expression '{expr}' yielded an undefined result (are all variables defined?)")
+                    raise UserError(f"expression '{expr}' yielded an undefined result (are all variables defined?)\n"
+                                    f"Context is: {pprint.pformat(context)}")
                 else:
                     return result
             elif expr.find('{{') >= 0:
@@ -133,9 +135,11 @@ def post_process(value: Any, context: dict) -> Any:
             else:
                 return expr
         except UndefinedError as e:
-            raise UserError(f"undefined variable used in expression '{expr}': {e.message}") from e
+            raise UserError(f"undefined variable used in expression '{expr}': {e.message}\n"
+                            f"Context is: {pprint.pformat(context)}") from e
         except TemplateSyntaxError as e:
-            raise UserError(f"expression error in '{expr}': {e.message}") from e
+            raise UserError(f"expression error in '{expr}': {e.message}\n"
+                            f"Context is: {pprint.pformat(context)}") from e
 
     def _post_process_config(value) -> Any:
         if isinstance(value, str):
