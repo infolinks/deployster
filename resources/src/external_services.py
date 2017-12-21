@@ -226,6 +226,8 @@ class ExternalServices:
             if status == 409:
                 raise Exception(f"failed creating SQL instance, possibly due to instance name reuse (you can't "
                                 f"reuse an instance name for a week after its deletion)") from e
+            else:
+                raise
 
     def patch_gcp_sql_instance(self, project_id: str, instance: str, body: dict) -> None:
         service = self._get_gcp_service('sqladmin', 'v1beta4')
