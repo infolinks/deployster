@@ -525,10 +525,12 @@ class GcpCloudSql(GcpResource):
             }
         })
 
-        cfg: dict = self.info.config
-        if "maintenance" in cfg and cfg["maintenance"] is not None:
-            if 'day' in cfg["maintenance"] and type(cfg["maintenance"]['day']) == str:
-                cfg["maintenance"]['day'] = _translate_day_name_to_number(cfg["maintenance"]['day'])
+        # translate maintenance window name to number
+        if self.info.has_config:
+            cfg: dict = self.info.config
+            if "maintenance" in cfg and cfg["maintenance"] is not None:
+                if 'day' in cfg["maintenance"] and type(cfg["maintenance"]['day']) == str:
+                    cfg["maintenance"]['day'] = _translate_day_name_to_number(cfg["maintenance"]['day'])
 
     def discover_state(self):
         cfg: dict = self.info.config
@@ -861,9 +863,13 @@ class GcpCloudSql(GcpResource):
 
         # create instance
         project_id: str = cfg['project_id']
+        if self.info.verbose:
+            print(f"Creating Cloud SQL instance using:\n{json.dumps(body, indent=2)}")
         self.svc.create_gcp_sql_instance(project_id=project_id, body=body)
 
         # set 'root' password
+        if self.info.verbose:
+            print(f"Updating root user's password")
         self.svc.update_gcp_sql_user(project_id=project_id, instance=cfg['name'], password=cfg['root-password'])
 
         # check for scripts that need to be executed

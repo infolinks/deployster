@@ -50,7 +50,10 @@ def find_scenarios(scenario_pattern: str) -> Sequence[Tuple[str, dict, dict, dic
     return scenarios
 
 
-def create_resource(svc: MockExternalServices, resource: dict, extra_data: dict = None) -> DResource:
+def create_resource(svc: MockExternalServices,
+                    resource: dict,
+                    include_config: bool = False,
+                    extra_data: dict = None) -> DResource:
     """Creates a resource instance (subclass of DResource)."""
     module = importlib.import_module(resource["module"])
     resource_type: Callable[[dict, ExternalServices], DResource] = getattr(module, resource["class"])
@@ -58,8 +61,9 @@ def create_resource(svc: MockExternalServices, resource: dict, extra_data: dict 
             "type": resource["class"],
             "version": resource["version"] if "version" in resource else "0.0.0",
             "verbose": resource["verbose"] if 'verbose' in resource else True,
-            "workspace": "/workspace",
-            "config": resource["config"]}
+            "workspace": "/workspace"}
+    if include_config:
+        data.update({"config": resource["config"]})
     if extra_data is not None:
         data.update(extra_data)
     return resource_type(data, svc)
@@ -102,9 +106,9 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
     # test "state" action, and read its result from stdout
     if 'exception' in expected:
         with pytest.raises(eval(expected['exception']), match=expected["match"] if 'match' in expected else r'.*'):
-            create_resource(svc=mock_services, resource=resource).execute(['state'])
+            create_resource(svc=mock_services, resource=resource, include_config=True).execute(['state'])
     else:
-        create_resource(svc=mock_services, resource=resource).execute(['state'])
+        create_resource(svc=mock_services, resource=resource, include_config=True).execute(['state'])
         state = json.loads(capsys.readouterr().out)
         assert state == expected
 
@@ -113,4 +117,7 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
             for action in state["actions"]:
                 extra_data: dict = {'staleState': state['staleState'] if 'staleState' in state else {}}
                 args = action['args'] if 'args' in action else []
-                create_resource(svc=mock_services, resource=resource, extra_data=extra_data).execute(args)
+                create_resource(svc=mock_services,
+                                resource=resource,
+                                include_config=True,
+                                extra_data=extra_data).execute(args)
