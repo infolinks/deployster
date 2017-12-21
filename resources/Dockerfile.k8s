@@ -1,5 +1,6 @@
 FROM infolinks/deployster-dresource:local
 RUN yum install -y kubectl && yum clean all
+COPY src/dresources_util.py src/dresources.py src/external_services.py /deployster/lib/
 COPY src/k8s*.py /deployster/lib/
 RUN chmod +x /deployster/lib/k8s_main.py
 ENTRYPOINT ["/deployster/lib/k8s_main.py"]

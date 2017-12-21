@@ -12,6 +12,3 @@ RUN sed -i 's/enabled=1/enabled=0/' /etc/yum/pluginconf.d/fastestmirror.conf && 
 # setup Python execution
 ENV PYTHONPATH "/deployster/lib:$PYTHONPATH"
 ENV PYTHONUNBUFFERED="1"
-
-# copy sources
-COPY src/dresources_util.py src/dresources.py src/external_services.py /deployster/lib/

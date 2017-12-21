@@ -1,4 +1,5 @@
 FROM infolinks/deployster-gcp:local
+COPY src/dresources_util.py src/dresources.py src/external_services.py /deployster/lib/
 COPY src/gcp_gke_cluster.py /deployster/lib/
 RUN chmod +x /deployster/lib/gcp_gke_cluster.py
 ENTRYPOINT ["/deployster/lib/gcp_gke_cluster.py"]
