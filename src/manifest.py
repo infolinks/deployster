@@ -290,7 +290,13 @@ class Resource:
             try:
                 jsonschema.validate(self._resolved_config, self._config_schema)
             except ValidationError as e:
-                raise UserError(f"illegal config for '{self.name}.config.{'.'.join(e.path)}': {e.message}\n"
+                path: str = ''
+                for token in e.path:
+                    if path:
+                        path: str = path + '[' + str(token) + ']' if type(token) == int else path + '.' + str(token)
+                    else:
+                        path = str(token)
+                raise UserError(f"illegal config for '{self.name}.config.{path}': {e.message}\n"
                                 f"Must match schema: {e.schema}") from e
 
             # invoke the "state" action
