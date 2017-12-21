@@ -26,7 +26,6 @@ class DockerInvoker:
                 input: dict = None,
                 stderr_logger: Logger = None,
                 stdout_logger: Logger = None) -> Tuple[int, str, str]:
-        # TODO: if image tag is "latest", re-pull; perhaps apply a global "pull policy" here?
 
         # the timestamp serves as a unique invocation ID in the work dir
         timestamp = datetime.datetime.utcnow().isoformat("T") + "Z"

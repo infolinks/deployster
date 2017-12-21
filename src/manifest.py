@@ -138,7 +138,6 @@ class Resource:
                     spacious=False) as logger:
 
             # execute resource Docker image with the default entrypoint
-            # TODO: consider caching init results since they are not expected to change per resource-type
             result = self._docker_invoker.run_json(
                 logger=logger,
                 local_work_dir=self._manifest.context.work_dir / self.name / "init",
@@ -262,7 +261,6 @@ class Resource:
 
         # if we're already resolving, we have a circular dependency loop
         if self._status == ResourceStatus.RESOLVING:
-            # TODO: print dependency chain
             raise UserError(f"illegal config: circular resource dependency encountered!")
 
         # if we were already resolved, do nothing (this can happen)
@@ -348,7 +346,6 @@ class Resource:
                                 'staleState': state_result["staleState"] if "staleState" in state_result else {}
                             }
                         )
-                        # TODO: consider refreshing state after every action?
 
                 # verify that the resource is now VALID
                 updated_state_result: dict = self._resolve_state(logger=logger)
@@ -498,8 +495,6 @@ class Manifest:
         return self._context
 
     def display_plugs(self) -> None:
-        # TODO: print manifest files too?
-
         with Logger(header=f":electric_plug: {underline('Plugs:')}"):
             for name, value in self.plugs.items():
                 with Logger(header=f":point_right: {name}: {bold(value.path)}", spacious=False):

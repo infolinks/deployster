@@ -8,7 +8,6 @@ class K8sIngress(K8sResource):
         super().__init__(data=data, svc=svc)
 
     def is_available(self, state: dict) -> bool:
-        # TODO: consider waiting for kube-lego to generate the TLS certificate from LetsEncrypt (if it's installed)
         if 'status' not in state:
             return False
 

@@ -82,8 +82,6 @@ class GcpProject(GcpResource):
                         description=f"Set billing account to '{desired_billing_account}'"))
 
         if 'apis' in config:
-            # TODO: fail if the same API is both enabled & disabled
-
             apis = config['apis']
             if 'disabled' in apis:
                 for api_name in apis['disabled']:
