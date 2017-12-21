@@ -492,6 +492,8 @@ class Manifest:
         return self._context
 
     def display_plugs(self) -> None:
+        # TODO: print manifest files too?
+
         with Logger(header=f":electric_plug: {underline('Plugs:')}"):
             for name, value in self.plugs.items():
                 with Logger(header=f":point_right: {name}: {bold(value.path)}", spacious=False):
