@@ -508,7 +508,7 @@ class GcpCloudSql(GcpResource):
                         "type": "object",
                         "additionalProperties": False,
                         "properties": {
-                            "name": {"type": "string", "minLength": 4},
+                            "name": {"type": "string", "minLength": 1},
                             "password": {"type": "string", "minLength": 5}
                         }
                     }
