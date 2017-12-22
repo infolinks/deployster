@@ -4,7 +4,7 @@ import sys
 from abc import abstractmethod
 from pathlib import Path
 from time import sleep
-from typing import Sequence, MutableMapping, Union, Any, Mapping
+from typing import Sequence, MutableMapping, Union, Any, Mapping, MutableSequence
 
 import pymysql
 from googleapiclient.discovery import build
@@ -215,6 +215,15 @@ class ExternalServices:
                 if instance['name'] == instance_name:
                     return instance
         return None
+
+    def get_gcp_sql_users(self, project_id: str, instance_name: str) -> Sequence[dict]:
+        users_service = self._get_gcp_service('sqladmin', 'v1beta4').users()
+        result = users_service.list(project=project_id, instance=instance_name).execute()
+        users: MutableSequence[dict] = []
+        if 'items' in result:
+            for user in result['items']:
+                users.append({'name': user['name'], 'password': user['password'] if 'password' in user else None})
+        return users
 
     def create_gcp_sql_instance(self, project_id: str, body: dict) -> None:
         sql_service = self._get_gcp_service('sqladmin', 'v1beta4')

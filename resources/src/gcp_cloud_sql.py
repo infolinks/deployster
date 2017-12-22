@@ -501,6 +501,18 @@ class GcpCloudSql(GcpResource):
                     "type": "string",
                     "pattern": ".+"
                 },
+                "users": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "name": {"type": "string", "minLength": 4},
+                            "password": {"type": "string", "minLength": 5}
+                        }
+                    }
+                },
                 "scripts": {
                     "type": "array",
                     "items": {
@@ -604,7 +616,15 @@ class GcpCloudSql(GcpResource):
         enabled_apis = self.svc.find_gcp_project_enabled_apis(project_id=cfg['project_id'])
         if enabled_apis is not None:
             if 'sqladmin.googleapis.com' in enabled_apis and 'sql-component.googleapis.com' in enabled_apis:
-                return self.svc.get_gcp_sql_instance(project_id=cfg['project_id'], instance_name=cfg['name'])
+                instance = self.svc.get_gcp_sql_instance(project_id=cfg['project_id'], instance_name=cfg['name'])
+                if instance:
+                    if 'users' in self.info.config:
+                        users: list = self.svc.get_gcp_sql_users(project_id=cfg['project_id'],
+                                                                 instance_name=cfg['name'])
+                        instance['users'] = users
+                    else:
+                        instance['users'] = []
+                return instance
         return None
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
@@ -761,7 +781,6 @@ class GcpCloudSql(GcpResource):
             desired_maintenance: dict = cfg["maintenance"]
             actual_maintenance_window = actual_settings['maintenanceWindow']
             if desired_maintenance is None:
-                # TODO: ensure "update-maintenance-window" knows to DISABLE the maintenance window if its None
                 actions.append(DAction(name='update-maintenance-window',
                                        description=f"Disable SQL instance maintenance window"))
             else:
@@ -795,6 +814,19 @@ class GcpCloudSql(GcpResource):
                     if key not in actual_labels or value != actual_labels[key]:
                         actions.append(DAction(name='update-labels', description=f"Update SQL instance user-labels"))
                         break
+
+        # create missing users
+        if 'users' in cfg:
+            actual_users: list = actual['users']
+            for user in cfg['users']:
+                found: bool = False
+                for actual_user in actual_users:
+                    if user['name'] == actual_user['name']:
+                        found: bool = True
+                        break
+                if not found:
+                    # TODO: create user here
+                    pass
 
         # check for scripts that need to be executed
         if "scripts" in cfg:
@@ -982,7 +1014,7 @@ class GcpCloudSql(GcpResource):
         cfg = self.info.config
         self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
-                'maintenanceWindow': cfg["maintenance"]
+                'maintenanceWindow': cfg["maintenance"] if 'maintenance' in cfg else None
             }
         })
 
@@ -1003,7 +1035,6 @@ class GcpCloudSql(GcpResource):
     def update_labels(self, args) -> None:
         if args: pass
         cfg = self.info.config
-        # TODO: currently, this DOES NOT remove old labels, just adds new ones and updates existing ones
         self.svc.patch_gcp_sql_instance(project_id=cfg['project_id'], instance=cfg['name'], body={
             'settings': {
                 'userLabels': cfg['labels']

@@ -119,6 +119,10 @@ class MockExternalServices(ExternalServices):
     def get_gcp_sql_instance(self, project_id: str, instance_name: str):
         return self._gcp_sql_instances[instance_name] if instance_name in self._gcp_sql_instances else None
 
+    def get_gcp_sql_users(self, project_id: str, instance_name: str) -> Sequence[dict]:
+        # TODO: support mocking Cloud SQL users
+        return []
+
     def create_gcp_sql_instance(self, project_id: str, body: dict) -> None:
         pass
 
