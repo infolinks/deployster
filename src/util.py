@@ -2,11 +2,12 @@ import pprint
 import termios
 import tty
 from contextlib import AbstractContextManager
+from pathlib import Path
 from typing import Any, Callable
 
 import emoji
 from colors import *
-from jinja2 import Environment, Template, Undefined
+from jinja2 import Environment, Template, Undefined, FileSystemLoader
 from jinja2.exceptions import TemplateSyntaxError, UndefinedError
 
 
@@ -117,7 +118,7 @@ def ask(logger: Logger, message: str, chars: str, default: str) -> str:
 
 def post_process(value: Any, context: dict) -> Any:
     def _evaluate(expr: str) -> Any:
-        environment: Environment = Environment()
+        environment: Environment = Environment(loader=FileSystemLoader(str(Path('.').absolute())))
         try:
             if expr.startswith('{{') and expr.endswith('}}') and expr.find('{{') == expr.rfind('{{'):
                 # line is a single expression (only one '{{' token at the beginning, and '}}' at the end)
