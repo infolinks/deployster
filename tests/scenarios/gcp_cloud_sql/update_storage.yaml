@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -32,6 +33,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings:
           locationPreference: {zone: europe-west1-a}
           tier: db-1
@@ -57,6 +59,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-data-disk-size, description: 'Update SQL instance data disk size from 15gb to 20gb', args: [update_data_disk_size]}
@@ -69,6 +72,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-data-disk-type, description: 'Update SQL instance data disk type to ''PD_HDD''', args: [update_data_disk_type]}
@@ -95,6 +99,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-storage-auto-resize, description: 'Update SQL instance storage auto-resizing', args: [update_storage_auto_resize]}
@@ -109,6 +114,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings:
           locationPreference: {zone: europe-west1-a}
           tier: db-1

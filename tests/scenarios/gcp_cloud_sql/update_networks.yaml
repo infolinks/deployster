@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -48,6 +49,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: [{name: net1, value: 1.2.3.4}, {name: net2, value: 2.3.4.5}]}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-authorized-networks, description: 'Update SQL instance authorized networks', args: [update_authorized_networks]}
@@ -67,6 +69,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: [{name: net1, value: 1.2.3.4}, {name: net2, value: 2.3.4.5}]}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-authorized-networks, description: 'Update SQL instance authorized networks', args: [update_authorized_networks]}
@@ -86,6 +89,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: [{name: net1, value: 1.2.3.4}, {name: net2, value: 2.3.4.5}]}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-authorized-networks, description: 'Update SQL instance authorized networks (found stale network: net2)', args: [update_authorized_networks]}
@@ -103,6 +107,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: enable_ssl_requirement
     mock:
@@ -118,6 +123,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: false, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-require-ssl, description: 'Update SQL instance to require SSL connections', args: [update_require_ssl]}
@@ -130,6 +136,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-require-ssl, description: 'Update SQL instance to not require SSL connections', args: [update_require_ssl]}
@@ -142,6 +149,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings:
           locationPreference: {zone: europe-west1-a}
           tier: db-1

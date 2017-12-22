@@ -12,6 +12,7 @@ mock:
     sql1:
       state: MIGRATING
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
