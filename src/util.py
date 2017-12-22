@@ -128,7 +128,7 @@ def post_process(value: Any, context: dict) -> Any:
                                     f"Context is: {pprint.pformat(context)}")
                 else:
                     return result
-            elif expr.find('{{') >= 0:
+            elif expr.find('{{') >= 0 or expr.find('{%') >= 0:
                 # given string contains a jinja expression, use normal templating
                 template: Template = environment.from_string(expr, globals=context)
                 return template.render(context)
