@@ -20,7 +20,7 @@ class GcpProject(GcpResource):
             "required": ["project_id"],
             "additionalProperties": False,
             "properties": {
-                "project_id": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"},
+                "project_id": {"type": "string", "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])$"},
                 "organization_id": {"type": "integer"},
                 "billing_account_id": {"type": "string"},
                 "apis": {
