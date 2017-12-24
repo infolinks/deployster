@@ -79,6 +79,7 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
         gcp_project_billing_infos=mock[
             "gcp_project_billing_accounts"] if "gcp_project_billing_accounts" in mock else {},
         gcp_project_apis=mock["gcp_project_apis"] if "gcp_project_apis" in mock else {},
+        gcp_service_accounts=mock["gcp_service_accounts"] if "gcp_service_accounts" in mock else {},
         gcp_sql_tiers=mock["gcp_sql_tiers"] if "gcp_sql_tiers" in mock else {},
         gcp_sql_flags=mock["gcp_sql_flags"] if "gcp_sql_flags" in mock else {},
         gcp_sql_instances=mock["gcp_sql_instances"] if "gcp_sql_instances" in mock else {},

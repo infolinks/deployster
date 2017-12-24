@@ -1,0 +1,39 @@
+mock:
+  gcp_service_accounts:
+    projects/prj/serviceAccounts/test:
+      projectId: prj
+      name: test
+      displayName: test
+      etag: '123'
+default_resource:
+  module: gcp_service_account
+  class: GcpServiceAccount
+  name: sa
+  config:
+    project_id: prj
+    name: test
+    display_name: test
+scenarios:
+  - description: no_changes
+    expected:
+      status: VALID
+      state:
+        projectId: prj
+        name: test
+        displayName: test
+        etag: '123'
+  - description: change_display_name
+    resource:
+      config:
+        display_name: Testing Test
+    expected:
+      status: STALE
+      staleState:
+        projectId: prj
+        name: test
+        displayName: test
+        etag: '123'
+      actions:
+        - name: update-display-name
+          description: 'Update display name of service account ''projects/prj/serviceAccounts/test'''
+          args: [update_display_name, '123']

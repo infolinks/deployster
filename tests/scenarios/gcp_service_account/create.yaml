@@ -1,0 +1,15 @@
+default_resource:
+  module: gcp_service_account
+  class: GcpServiceAccount
+  name: sa
+  config:
+    project_id: prj
+    name: test
+scenarios:
+  - description: 'create service account'
+    expected:
+      status: STALE
+      actions:
+        - name: create-service-account
+          description: 'Create service account ''projects/prj/serviceAccounts/test'''
+          args: [create_service_account]

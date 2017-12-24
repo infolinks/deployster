@@ -196,6 +196,31 @@ class ExternalServices:
                 else:
                     raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
 
+    def find_service_account(self, project_id: str, name: str):
+        try:
+            sa_email: str = f"{name}@{project_id}.iam.gserviceaccount.com"
+            sa_resource_name: str = f"projects/-/serviceAccounts/{sa_email}"
+            return self._get_gcp_service('iam', 'v1').projects().serviceAccounts().get(name=sa_resource_name).execute()
+        except HttpError as e:
+            if e.resp.status == 404:
+                return None
+            else:
+                raise
+
+    def create_service_account(self, project_id: str, name: str, display_name: str):
+        self._get_gcp_service('iam', 'v1').projects().serviceAccounts().create(name=f"projects/{project_id}", body={
+            'accountId': name,
+            'serviceAccount': {'displayName': display_name if display_name else name}
+        }).execute()
+
+    def update_service_account_display_name(self, project_id: str, name: str, display_name: str, etag: str):
+        sa_email: str = f"{name}@{project_id}.iam.gserviceaccount.com"
+        sa_resource_name: str = f"projects/-/serviceAccounts/{sa_email}"
+        self._get_gcp_service('iam', 'v1').projects().serviceAccounts().update(name=sa_resource_name, body={
+            'displayName': display_name,
+            'etag': etag
+        }).execute()
+
     def get_gcp_sql_allowed_tiers(self, project_id: str) -> Mapping[str, str]:
         sql_service = self._get_gcp_service('sqladmin', 'v1beta4')
         return {tier['tier']: tier
