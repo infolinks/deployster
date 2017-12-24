@@ -4,12 +4,12 @@ default_resource:
   name: sa
   config:
     project_id: prj
-    name: test
+    email: test@google.com
 scenarios:
   - description: 'create service account'
     expected:
       status: STALE
       actions:
         - name: create-service-account
-          description: 'Create service account ''projects/prj/serviceAccounts/test'''
+          description: 'Create service account ''test@google.com'''
           args: [create_service_account]

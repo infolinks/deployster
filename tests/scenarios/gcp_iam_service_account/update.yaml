@@ -1,6 +1,6 @@
 mock:
   gcp_service_accounts:
-    projects/prj/serviceAccounts/test:
+    projects/prj/serviceAccounts/test@google.com:
       projectId: prj
       name: test
       displayName: test
@@ -11,7 +11,7 @@ default_resource:
   name: sa
   config:
     project_id: prj
-    name: test
+    email: test@google.com
     display_name: test
 scenarios:
   - description: no_changes
@@ -35,5 +35,5 @@ scenarios:
         etag: '123'
       actions:
         - name: update-display-name
-          description: 'Update display name of service account ''projects/prj/serviceAccounts/test'''
+          description: 'Update display name of service account ''test@google.com'''
           args: [update_display_name, '123']

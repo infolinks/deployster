@@ -16,40 +16,31 @@ class GcpIamServiceAccount(GcpResource):
         super().__init__(data=data, svc=svc)
         self.config_schema.update({
             "type": "object",
-            "required": ["project_id", "name"],
+            "required": ["project_id", "email"],
             "additionalProperties": False,
             "properties": {
                 "project_id": {"type": "string", "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])$"},
-                "name": {"type": "string", "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])$"},
+                "email": {"type": "string"},
                 "display_name": {"type": "string", "minLength": 1}
             }
         })
 
     def discover_state(self):
         project_id = self.info.config['project_id']
-        service_account_name = self.info.config['name']
-        return self.svc.find_service_account(project_id, service_account_name)
+        sa_email = self.info.config["email"]
+        return self.svc.find_service_account(project_id=project_id, email=sa_email)
 
     def get_actions_for_missing_state(self) -> Sequence[DAction]:
-        project_id = self.info.config['project_id']
-        service_account_name = self.info.config['name']
-        resource_name = f"projects/{project_id}/serviceAccounts/{service_account_name}"
-        return [
-            DAction(name=f"create-service-account", description=f"Create service account '{resource_name}'")
-        ]
+        sa_email = self.info.config["email"]
+        return [DAction(name=f"create-service-account", description=f"Create service account '{sa_email}'")]
 
     def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
-        project_id = self.info.config['project_id']
-        service_account_name = self.info.config['name']
-        resource_name = f"projects/{project_id}/serviceAccounts/{service_account_name}"
-
-        display_name = self.info.config['display_name']
-        if display_name != state['displayName']:
+        if 'display_name' in self.info.config and self.info.config['display_name'] != state['displayName']:
+            sa_email = self.info.config["email"]
             actions.append(DAction(name=f"update-display-name",
-                                   description=f"Update display name of service account '{resource_name}'",
+                                   description=f"Update display name of service account '{sa_email}'",
                                    args=["update_display_name", state['etag']]))
-
         return actions
 
     def configure_action_argument_parser(self, action: str, argparser: argparse.ArgumentParser):
@@ -63,20 +54,18 @@ class GcpIamServiceAccount(GcpResource):
     @action
     def create_service_account(self, args):
         if args: pass
-        project_id: str = self.info.config['project_id']
-        name: str = self.info.config['name']
-        display_name: str = self.info.config['display_name'] if 'display_name' in self.info.config else name
-        self.svc.create_service_account(project_id=project_id, name=name, display_name=display_name)
+        self.svc.create_service_account(
+            project_id=self.info.config['project_id'],
+            email=self.info.config["email"],
+            display_name=self.info.config['display_name'] if 'display_name' in self.info.config else None)
 
     @action
     def update_display_name(self, args):
-        project_id: str = self.info.config['project_id']
-        name: str = self.info.config['name']
-        display_name: str = self.info.config['display_name'] if 'display_name' in self.info.config else name
-        self.svc.update_service_account_display_name(project_id=project_id,
-                                                     name=name,
-                                                     display_name=display_name,
-                                                     etag=args.etag)
+        self.svc.update_service_account_display_name(
+            project_id=self.info.config['project_id'],
+            email=self.info.config["email"],
+            display_name=self.info.config['display_name'] if 'display_name' in self.info.config else None,
+            etag=args.etag)
 
 
 def main():

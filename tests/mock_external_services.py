@@ -112,14 +112,14 @@ class MockExternalServices(ExternalServices):
     def update_gcp_project(self, project_id: str, body: dict) -> None:
         pass
 
-    def find_service_account(self, project_id: str, name: str):
-        key: str = f"projects/{project_id}/serviceAccounts/{name}"
+    def find_service_account(self, project_id: str, email: str):
+        key: str = f"projects/{project_id}/serviceAccounts/{email}"
         return self._gcp_service_accounts[key] if key in self._gcp_service_accounts else None
 
-    def create_service_account(self, project_id: str, name: str, display_name: str):
+    def create_service_account(self, project_id: str, email: str, display_name: str):
         pass
 
-    def update_service_account_display_name(self, project_id: str, name: str, display_name: str, etag: str):
+    def update_service_account_display_name(self, project_id: str, email: str, display_name: str, etag: str):
         pass
 
     def get_gcp_sql_allowed_tiers(self, project_id: str) -> Mapping[str, dict]:
