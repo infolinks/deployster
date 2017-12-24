@@ -6,8 +6,8 @@ mock:
       displayName: test
       etag: '123'
 default_resource:
-  module: gcp_service_account
-  class: GcpServiceAccount
+  module: gcp_iam_service_account
+  class: GcpIamServiceAccount
   name: sa
   config:
     project_id: prj

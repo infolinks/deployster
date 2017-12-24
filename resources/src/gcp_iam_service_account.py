@@ -10,7 +10,7 @@ from external_services import ExternalServices
 from gcp import GcpResource
 
 
-class GcpServiceAccount(GcpResource):
+class GcpIamServiceAccount(GcpResource):
 
     def __init__(self, data: dict, svc: ExternalServices = ExternalServices()) -> None:
         super().__init__(data=data, svc=svc)
@@ -80,7 +80,7 @@ class GcpServiceAccount(GcpResource):
 
 
 def main():
-    GcpServiceAccount(json.loads(sys.stdin.read())).execute()  # pragma: no cover
+    GcpIamServiceAccount(json.loads(sys.stdin.read())).execute()  # pragma: no cover
 
 
 if __name__ == "__main__":
