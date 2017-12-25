@@ -107,7 +107,8 @@ class GcpIamPolicy(GcpResource):
 
         self.svc.update_project_iam_policy(project_id=self.info.config['project_id'],
                                            etag=args.etag,
-                                           bindings=final_bindings)
+                                           bindings=final_bindings,
+                                           verbose=self.info.verbose)
 
 
 def main():

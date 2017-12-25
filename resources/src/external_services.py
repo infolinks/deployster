@@ -227,10 +227,15 @@ class ExternalServices:
         return service.projects().getIamPolicy(resource=project_id, body={}).execute()
 
     def update_project_iam_policy(self, project_id: str, etag: str, bindings: Sequence[dict], verbose: bool = False):
-        if verbose:
-            print(f"Updating IAM policy for '{project_id}', using ETag '{etag}', to the following bindings:\n"
-                  f"{pformat(bindings)}",
-                  file=sys.stderr)
+        existing_policy: dict = self.get_project_iam_policy(project_id=project_id)
+        print(f"About to update IAM policy for project '{project_id}'.\n"
+              f"For reference, due to the sensitivity of this operation, here is the current IAM policy bindings:\n"
+              f"\n"
+              f"{pformat(existing_policy['bindings'])}\n"
+              f"\n"
+              f"The new IAM policy bindings will be:\n"
+              f"{pformat(bindings)}")
+
         service = self._get_gcp_service('cloudresourcemanager', 'v1')
         service.projects().setIamPolicy(resource=project_id, body={
             'policy': {
