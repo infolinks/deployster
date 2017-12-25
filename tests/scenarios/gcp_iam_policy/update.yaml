@@ -1,0 +1,94 @@
+mock:
+  gcp_iam_policies:
+    prj:
+      version: 1
+      etag: abc
+      bindings:
+        - role: roles/admin
+          members:
+            - 'serviceAccount:test1@infolinks.com'
+            - 'user:jack@infolinks.com'
+            - 'serviceAccount:test2@infolinks.com'
+        - role: roles/viewer
+          members:
+            - 'user:john@acme.com'
+            - 'serviceAccount:jenkins@acme.com'
+default_resource:
+  module: gcp_iam_policy
+  class: GcpIamPolicy
+  name: policy
+  config:
+    project_id: prj
+    bindings:
+      - role: roles/admin
+        members:
+          - 'serviceAccount:test1@infolinks.com'
+          - 'user:jack@infolinks.com'
+      - role: roles/viewer
+        members:
+          - 'serviceAccount:jenkins@acme.com'
+scenarios:
+  - description: no_changes
+    expected:
+      status: VALID
+      state:
+        version: 1
+        etag: abc
+        bindings:
+          - role: roles/admin
+            members:
+              - 'serviceAccount:test1@infolinks.com'
+              - 'user:jack@infolinks.com'
+              - 'serviceAccount:test2@infolinks.com'
+          - role: roles/viewer
+            members:
+              - 'user:john@acme.com'
+              - 'serviceAccount:jenkins@acme.com'
+  - description: add_to_existing_role
+    resource:
+      config:
+        bindings:
+          - role: roles/admin
+            members:
+              - 'serviceAccount:test3@infolinks.com'
+    expected:
+      status: STALE
+      staleState:
+        version: 1
+        etag: abc
+        bindings:
+          - role: roles/admin
+            members:
+              - 'serviceAccount:test1@infolinks.com'
+              - 'user:jack@infolinks.com'
+              - 'serviceAccount:test2@infolinks.com'
+          - role: roles/viewer
+            members:
+              - 'user:john@acme.com'
+              - 'serviceAccount:jenkins@acme.com'
+      actions:
+        - {name: update-policy, description: Update IAM policy, args: [update_policy, abc]}
+  - description: add_new_role
+    resource:
+      config:
+        bindings:
+          - role: roles/editor
+            members:
+              - 'serviceAccount:test3@infolinks.com'
+    expected:
+      status: STALE
+      staleState:
+        version: 1
+        etag: abc
+        bindings:
+          - role: roles/admin
+            members:
+              - 'serviceAccount:test1@infolinks.com'
+              - 'user:jack@infolinks.com'
+              - 'serviceAccount:test2@infolinks.com'
+          - role: roles/viewer
+            members:
+              - 'user:john@acme.com'
+              - 'serviceAccount:jenkins@acme.com'
+      actions:
+        - {name: update-policy, description: Update IAM policy, args: [update_policy, abc]}

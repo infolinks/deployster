@@ -51,7 +51,8 @@ class MockExternalServices(ExternalServices):
                  gcp_projects: Mapping[str, dict] = None,
                  gcp_project_billing_infos: Mapping[str, dict] = None,
                  gcp_project_apis: Mapping[str, Sequence[str]] = None,
-                 gcp_service_accounts: Mapping[str, dict] = None,
+                 gcp_iam_service_accounts: Mapping[str, dict] = None,
+                 gcp_iam_policies: Mapping[str, dict] = None,
                  gcp_sql_tiers: Mapping[str, dict] = None,
                  gcp_sql_flags: Mapping[str, dict] = None,
                  gcp_sql_instances: Mapping[str, dict] = None,
@@ -67,7 +68,8 @@ class MockExternalServices(ExternalServices):
         self._gcp_projects: Mapping[str, dict] = gcp_projects
         self._gcp_project_billing_infos: Mapping[str, dict] = gcp_project_billing_infos
         self._gcp_project_apis: Mapping[str, Sequence[str]] = gcp_project_apis
-        self._gcp_service_accounts: Mapping[str, dict] = gcp_service_accounts
+        self._gcp_iam_service_accounts: Mapping[str, dict] = gcp_iam_service_accounts
+        self._gcp_iam_policies: Mapping[str, dict] = gcp_iam_policies
         self._gcp_sql_tiers = gcp_sql_tiers
         self._gcp_sql_flags = gcp_sql_flags
         self._gcp_sql_instances = gcp_sql_instances
@@ -114,12 +116,18 @@ class MockExternalServices(ExternalServices):
 
     def find_service_account(self, project_id: str, email: str):
         key: str = f"projects/{project_id}/serviceAccounts/{email}"
-        return self._gcp_service_accounts[key] if key in self._gcp_service_accounts else None
+        return self._gcp_iam_service_accounts[key] if key in self._gcp_iam_service_accounts else None
 
     def create_service_account(self, project_id: str, email: str, display_name: str):
         pass
 
     def update_service_account_display_name(self, project_id: str, email: str, display_name: str, etag: str):
+        pass
+
+    def get_project_iam_policy(self, project_id: str):
+        return self._gcp_iam_policies[project_id] if project_id in self._gcp_iam_policies else None
+
+    def update_project_iam_policy(self, project_id: str, etag: str, bindings: Sequence[dict], verbose: bool = False):
         pass
 
     def get_gcp_sql_allowed_tiers(self, project_id: str) -> Mapping[str, dict]:

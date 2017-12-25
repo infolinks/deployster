@@ -3,6 +3,7 @@ import subprocess
 import sys
 from abc import abstractmethod
 from pathlib import Path
+from pprint import pformat
 from time import sleep
 from typing import Sequence, MutableMapping, Union, Any, Mapping, MutableSequence
 
@@ -219,6 +220,23 @@ class ExternalServices:
         self._get_gcp_service('iam', 'v1').projects().serviceAccounts().update(name=sa_resource_name, body={
             'displayName': display_name if display_name else email[0:email.find('@')].capitalize(),
             'etag': etag
+        }).execute()
+
+    def get_project_iam_policy(self, project_id: str):
+        service = self._get_gcp_service('cloudresourcemanager', 'v1')
+        return service.projects().getIamPolicy(resource=project_id, body={}).execute()
+
+    def update_project_iam_policy(self, project_id: str, etag: str, bindings: Sequence[dict], verbose: bool = False):
+        if verbose:
+            print(f"Updating IAM policy for '{project_id}', using ETag '{etag}', to the following bindings:\n"
+                  f"{pformat(bindings)}",
+                  file=sys.stderr)
+        service = self._get_gcp_service('cloudresourcemanager', 'v1')
+        service.projects().setIamPolicy(resource=project_id, body={
+            'policy': {
+                'bindings': bindings,
+                'etag': etag
+            }
         }).execute()
 
     def get_gcp_sql_allowed_tiers(self, project_id: str) -> Mapping[str, str]:

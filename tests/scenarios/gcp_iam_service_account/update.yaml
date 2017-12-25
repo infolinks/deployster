@@ -1,5 +1,5 @@
 mock:
-  gcp_service_accounts:
+  gcp_iam_service_accounts:
     projects/prj/serviceAccounts/test@google.com:
       projectId: prj
       name: test
