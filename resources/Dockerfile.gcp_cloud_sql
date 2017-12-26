@@ -1,7 +1,8 @@
 FROM infolinks/deployster-gcp:local
 RUN curl -sSL -o "/usr/local/bin/cloud_sql_proxy" "https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64" && \
     chmod +x /usr/local/bin/cloud_sql_proxy && \
-    yum install -y mariadb && yum clean all
+    yum install -y mariadb && yum clean all && rm -rf /var/cache/yum && \
+    pip3.6 --quiet --disable-pip-version-check --no-cache-dir install Jinja2
 COPY src/dresources_util.py src/dresources.py src/external_services.py /deployster/lib/
 COPY src/gcp_cloud_sql.py /deployster/lib/
 RUN chmod +x /deployster/lib/gcp_cloud_sql.py

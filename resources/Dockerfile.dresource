@@ -6,7 +6,7 @@ RUN sed -i 's/enabled=1/enabled=0/' /etc/yum/pluginconf.d/fastestmirror.conf && 
     yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
     yum install -y which python36u python36u-pip && \
     yum install -y google-cloud-sdk kubectl && \
-    yum clean all && \
+    yum clean all && rm -rf /var/cache/yum && \
     pip3.6 install PyYAML PyMySQL google-api-python-client ansicolors
 
 # setup Python execution
