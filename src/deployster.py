@@ -83,8 +83,9 @@ def main():
 
         # print a cool header now...
         print('')
-        with Logger(green(underline(bold(f":heavy_check_mark: Deployster v{context.version}")))) as logger:
-            logger.info(f":smile: {bold('Deploy with pleasure!')}")
+        with Logger(green(underline(bold(f"Deployster v{context.version} :heavy_check_mark: "
+                                         f"Deploy with pleasure :smile:")))) as logger:
+            pass
 
         # display the context
         context.display()
