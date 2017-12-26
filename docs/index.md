@@ -16,13 +16,13 @@ etc) are written as Docker images, allowing them to be reused in any deployment,
 
 - **Highly extensible**: since resource implementations are merely Docker images - you can create new resource types by creating your own Docker images, using any technology you want. Want to create a new resource that represents a GitHub repository using Ruby? Done. Just implement a new Docker image and write your source code in Ruby inside the image, then use that resource in any Deployster manifest. The Docker image name & tag represent the resource type.
 
-- **Stateless**: in contrast to similar tools, Deployster will never store your topology state (locally or remotely) which enables your to also work on your infrastructure & deployments manually or in other tools, side-by-side with Deployster. While we are aware that this might incurr a performance penalty at times (for state discovery) we believe this is preferrably to a _wrong state discovery_.
+- **Stateless**: in contrast to similar tools, Deployster will never store your topology state (locally or remotely) which enables your to also work on your infrastructure & deployments manually or in other tools, side-by-side with Deployster. While we are aware that this might incurr a performance penalty at times (for state discovery) we believe this is preferrable to a _wrong state discovery_.
 
 - **Reproducible**: deployments are meant to be idempotent, such that running the same deployment multiple times should yield the same result as running it just once, assuming that nothing else modified the state.
 
 ### Getting started & documentation
 
-The [quick start](http://www.deplosyer.online/quickstart) page will get you up & running in 10 minutes. For a more in-depth overview of Deployster, head over to the [overview](http://www.deplosyer.online/overview) page to learn more about the core concepts in Deployster.
+The [quick start](http://www.deployster.online/quickstart) page will get you up & running in 10 minutes. For a more in-depth overview of Deployster, head over to the [overview](http://www.deployster.online/overview) page to learn more about the core concepts in Deployster.
 
 ### And for the lazy...
 
