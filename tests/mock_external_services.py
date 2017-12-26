@@ -57,6 +57,7 @@ class MockExternalServices(ExternalServices):
                  gcp_sql_flags: Mapping[str, dict] = None,
                  gcp_sql_instances: Mapping[str, dict] = None,
                  gcp_sql_execution_results: Mapping[str, Sequence[dict]] = None,
+                 gcp_sql_users: Mapping[str, Sequence[dict]] = None,
                  gke_clusters: Mapping[str, dict] = None,
                  gke_server_config: Mapping[str, Any] = None,
                  gcp_compute_regional_ip_addresses: Mapping[str, Any] = None,
@@ -74,6 +75,7 @@ class MockExternalServices(ExternalServices):
         self._gcp_sql_flags = gcp_sql_flags
         self._gcp_sql_instances = gcp_sql_instances
         self._gcp_sql_execution_results = gcp_sql_execution_results
+        self._gcp_sql_users = gcp_sql_users
         self._gke_clusters = gke_clusters
         self._gke_server_config = gke_server_config
         self._gcp_compute_regional_ip_addresses = gcp_compute_regional_ip_addresses
@@ -140,8 +142,8 @@ class MockExternalServices(ExternalServices):
         return self._gcp_sql_instances[instance_name] if instance_name in self._gcp_sql_instances else None
 
     def get_gcp_sql_users(self, project_id: str, instance_name: str) -> Sequence[dict]:
-        # TODO: support mocking Cloud SQL users
-        return []
+        key = f"{project_id}-{instance_name}"
+        return self._gcp_sql_users[key] if key in self._gcp_sql_users else None
 
     def create_gcp_sql_instance(self, project_id: str, body: dict) -> None:
         pass
@@ -157,6 +159,9 @@ class MockExternalServices(ExternalServices):
 
     def create_gcp_sql_executor(self, **kwargs) -> SqlExecutor:
         return MockSqlExecutor(svc=self, sql_execution_results=self._gcp_sql_execution_results)
+
+    def create_gcp_sql_user(self, project_id: str, instance_name: str, user_name: str, password: str) -> None:
+        pass
 
     def get_gke_cluster(self, project_id: str, zone: str, name: str):
         key = f"{project_id}-{zone}-{name}"

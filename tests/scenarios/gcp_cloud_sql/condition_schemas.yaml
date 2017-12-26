@@ -26,7 +26,7 @@ scenarios:
   - description: any_missing_with_missing_schemas
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': []
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': []
     resource:
       config:
         scripts:
@@ -45,7 +45,7 @@ scenarios:
   - description: any_missing_with_existing_schemas
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA':
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA':
           - SCHEMA_NAME: my_schema
     resource:
       config:
@@ -63,7 +63,7 @@ scenarios:
   - description: any_missing_with_existing_schemas
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA':
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA':
           - SCHEMA_NAME: my_schema
     resource:
       config:

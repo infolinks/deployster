@@ -85,6 +85,7 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
         gcp_sql_flags=mock["gcp_sql_flags"] if "gcp_sql_flags" in mock else {},
         gcp_sql_instances=mock["gcp_sql_instances"] if "gcp_sql_instances" in mock else {},
         gcp_sql_execution_results=mock["gcp_sql_execution_results"] if "gcp_sql_execution_results" in mock else {},
+        gcp_sql_users=mock["gcp_sql_users"] if "gcp_sql_users" in mock else {},
         gke_clusters=mock["gke_clusters"] if "gke_clusters" in mock else {},
         gke_server_config=mock["gke_server_config"] if "gke_server_config" in mock else {},
         gcp_compute_regional_ip_addresses=mock[

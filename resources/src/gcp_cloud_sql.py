@@ -2,10 +2,13 @@
 
 import argparse
 import json
-import os
 import sys
 from abc import ABC, abstractmethod
-from typing import Sequence, MutableSequence
+from pathlib import Path
+from pprint import pformat
+from typing import Sequence, MutableSequence, Any, Mapping
+
+from jinja2 import Environment, Template
 
 from dresources import DAction, action
 from external_services import ExternalServices
@@ -77,7 +80,9 @@ class AnyMissingSchemaCondition(Condition):
         super().__init__(condition_factory, data)
 
     def evaluate(self, sql_executor: SqlExecutor) -> bool:
-        existing_schemas = [row["SCHEMA_NAME"] for row in sql_executor.execute_sql(f"SELECT SCHEMA_NAME FROM SCHEMATA")]
+        existing_schemas = [row["SCHEMA_NAME"]
+                            for row in sql_executor.execute_sql(f"SELECT SCHEMA_NAME "
+                                                                f"FROM information_schema.SCHEMATA")]
         required_schemas = self._data['schemas']
         missing_schemas = [schema for schema in required_schemas if schema not in existing_schemas]
         return True if missing_schemas else False
@@ -143,7 +148,7 @@ class NoSchemaMissingCondition(Condition):
         super().__init__(condition_factory, data)
 
     def evaluate(self, sql_executor: SqlExecutor) -> bool:
-        sql: str = f"SELECT SCHEMA_NAME FROM SCHEMATA"
+        sql: str = f"SELECT SCHEMA_NAME FROM information_schema.SCHEMATA"
         existing_schema_names = [row['SCHEMA_NAME'] for row in sql_executor.execute_sql(sql)]
         required_schemas = self._data['schemas']
         missing_schema_names = [required_schema
@@ -310,12 +315,53 @@ class ConditionFactory:
         return [self.create_condition(cdata) for cdata in conditions_data]
 
 
+class ScriptFile:
+
+    def __init__(self, path: str, post_process: bool = False, context: Mapping[str, Any] = None) -> None:
+        super().__init__()
+        self._path: Path = Path(path).absolute()
+        self._post_process: bool = post_process
+        self._context = context
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    def execute(self, sql_executor: SqlExecutor) -> None:
+        if self._post_process:
+            escaped_file: Path = self._path.parent / ('.' + self._path.name + '.escaped')
+            template: Template = Environment().from_string(open(self._path, 'r').read(), globals=self._context)
+            with escaped_file.open(mode='w') as f:
+                f.write(template.render(self._context))
+            sql_executor.execute_sql_script(path=str(escaped_file))
+        else:
+            sql_executor.execute_sql_script(path=str(self._path))
+
+
 class Script:
 
-    def __init__(self, name: str, paths: Sequence[str], conditions: Sequence[Condition]) -> None:
+    def __init__(self,
+                 name: str,
+                 paths: Sequence[Any],
+                 conditions: Sequence[Condition],
+                 context: Mapping[str, Any]) -> None:
         super().__init__()
         self._name = name
-        self._paths: Sequence[str] = paths
+
+        script_files: MutableSequence[ScriptFile] = []
+        for path in paths:
+            if isinstance(path, str):
+                script_files.append(ScriptFile(path=path))
+            elif isinstance(path, dict):
+                if 'post_process' in path:
+                    script_files.append(ScriptFile(path=path['path'],
+                                                   post_process=path['post_process'],
+                                                   context=context))
+                else:
+                    script_files.append(ScriptFile(path=path['path']))
+            else:
+                raise Exception(f"illegal config: unsupport path object: {pformat(path)}")  # pragma: no cover
+        self._script_files: Sequence[ScriptFile] = script_files
         self._conditions: Sequence[Condition] = conditions
 
     @property
@@ -323,6 +369,10 @@ class Script:
         return self._name
 
     def should_execute(self, sql_executor: SqlExecutor) -> bool:
+        for file in self._script_files:
+            if not file.path.exists():
+                raise Exception(f"illegal state: SQL script '{file.path}' could not be found")
+
         if len(self._conditions) == 0:
             return True
 
@@ -332,26 +382,34 @@ class Script:
         return False
 
     def execute(self, sql_executor: SqlExecutor) -> None:
-        for path in self._paths:
-            sql_executor.execute_sql_script(path=path)
+        for file in self._script_files:
+            file.execute(sql_executor=sql_executor)
 
 
 class ScriptEvaluator:
 
-    def __init__(self, sql_resource: 'GcpCloudSql') -> None:
+    def __init__(self,
+                 svc: ExternalServices,
+                 project_id: str,
+                 instance_name: str,
+                 root_password: str,
+                 zone: str,
+                 scripts_data: Sequence[dict],
+                 context: Mapping[str, Any]) -> None:
         super().__init__()
         self._sql_executor: SqlExecutor = \
-            sql_resource.svc.create_gcp_sql_executor(project_id=sql_resource.info.config['project_id'],
-                                                     instance=sql_resource.info.config['name'],
-                                                     password=sql_resource.info.config['root-password'],
-                                                     region=region_from_zone(sql_resource.info.config['zone']))
+            svc.create_gcp_sql_executor(project_id=project_id,
+                                        instance=instance_name,
+                                        password=root_password,
+                                        region=region_from_zone(zone=zone))
 
         condition_factory: ConditionFactory = ConditionFactory()
         self._scripts: Sequence[Script] = \
             [Script(name=data['name'],
                     paths=data['paths'],
-                    conditions=condition_factory.create_conditions(data['when']))
-             for data in sql_resource.info.config['scripts']]
+                    conditions=condition_factory.create_conditions(data['when']),
+                    context=context)
+             for data in scripts_data]
 
     def get_script(self, name: str) -> Script:
         return next(script for script in self._scripts if script.name == name)
@@ -525,7 +583,20 @@ class GcpCloudSql(GcpResource):
                                 "type": "array",
                                 "minItems": 1,
                                 "uniqueItems": True,
-                                "items": {"type": "string"}
+                                "items": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {
+                                            "type": "object",
+                                            "required": ["path"],
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "path": {"type": "string"},
+                                                "post_process": {"type": "boolean"}
+                                            }
+                                        }
+                                    ]
+                                }
                             },
                             "when": {
                                 "type": "array",
@@ -605,13 +676,6 @@ class GcpCloudSql(GcpResource):
         if region not in tier['region']:
             raise Exception(f"illegal config: machine-type '{desired_tier}' is not supported in region '{region}'")
 
-        # validate all paths in given scripts exist
-        if 'scripts' in cfg:
-            for script in cfg['scripts']:
-                for path in script['paths']:
-                    if not os.path.exists(path):
-                        raise Exception(f"illegal config: could not find script '{path}'")
-
         # if the SQL Admin API is not enabled, there can be no SQL instances
         enabled_apis = self.svc.find_gcp_project_enabled_apis(project_id=cfg['project_id'])
         if enabled_apis is not None:
@@ -619,9 +683,8 @@ class GcpCloudSql(GcpResource):
                 instance = self.svc.get_gcp_sql_instance(project_id=cfg['project_id'], instance_name=cfg['name'])
                 if instance:
                     if 'users' in self.info.config:
-                        users: list = self.svc.get_gcp_sql_users(project_id=cfg['project_id'],
-                                                                 instance_name=cfg['name'])
-                        instance['users'] = users
+                        instance['users'] = \
+                            self.svc.get_gcp_sql_users(project_id=cfg['project_id'], instance_name=cfg['name'])
                     else:
                         instance['users'] = []
                 return instance
@@ -825,12 +888,20 @@ class GcpCloudSql(GcpResource):
                         found: bool = True
                         break
                 if not found:
-                    # TODO: create user here
-                    pass
+                    actions.append(DAction(name='add-user',
+                                           description=f"Create new user '{user['name']}'",
+                                           args=["add_user", user['name']]))
 
         # check for scripts that need to be executed
         if "scripts" in cfg:
-            with ScriptEvaluator(sql_resource=self) as evaluator:
+            evaluator: ScriptEvaluator = ScriptEvaluator(svc=self.svc,
+                                                         project_id=cfg['project_id'],
+                                                         instance_name=cfg['name'],
+                                                         root_password=cfg['root-password'],
+                                                         zone=zone,
+                                                         scripts_data=self.info.config['scripts'],
+                                                         context=self.info.config)
+            with evaluator as evaluator:
                 for script in evaluator.get_scripts_to_execute():
                     actions.append(
                         DAction(name='execute-script',
@@ -843,6 +914,8 @@ class GcpCloudSql(GcpResource):
         super().configure_action_argument_parser(action, argparser)
         if action == 'execute_scripts':
             argparser.add_argument('scripts', nargs='+')
+        elif action == 'add_user':
+            argparser.add_argument('user', type=str)
 
     @action
     def enable_sql_apis(self, args):
@@ -895,23 +968,38 @@ class GcpCloudSql(GcpResource):
 
         # create instance
         project_id: str = cfg['project_id']
-        if self.info.verbose:
+        if self.info.verbose:  # pragma: no cover
             print(f"Creating Cloud SQL instance using:\n{json.dumps(body, indent=2)}")
         self.svc.create_gcp_sql_instance(project_id=project_id, body=body)
 
         # set 'root' password
-        if self.info.verbose:
+        if self.info.verbose:  # pragma: no cover
             print(f"Updating root user's password")
         self.svc.update_gcp_sql_user(project_id=project_id, instance=cfg['name'], password=cfg['root-password'])
 
         # check for scripts that need to be executed
         if "scripts" in cfg:
-            with ScriptEvaluator(sql_resource=self) as evaluator:
+            evaluator: ScriptEvaluator = ScriptEvaluator(svc=self.svc,
+                                                         project_id=cfg['project_id'],
+                                                         instance_name=cfg['name'],
+                                                         root_password=cfg['root-password'],
+                                                         zone=cfg['zone'],
+                                                         scripts_data=self.info.config['scripts'],
+                                                         context=self.info.config)
+            with evaluator as evaluator:
                 evaluator.execute_scripts(scripts=evaluator.get_scripts_to_execute())
 
     @action
     def execute_scripts(self, args) -> None:
-        with ScriptEvaluator(sql_resource=self) as evaluator:
+        cfg = self.info.config
+        evaluator: ScriptEvaluator = ScriptEvaluator(svc=self.svc,
+                                                     project_id=cfg['project_id'],
+                                                     instance_name=cfg['name'],
+                                                     root_password=cfg['root-password'],
+                                                     zone=cfg['zone'],
+                                                     scripts_data=self.info.config['scripts'],
+                                                     context=self.info.config)
+        with evaluator as evaluator:
             scripts: Sequence[Script] = [evaluator.get_script(script_name) for script_name in args.scripts]
             evaluator.execute_scripts(scripts=scripts)
 
@@ -1040,6 +1128,18 @@ class GcpCloudSql(GcpResource):
                 'userLabels': cfg['labels']
             }
         })
+
+    @action
+    def add_user(self, args) -> None:
+        cfg = self.info.config
+        for user in cfg['users']:
+            if user['name'] == args.user:
+                self.svc.create_gcp_sql_user(project_id=cfg['project_id'],
+                                             instance_name=cfg['name'],
+                                             user_name=user['name'],
+                                             password=user['password'])
+                return
+        raise Exception(f"illegal state: could not find user '{args.user}' in users list: {pformat(cfg['users'])}")
 
 
 def main():

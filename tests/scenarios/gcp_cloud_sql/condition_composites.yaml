@@ -26,7 +26,7 @@ scenarios:
   - description: ALL-nested-conditions-fully-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -59,7 +59,7 @@ scenarios:
   - description: ALL-nested-conditions-none-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -82,7 +82,7 @@ scenarios:
   - description: ANY-nested-conditions-none-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -103,7 +103,7 @@ scenarios:
   - description: ANY-nested-conditions-one-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:

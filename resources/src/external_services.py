@@ -273,6 +273,13 @@ class ExternalServices:
                 users.append({'name': user['name'], 'password': user['password'] if 'password' in user else None})
         return users
 
+    def create_gcp_sql_user(self, project_id: str, instance_name: str, user_name: str, password: str) -> None:
+        users_service = self._get_gcp_service('sqladmin', 'v1beta4').users()
+        result = users_service.insert(project=project_id, instance=instance_name, body={
+            'name': user_name,
+            'password': password
+        }).execute()
+
     def create_gcp_sql_instance(self, project_id: str, body: dict) -> None:
         sql_service = self._get_gcp_service('sqladmin', 'v1beta4')
         try:
