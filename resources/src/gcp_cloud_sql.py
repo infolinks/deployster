@@ -329,7 +329,7 @@ class ScriptFile:
 
     def execute(self, sql_executor: SqlExecutor) -> None:
         if self._post_process:
-            escaped_file: Path = self._path.parent / ('.' + self._path.name + '.escaped')
+            escaped_file: Path = Path('/tmp') / self._path.name
             template: Template = Environment().from_string(open(self._path, 'r').read(), globals=self._context)
             with escaped_file.open(mode='w') as f:
                 f.write(template.render(self._context))
