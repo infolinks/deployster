@@ -571,6 +571,7 @@ class GcpCloudSql(GcpResource):
                         }
                     }
                 },
+                "scripts_ctx": {"type": "object"},
                 "scripts": {
                     "type": "array",
                     "items": {
@@ -900,7 +901,7 @@ class GcpCloudSql(GcpResource):
                                                          root_password=cfg['root-password'],
                                                          zone=zone,
                                                          scripts_data=self.info.config['scripts'],
-                                                         context=self.info.config)
+                                                         context=cfg['scripts_ctx'] if 'scripts_ctx' in cfg else {})
             with evaluator as evaluator:
                 for script in evaluator.get_scripts_to_execute():
                     actions.append(
@@ -985,7 +986,7 @@ class GcpCloudSql(GcpResource):
                                                          root_password=cfg['root-password'],
                                                          zone=cfg['zone'],
                                                          scripts_data=self.info.config['scripts'],
-                                                         context=self.info.config)
+                                                         context=cfg['scripts_ctx'] if 'scripts_ctx' in cfg else {})
             with evaluator as evaluator:
                 evaluator.execute_scripts(scripts=evaluator.get_scripts_to_execute())
 
@@ -998,7 +999,7 @@ class GcpCloudSql(GcpResource):
                                                      root_password=cfg['root-password'],
                                                      zone=cfg['zone'],
                                                      scripts_data=self.info.config['scripts'],
-                                                     context=self.info.config)
+                                                     context=cfg['scripts_ctx'] if 'scripts_ctx' in cfg else {})
         with evaluator as evaluator:
             scripts: Sequence[Script] = [evaluator.get_script(script_name) for script_name in args.scripts]
             evaluator.execute_scripts(scripts=scripts)
