@@ -4,6 +4,7 @@ import argparse
 import os
 import termios
 import traceback
+from pathlib import Path
 
 from colors import bold, underline, green
 
@@ -82,14 +83,15 @@ def main():
 
         # print a cool header now...
         print('')
-        with Logger(green(underline(bold(f":heavy_check_mark: Deployster v{context.version}")))) as logger:
-            logger.info(f":smile: {bold('Deploy with pleasure!')}")
+        with Logger(green(underline(bold(f"Deployster v{context.version} :heavy_check_mark: "
+                                         f"Deploy with pleasure :smile:")))) as logger:
+            pass
 
         # display the context
         context.display()
 
         # load & display the manifest
-        manifest: Manifest = Manifest(context=context, manifest_files=args.manifests)
+        manifest: Manifest = Manifest(context=context, manifest_files=[Path(p).absolute() for p in args.manifests])
         manifest.display_plugs()
 
         # build the deployment plan, display, and potentially execute it

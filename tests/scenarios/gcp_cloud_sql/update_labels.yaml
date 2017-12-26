@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -31,6 +32,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {}}
   - description: update_labels_same_count_diff_labels
     mock:
@@ -43,6 +45,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}
       actions:
         - {name: update-labels, description: 'Update SQL instance user-labels', args: [update_labels]}
@@ -57,6 +60,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}
       actions:
         - {name: update-labels, description: 'Update SQL instance user-labels', args: [update_labels]}
@@ -71,6 +75,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}
       actions:
         - {name: update-labels, description: 'Update SQL instance user-labels', args: [update_labels]}
@@ -85,4 +90,5 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150, userLabels: {k1: v1, k2: v2}}

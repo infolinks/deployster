@@ -127,7 +127,12 @@ def test_post_processing():
             '{{ c1 + 1 }}',
             'hello, {{ name }}!',
         ],
-        'k7': 7
+        'k7': 7,
+        'k8': [
+            'a{{1+2}}b',
+            '{{ (2+3) | string}}',
+            '3+4'
+        ]
     }
 
     context = {
@@ -159,6 +164,11 @@ def test_post_processing():
         'hello, John!'
     ]
     assert result1['k7'] == 7
+    assert result1['k8'] == [
+        'a3b',
+        '5',
+        '3+4'
+    ]
 
     with pytest.raises(expected_exception=UserError, match=r'\' unknown_var \' yielded an undefined result'):
         post_process('{{ unknown_var }}', {})

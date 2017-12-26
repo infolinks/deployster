@@ -8,11 +8,13 @@ mock:
     prj: [sqladmin.googleapis.com, sql-component.googleapis.com]
   gcp_sql_tiers:
     db-1: {DiskQuota: '100', tier: db-1, kind: 'sql#tier', RAM: '32', region: [europe-west1]}
+  gcp_sql_users:
+    prj-sql1:
+      - name: jack
   gcp_sql_instances:
     sql1:
       state: RUNNABLE
       region: europe-west1
-      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -23,51 +25,34 @@ mock:
         storageAutoResize: true
         storageAutoResizeLimit: 150
 scenarios:
-  - description: expected_row_count_matching
-    mock:
-      gcp_sql_execution_results:
-        'SELECT a, b , c FROM bogus_table':
-          - a: 11
-            b: 12
-            c: 13
-          - a: 21
-            b: 22
-            c: 23
+  - description: valid_if_users_exist
     resource:
       config:
-        scripts:
-          - name: my-script
-            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
-            when: [{if: EXPECTED_ROW_COUNT, sql: 'SELECT a, b , c FROM bogus_table', rows-expected: 2}]
-    expected:
-      status: STALE
-      staleState:
-        state: RUNNABLE
-        region: europe-west1
-        users: []
-        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
-      actions:
-        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
-  - description: expected_row_count_matching
-    mock:
-      gcp_sql_execution_results:
-        'SELECT a, b , c FROM bogus_table':
-          - a: 11
-            b: 12
-            c: 13
-          - a: 21
-            b: 22
-            c: 23
-    resource:
-      config:
-        scripts:
-          - name: my-script
-            paths: [./tests/scenarios/gcp_cloud_sql/script1.sql]
-            when: [{if: EXPECTED_ROW_COUNT, sql: 'SELECT a, b , c FROM bogus_table', rows-expected: 3}]
+        users:
+          - name: jack
     expected:
       status: VALID
       state:
         state: RUNNABLE
         region: europe-west1
-        users: []
+        users:
+          - name: jack
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+  - description: new_user_added_to_existing_instance
+    resource:
+      config:
+        users:
+          - name: jack
+            password: abc123
+          - name: john
+            password: abc123
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        users:
+          - name: jack
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: add-user, description: 'Create new user ''john''', args: [add_user, john]}

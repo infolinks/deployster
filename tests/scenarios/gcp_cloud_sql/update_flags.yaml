@@ -18,6 +18,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -57,6 +58,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: bool-flag, value: 'off'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
@@ -71,6 +73,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: bool-flag, value: 'off'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: int_flag_value_not_numeric
     resource:
@@ -111,6 +114,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: int-flag, value: '10'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
@@ -125,6 +129,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: int-flag, value: '10'}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: none_flag_must_not_have_value
     resource:
@@ -142,6 +147,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
@@ -156,6 +162,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, databaseFlags: [{name: none-flag}], storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: str_flag_requires_value
     resource:
@@ -189,6 +196,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-enum-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: str_enum_flag_updates_value
     mock:
@@ -201,6 +209,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-enum-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
@@ -222,6 +231,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-flags, description: 'Update SQL instance flags', args: [update_flags]}
@@ -236,6 +246,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, databaseFlags: [{name: str-flag, value: v2}], ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: unsupported_flag_rejected
     resource:

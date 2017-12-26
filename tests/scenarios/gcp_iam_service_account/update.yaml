@@ -1,0 +1,39 @@
+mock:
+  gcp_iam_service_accounts:
+    projects/prj/serviceAccounts/test@google.com:
+      projectId: prj
+      name: test
+      displayName: test
+      etag: '123'
+default_resource:
+  module: gcp_iam_service_account
+  class: GcpIamServiceAccount
+  name: sa
+  config:
+    project_id: prj
+    email: test@google.com
+    display_name: test
+scenarios:
+  - description: no_changes
+    expected:
+      status: VALID
+      state:
+        projectId: prj
+        name: test
+        displayName: test
+        etag: '123'
+  - description: change_display_name
+    resource:
+      config:
+        display_name: Testing Test
+    expected:
+      status: STALE
+      staleState:
+        projectId: prj
+        name: test
+        displayName: test
+        etag: '123'
+      actions:
+        - name: update-display-name
+          description: 'Update display name of service account ''test@google.com'''
+          args: [update_display_name, '123']

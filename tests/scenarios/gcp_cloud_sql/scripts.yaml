@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -31,6 +32,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
@@ -40,4 +42,93 @@ scenarios:
         scripts: [{name: my-script, paths: [script-does-not-exist.sql], when: []}]
     expected:
       exception: Exception
-      match: 'could not find script.*script-does-not-exist.sql'
+      match: 'script-does-not-exist.sql.*could not be found'
+  - description: script_as_string
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths:
+              - ./tests/scenarios/gcp_cloud_sql/script1.sql
+            when: []
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        users: []
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
+  - description: script_as_object_default_post_process
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths:
+              - path: ./tests/scenarios/gcp_cloud_sql/script1.sql
+            when: []
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        users: []
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
+  - description: script_as_object_disable_post_process
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths:
+              - path: ./tests/scenarios/gcp_cloud_sql/script1.sql
+                post_process: false
+            when: []
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        users: []
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
+  - description: script_as_object_enable_post_process
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths:
+              - path: ./tests/scenarios/gcp_cloud_sql/script1.sql
+                post_process: true
+            when: []
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        users: []
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
+  - description: script_as_object_and_string_enable_post_process
+    resource:
+      config:
+        scripts:
+          - name: my-script
+            paths:
+              - path: ./tests/scenarios/gcp_cloud_sql/script1.sql
+                post_process: true
+              - path: ./tests/scenarios/gcp_cloud_sql/script1.sql
+            when: []
+    expected:
+      status: STALE
+      staleState:
+        state: RUNNABLE
+        region: europe-west1
+        users: []
+        settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
+      actions:
+        - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}

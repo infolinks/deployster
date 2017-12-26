@@ -51,10 +51,13 @@ class MockExternalServices(ExternalServices):
                  gcp_projects: Mapping[str, dict] = None,
                  gcp_project_billing_infos: Mapping[str, dict] = None,
                  gcp_project_apis: Mapping[str, Sequence[str]] = None,
+                 gcp_iam_service_accounts: Mapping[str, dict] = None,
+                 gcp_iam_policies: Mapping[str, dict] = None,
                  gcp_sql_tiers: Mapping[str, dict] = None,
                  gcp_sql_flags: Mapping[str, dict] = None,
                  gcp_sql_instances: Mapping[str, dict] = None,
                  gcp_sql_execution_results: Mapping[str, Sequence[dict]] = None,
+                 gcp_sql_users: Mapping[str, Sequence[dict]] = None,
                  gke_clusters: Mapping[str, dict] = None,
                  gke_server_config: Mapping[str, Any] = None,
                  gcp_compute_regional_ip_addresses: Mapping[str, Any] = None,
@@ -66,10 +69,13 @@ class MockExternalServices(ExternalServices):
         self._gcp_projects: Mapping[str, dict] = gcp_projects
         self._gcp_project_billing_infos: Mapping[str, dict] = gcp_project_billing_infos
         self._gcp_project_apis: Mapping[str, Sequence[str]] = gcp_project_apis
+        self._gcp_iam_service_accounts: Mapping[str, dict] = gcp_iam_service_accounts
+        self._gcp_iam_policies: Mapping[str, dict] = gcp_iam_policies
         self._gcp_sql_tiers = gcp_sql_tiers
         self._gcp_sql_flags = gcp_sql_flags
         self._gcp_sql_instances = gcp_sql_instances
         self._gcp_sql_execution_results = gcp_sql_execution_results
+        self._gcp_sql_users = gcp_sql_users
         self._gke_clusters = gke_clusters
         self._gke_server_config = gke_server_config
         self._gcp_compute_regional_ip_addresses = gcp_compute_regional_ip_addresses
@@ -110,6 +116,22 @@ class MockExternalServices(ExternalServices):
     def update_gcp_project(self, project_id: str, body: dict) -> None:
         pass
 
+    def find_service_account(self, project_id: str, email: str):
+        key: str = f"projects/{project_id}/serviceAccounts/{email}"
+        return self._gcp_iam_service_accounts[key] if key in self._gcp_iam_service_accounts else None
+
+    def create_service_account(self, project_id: str, email: str, display_name: str):
+        pass
+
+    def update_service_account_display_name(self, project_id: str, email: str, display_name: str, etag: str):
+        pass
+
+    def get_project_iam_policy(self, project_id: str):
+        return self._gcp_iam_policies[project_id] if project_id in self._gcp_iam_policies else None
+
+    def update_project_iam_policy(self, project_id: str, etag: str, bindings: Sequence[dict], verbose: bool = False):
+        pass
+
     def get_gcp_sql_allowed_tiers(self, project_id: str) -> Mapping[str, dict]:
         return self._gcp_sql_tiers
 
@@ -118,6 +140,10 @@ class MockExternalServices(ExternalServices):
 
     def get_gcp_sql_instance(self, project_id: str, instance_name: str):
         return self._gcp_sql_instances[instance_name] if instance_name in self._gcp_sql_instances else None
+
+    def get_gcp_sql_users(self, project_id: str, instance_name: str) -> Sequence[dict]:
+        key = f"{project_id}-{instance_name}"
+        return self._gcp_sql_users[key] if key in self._gcp_sql_users else None
 
     def create_gcp_sql_instance(self, project_id: str, body: dict) -> None:
         pass
@@ -133,6 +159,9 @@ class MockExternalServices(ExternalServices):
 
     def create_gcp_sql_executor(self, **kwargs) -> SqlExecutor:
         return MockSqlExecutor(svc=self, sql_execution_results=self._gcp_sql_execution_results)
+
+    def create_gcp_sql_user(self, project_id: str, instance_name: str, user_name: str, password: str) -> None:
+        pass
 
     def get_gke_cluster(self, project_id: str, zone: str, name: str):
         key = f"{project_id}-{zone}-{name}"
@@ -233,7 +262,7 @@ class MockExternalServices(ExternalServices):
         key = f"{api_version}-{kind}-{namespace}-{name}"
         return self._k8s_objects[key] if key in self._k8s_objects else None
 
-    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
+    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = True) -> None:
         api_version: str = manifest["apiVersion"]
         kind: str = manifest["kind"]
         metadata: dict = manifest["metadata"]
@@ -245,7 +274,7 @@ class MockExternalServices(ExternalServices):
             duration: int = self._k8s_create_times[key]
             time.sleep(duration / 1000)
 
-    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
+    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = True) -> None:
         api_version: str = manifest["apiVersion"]
         kind: str = manifest["kind"]
         metadata: dict = manifest["metadata"]

@@ -20,7 +20,7 @@ class GcpProject(GcpResource):
             "required": ["project_id"],
             "additionalProperties": False,
             "properties": {
-                "project_id": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_\\-]*$"},
+                "project_id": {"type": "string", "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])$"},
                 "organization_id": {"type": "integer"},
                 "billing_account_id": {"type": "string"},
                 "apis": {
@@ -51,6 +51,11 @@ class GcpProject(GcpResource):
         project: dict = self.svc.find_gcp_project(self.info.config['project_id'])
         if project is None:
             return None
+        elif 'lifecycleState' in project and project['lifecycleState'] == 'DELETE_REQUESTED':
+            raise Exception(f"project '{self.info.config['project_id']}' is pending deletion, and is thus unusable")
+        elif 'lifecycleState' in project and project['lifecycleState'] != 'ACTIVE':
+            raise Exception(f"project '{self.info.config['project_id']}' is {project['lifecycleState']} "
+                            f"(must be ACTIVE)")
 
         actual_billing: dict = self.svc.find_gcp_project_billing_info(self.info.config['project_id'])
         if actual_billing is not None and 'billingAccountName' in actual_billing:
@@ -77,8 +82,6 @@ class GcpProject(GcpResource):
                         description=f"Set billing account to '{desired_billing_account}'"))
 
         if 'apis' in config:
-            # TODO: fail if the same API is both enabled & disabled
-
             apis = config['apis']
             if 'disabled' in apis:
                 for api_name in apis['disabled']:

@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -25,7 +26,7 @@ scenarios:
   - description: ALL-nested-conditions-fully-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -43,6 +44,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings:
           locationPreference: {zone: europe-west1-a}
           tier: db-1
@@ -57,7 +59,7 @@ scenarios:
   - description: ALL-nested-conditions-none-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -75,11 +77,12 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: ANY-nested-conditions-none-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -95,11 +98,12 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: ANY-nested-conditions-one-fulfilled
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': [{SCHEMA_NAME: my_schema1}, {SCHEMA_NAME: my_schema2}]
     resource:
       config:
         scripts:
@@ -115,6 +119,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}

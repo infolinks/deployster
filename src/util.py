@@ -1,11 +1,13 @@
 import termios
 import tty
 from contextlib import AbstractContextManager
+from pathlib import Path
+from pprint import pformat
 from typing import Any, Callable
 
 import emoji
 from colors import *
-from jinja2 import Environment, Template, Undefined
+from jinja2 import Environment, Template, Undefined, FileSystemLoader
 from jinja2.exceptions import TemplateSyntaxError, UndefinedError
 
 
@@ -116,26 +118,29 @@ def ask(logger: Logger, message: str, chars: str, default: str) -> str:
 
 def post_process(value: Any, context: dict) -> Any:
     def _evaluate(expr: str) -> Any:
-        environment: Environment = Environment()
+        environment: Environment = Environment(loader=FileSystemLoader(str(Path('.').absolute())))
         try:
             if expr.startswith('{{') and expr.endswith('}}') and expr.find('{{') == expr.rfind('{{'):
                 # line is a single expression (only one '{{' token at the beginning, and '}}' at the end)
                 expr = expr[2:len(expr) - 2]
                 result = environment.compile_expression(source=expr, undefined_to_none=False)(context)
                 if type(result) == Undefined:
-                    raise UserError(f"expression '{expr}' yielded an undefined result (are all variables defined?)")
+                    raise UserError(f"expression '{expr}' yielded an undefined result (are all variables defined?)\n"
+                                    f"Context is: {pformat(context)}")
                 else:
                     return result
-            elif expr.find('{{') >= 0:
+            elif expr.find('{{') >= 0 or expr.find('{%') >= 0:
                 # given string contains a jinja expression, use normal templating
                 template: Template = environment.from_string(expr, globals=context)
                 return template.render(context)
             else:
                 return expr
         except UndefinedError as e:
-            raise UserError(f"undefined variable used in expression '{expr}': {e.message}") from e
+            raise UserError(f"undefined variable used in expression '{expr}': {e.message}\n"
+                            f"Context is: {pformat(context)}") from e
         except TemplateSyntaxError as e:
-            raise UserError(f"expression error in '{expr}': {e.message}") from e
+            raise UserError(f"expression error in '{expr}': {e.message}\n"
+                            f"Context is: {pformat(context)}") from e
 
     def _post_process_config(value) -> Any:
         if isinstance(value, str):

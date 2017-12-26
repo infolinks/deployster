@@ -14,19 +14,20 @@ from mock_external_services import MockDockerInvoker
 from util import UserError
 
 
-@pytest.mark.parametrize("work_dir", [None, "/unknown/file", "./tests/.cache/action1"])
+@pytest.mark.parametrize("work_dir", ["/unknown/file", "./tests/.cache/action1"])
 @pytest.mark.parametrize("name", [None, "", "action"])
 @pytest.mark.parametrize("description", [None, "", "desssscriippttion"])
 @pytest.mark.parametrize("image", [None, "", "immmaage"])
 @pytest.mark.parametrize("entrypoint", [None, "", "ennntrrrypopiint"])
 @pytest.mark.parametrize("args", [None, [], ["1"], ["1", "2"], ["1", "", ""]])
 def test_action(work_dir: str, name: str, description: str, image: str, entrypoint: str, args: Sequence[str]):
-    action: Action = Action(work_dir=Path(work_dir) if work_dir is not None else None,
+    action: Action = Action(work_dir=Path(work_dir),
                             name=name,
                             description=description,
                             image=image,
-                            entrypoint=entrypoint, args=args)
-    assert action.work_dir == (Path(work_dir) if work_dir is not None else None)
+                            entrypoint=entrypoint,
+                            args=args)
+    assert action.work_dir == Path(work_dir).absolute()
     assert action.name == name
     assert action.description == description
     assert action.image == image
@@ -66,7 +67,7 @@ def test_plug(name: str,
                       allowed_resource_names=allowed_resource_names,
                       allowed_resource_types=allowed_resource_types)
     assert plug.name == name
-    assert plug.path == Path(path)
+    assert plug.path == Path(path).absolute()
     assert plug.readonly == readonly
     assert plug.resource_name_patterns == allowed_resource_names
     assert plug.resource_type_patterns == allowed_resource_types
@@ -143,7 +144,7 @@ def test_manifest(capsys, description: str, dir: Path, scenario: dict, manifest_
                 for plug_name, expected_plug in expected['plugs'].items():
                     plug: Plug = manifest.plug(plug_name)
                     if 'name' in expected_plug: assert plug.name == expected_plug['name']
-                    if 'path' in expected_plug: assert plug.path == Path(expected_plug['path'])
+                    if 'path' in expected_plug: assert plug.path == Path(expected_plug['path']).absolute()
                     if 'readonly' in expected_plug: assert plug.readonly == expected_plug['readonly']
                     if 'resource_name_patterns' in expected_plug:
                         assert plug.resource_name_patterns == expected_plug['resource_name_patterns']
@@ -308,6 +309,6 @@ def test_resource_initialize(capsys):
     assert resource._state_action.args == init_result['state_action']['args']
     assert resource._status == ResourceStatus.INITIALIZED
     assert resource._plug_volumes == [
-        f"{str(scenario_dir / 'p2')}:{init_result['plugs']['readonly_plug']['container_path']}:ro",
-        f"{str(scenario_dir / 'p1')}:{init_result['plugs']['writable_plug']['container_path']}:rw"
+        f"{str((scenario_dir / 'p2').absolute())}:{init_result['plugs']['readonly_plug']['container_path']}:ro",
+        f"{str((scenario_dir / 'p1').absolute())}:{init_result['plugs']['writable_plug']['container_path']}:rw"
     ]

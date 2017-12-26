@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -31,6 +32,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-maintenance-window, description: 'Disable SQL instance maintenance window', args: [update_maintenance_window]}
@@ -43,6 +45,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: use_day_number_same_value_still_valid
     resource:
@@ -53,6 +56,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: use_day_name_diff_value
     resource:
@@ -63,6 +67,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-maintenance-window, description: 'Update SQL instance maintenance window', args: [update_maintenance_window]}
@@ -75,6 +80,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-maintenance-window, description: 'Update SQL instance maintenance window', args: [update_maintenance_window]}
@@ -87,4 +93,5 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 1, hour: 1}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}

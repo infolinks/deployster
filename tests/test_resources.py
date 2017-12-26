@@ -50,7 +50,10 @@ def find_scenarios(scenario_pattern: str) -> Sequence[Tuple[str, dict, dict, dic
     return scenarios
 
 
-def create_resource(svc: MockExternalServices, resource: dict, extra_data: dict = None) -> DResource:
+def create_resource(svc: MockExternalServices,
+                    resource: dict,
+                    include_config: bool = False,
+                    extra_data: dict = None) -> DResource:
     """Creates a resource instance (subclass of DResource)."""
     module = importlib.import_module(resource["module"])
     resource_type: Callable[[dict, ExternalServices], DResource] = getattr(module, resource["class"])
@@ -58,8 +61,9 @@ def create_resource(svc: MockExternalServices, resource: dict, extra_data: dict 
             "type": resource["class"],
             "version": resource["version"] if "version" in resource else "0.0.0",
             "verbose": resource["verbose"] if 'verbose' in resource else True,
-            "workspace": "/workspace",
-            "config": resource["config"]}
+            "workspace": "/workspace"}
+    if include_config:
+        data.update({"config": resource["config"]})
     if extra_data is not None:
         data.update(extra_data)
     return resource_type(data, svc)
@@ -75,10 +79,13 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
         gcp_project_billing_infos=mock[
             "gcp_project_billing_accounts"] if "gcp_project_billing_accounts" in mock else {},
         gcp_project_apis=mock["gcp_project_apis"] if "gcp_project_apis" in mock else {},
+        gcp_iam_service_accounts=mock["gcp_iam_service_accounts"] if "gcp_iam_service_accounts" in mock else {},
+        gcp_iam_policies=mock["gcp_iam_policies"] if "gcp_iam_policies" in mock else {},
         gcp_sql_tiers=mock["gcp_sql_tiers"] if "gcp_sql_tiers" in mock else {},
         gcp_sql_flags=mock["gcp_sql_flags"] if "gcp_sql_flags" in mock else {},
         gcp_sql_instances=mock["gcp_sql_instances"] if "gcp_sql_instances" in mock else {},
         gcp_sql_execution_results=mock["gcp_sql_execution_results"] if "gcp_sql_execution_results" in mock else {},
+        gcp_sql_users=mock["gcp_sql_users"] if "gcp_sql_users" in mock else {},
         gke_clusters=mock["gke_clusters"] if "gke_clusters" in mock else {},
         gke_server_config=mock["gke_server_config"] if "gke_server_config" in mock else {},
         gcp_compute_regional_ip_addresses=mock[
@@ -102,9 +109,9 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
     # test "state" action, and read its result from stdout
     if 'exception' in expected:
         with pytest.raises(eval(expected['exception']), match=expected["match"] if 'match' in expected else r'.*'):
-            create_resource(svc=mock_services, resource=resource).execute(['state'])
+            create_resource(svc=mock_services, resource=resource, include_config=True).execute(['state'])
     else:
-        create_resource(svc=mock_services, resource=resource).execute(['state'])
+        create_resource(svc=mock_services, resource=resource, include_config=True).execute(['state'])
         state = json.loads(capsys.readouterr().out)
         assert state == expected
 
@@ -113,4 +120,7 @@ def test_resources(capsys, description: str, mock: dict, resource: dict, expecte
             for action in state["actions"]:
                 extra_data: dict = {'staleState': state['staleState'] if 'staleState' in state else {}}
                 args = action['args'] if 'args' in action else []
-                create_resource(svc=mock_services, resource=resource, extra_data=extra_data).execute(args)
+                create_resource(svc=mock_services,
+                                resource=resource,
+                                include_config=True,
+                                extra_data=extra_data).execute(args)

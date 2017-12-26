@@ -1,8 +1,9 @@
+import sys
+import time
 from copy import deepcopy
+from pprint import pprint
 from time import sleep
 from typing import Sequence, MutableSequence
-
-import time
 
 from dresources import DAction, action, DResource
 from dresources_util import collect_differences
@@ -31,7 +32,7 @@ class K8sResource(DResource):
                 },
                 "manifest": {
                     "type": "object",
-                    "required": ["apiVersion", "kind", "metadata"],
+                    "required": ["metadata"],
                     "additionalProperties": True,
                     "properties": {
                         "apiVersion": {"type": "string", "minLength": 1},
@@ -58,10 +59,6 @@ class K8sResource(DResource):
             }
         })
 
-        if self.timeout_interval_ms >= self.timeout_ms:
-            raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
-                            f"than or equal to total timeout ({self.timeout_ms / 1000}) duration")
-
     @property
     def timeout_ms(self) -> int:
         return self.info.config['timeout_ms'] if 'timeout_ms' in self.info.config else 60 * 5 * 1000
@@ -84,8 +81,15 @@ class K8sResource(DResource):
     def get_actions_for_discovered_state(self, state: dict) -> Sequence[DAction]:
         actions: MutableSequence[DAction] = []
 
-        differences: Sequence[str] = collect_differences(desired=self.info.config['manifest'], actual=state)
+        differences: list = collect_differences(desired=self.info.config['manifest'], actual=state)
+        if 'apiVersion' in differences:
+            differences.remove('apiVersion')
+        if 'kind' in differences:
+            differences.remove('kind')
         if differences:
+            if self.info.verbose:
+                print("Found state differences: ", file=sys.stderr)
+                pprint(differences, stream=sys.stderr)
             kind: str = self.info.config['manifest']['kind']
             name: str = self.info.config['manifest']['metadata']['name']
             actions.append(DAction(name='update', description=f"Update {kind.lower()} '{name}'", args=['update']))
@@ -96,10 +100,17 @@ class K8sResource(DResource):
         return deepcopy(self.info.config['manifest'])
 
     @action
+    def state(self, args) -> None:
+        if self.timeout_interval_ms >= self.timeout_ms:
+            raise Exception(f"timeout interval ({self.timeout_interval_ms / 1000}) cannot be greater "
+                            f"than or equal to total timeout ({self.timeout_ms / 1000}) duration")
+        super().state(args)
+
+    @action
     def create(self, args) -> None:
         if args: pass
         start_ms: int = int(round(time.time() * 1000))
-        self.svc.create_k8s_object(self.build_kubectl_manifest(), self.timeout_ms)
+        self.svc.create_k8s_object(self.build_kubectl_manifest(), self.timeout_ms, self.info.verbose)
         finish_ms: int = int(round(time.time() * 1000))
         creation_duration_ms: int = finish_ms - start_ms
         remaining_timeout_ms: int = self.timeout_ms - creation_duration_ms
@@ -112,7 +123,7 @@ class K8sResource(DResource):
     def update(self, args) -> None:
         if args: pass
         start_ms: int = int(round(time.time() * 1000))
-        self.svc.update_k8s_object(self.build_kubectl_manifest(), self.timeout_ms)
+        self.svc.update_k8s_object(self.build_kubectl_manifest(), self.timeout_ms, self.info.verbose)
         finish_ms: int = int(round(time.time() * 1000))
         creation_duration_ms: int = finish_ms - start_ms
         remaining_timeout_ms: int = self.timeout_ms - creation_duration_ms

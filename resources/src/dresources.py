@@ -152,6 +152,10 @@ class DResourceInfo:
         return Path(self._data['workspace'])
 
     @property
+    def has_config(self)->bool:
+        return 'config' in self._data
+
+    @property
     def config(self) -> Mapping[str, Any]:
         """The resource configuration, which in essence is the *desired* state of the resource, as depicted by the user
         in the deployment manifest."""

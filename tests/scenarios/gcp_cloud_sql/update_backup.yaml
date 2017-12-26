@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -33,6 +34,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-backup, description: 'Update SQL instance backup schedule to ''03:00''', args: [update_backup]}
@@ -47,6 +49,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-backup, description: 'Disable SQL instance backups/binary-logging', args: [update_backup]}
@@ -68,6 +71,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: enable_when_disabled
     mock:
@@ -80,6 +84,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: false, binaryLogEnabled: false, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-backup, description: 'Enable SQL instance backup/binary-logging', args: [update_backup]}
@@ -94,6 +99,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: false, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-backup, description: 'Enable SQL instance backup/binary-logging', args: [update_backup]}
@@ -108,6 +114,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: true, binaryLogEnabled: true, startTime: '02:00'}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: disable_when_actual_state_has_no_backup_property
     resource:
@@ -118,6 +125,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: enable_with_schedule_when_already_enabled
     mock:
@@ -130,6 +138,7 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, backupConfiguration: {enabled: false, binaryLogEnabled: false}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: enable_when_disabled_implicitly
     resource:
@@ -141,6 +150,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: update-backup, description: 'Enable SQL instance backups', args: [update_backup]}

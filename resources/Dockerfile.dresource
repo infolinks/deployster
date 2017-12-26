@@ -2,8 +2,9 @@ FROM centos:7.4.1708
 
 # install dependencies
 COPY google-cloud-sdk.repo /etc/yum.repos.d/
-RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
-    yum install -y python36u python36u-pip && \
+RUN sed -i 's/enabled=1/enabled=0/' /etc/yum/pluginconf.d/fastestmirror.conf && \
+    yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
+    yum install -y which python36u python36u-pip && \
     yum install -y google-cloud-sdk kubectl && \
     yum clean all && \
     pip3.6 install PyYAML PyMySQL google-api-python-client ansicolors
@@ -11,6 +12,3 @@ RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
 # setup Python execution
 ENV PYTHONPATH "/deployster/lib:$PYTHONPATH"
 ENV PYTHONUNBUFFERED="1"
-
-# copy sources
-COPY src/dresources_util.py src/dresources.py src/external_services.py /deployster/lib/

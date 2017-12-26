@@ -3,8 +3,9 @@ import subprocess
 import sys
 from abc import abstractmethod
 from pathlib import Path
+from pprint import pformat
 from time import sleep
-from typing import Sequence, MutableMapping, Union, Any, Mapping
+from typing import Sequence, MutableMapping, Union, Any, Mapping, MutableSequence
 
 import pymysql
 from googleapiclient.discovery import build
@@ -196,6 +197,53 @@ class ExternalServices:
                 else:
                     raise Exception("UNKNOWN ERROR: %s" % json.dumps(result))
 
+    def find_service_account(self, project_id: str, email: str):
+        try:
+            sa_resource_name: str = f"projects/-/serviceAccounts/{email}"
+            return self._get_gcp_service('iam', 'v1').projects().serviceAccounts().get(name=sa_resource_name).execute()
+        except HttpError as e:
+            if e.resp.status == 404:
+                return None
+            else:
+                raise
+
+    def create_service_account(self, project_id: str, email: str, display_name: str):
+        self._get_gcp_service('iam', 'v1').projects().serviceAccounts().create(name=f"projects/{project_id}", body={
+            'accountId': email[0:email.find('@')],
+            'serviceAccount': {
+                'displayName': display_name if display_name else email[0:email.find('@')].capitalize()
+            }
+        }).execute()
+
+    def update_service_account_display_name(self, project_id: str, email: str, display_name: str, etag: str):
+        sa_resource_name: str = f"projects/-/serviceAccounts/{email}"
+        self._get_gcp_service('iam', 'v1').projects().serviceAccounts().update(name=sa_resource_name, body={
+            'displayName': display_name if display_name else email[0:email.find('@')].capitalize(),
+            'etag': etag
+        }).execute()
+
+    def get_project_iam_policy(self, project_id: str):
+        service = self._get_gcp_service('cloudresourcemanager', 'v1')
+        return service.projects().getIamPolicy(resource=project_id, body={}).execute()
+
+    def update_project_iam_policy(self, project_id: str, etag: str, bindings: Sequence[dict], verbose: bool = False):
+        existing_policy: dict = self.get_project_iam_policy(project_id=project_id)
+        print(f"About to update IAM policy for project '{project_id}'.\n"
+              f"For reference, due to the sensitivity of this operation, here is the current IAM policy bindings:\n"
+              f"\n"
+              f"{pformat(existing_policy['bindings'])}\n"
+              f"\n"
+              f"The new IAM policy bindings will be:\n"
+              f"{pformat(bindings)}")
+
+        service = self._get_gcp_service('cloudresourcemanager', 'v1')
+        service.projects().setIamPolicy(resource=project_id, body={
+            'policy': {
+                'bindings': bindings,
+                'etag': etag
+            }
+        }).execute()
+
     def get_gcp_sql_allowed_tiers(self, project_id: str) -> Mapping[str, str]:
         sql_service = self._get_gcp_service('sqladmin', 'v1beta4')
         return {tier['tier']: tier
@@ -216,6 +264,22 @@ class ExternalServices:
                     return instance
         return None
 
+    def get_gcp_sql_users(self, project_id: str, instance_name: str) -> Sequence[dict]:
+        users_service = self._get_gcp_service('sqladmin', 'v1beta4').users()
+        result = users_service.list(project=project_id, instance=instance_name).execute()
+        users: MutableSequence[dict] = []
+        if 'items' in result:
+            for user in result['items']:
+                users.append({'name': user['name'], 'password': user['password'] if 'password' in user else None})
+        return users
+
+    def create_gcp_sql_user(self, project_id: str, instance_name: str, user_name: str, password: str) -> None:
+        users_service = self._get_gcp_service('sqladmin', 'v1beta4').users()
+        result = users_service.insert(project=project_id, instance=instance_name, body={
+            'name': user_name,
+            'password': password
+        }).execute()
+
     def create_gcp_sql_instance(self, project_id: str, body: dict) -> None:
         sql_service = self._get_gcp_service('sqladmin', 'v1beta4')
         try:
@@ -226,6 +290,8 @@ class ExternalServices:
             if status == 409:
                 raise Exception(f"failed creating SQL instance, possibly due to instance name reuse (you can't "
                                 f"reuse an instance name for a week after its deletion)") from e
+            else:
+                raise
 
     def patch_gcp_sql_instance(self, project_id: str, instance: str, body: dict) -> None:
         service = self._get_gcp_service('sqladmin', 'v1beta4')
@@ -508,15 +574,19 @@ class ExternalServices:
         process = subprocess.run(f"{cmd}", shell=True, check=True, stdout=subprocess.PIPE)
         return json.loads(process.stdout) if process.stdout else None
 
-    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
-        subprocess.run(f"kubectl create -f -",
+    def create_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = False) -> None:
+        if verbose:
+            print(f"Creating Kubernetes object from:\n{json.dumps(manifest, indent=2)}")
+        subprocess.run(f"kubectl create --save-config=true -f -",
                        input=json.dumps(manifest),
                        encoding='utf-8',
                        check=True,
                        timeout=timeout,
                        shell=True)
 
-    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5) -> None:
+    def update_k8s_object(self, manifest: dict, timeout: int = 60 * 5, verbose: bool = False) -> None:
+        if verbose:
+            print(f"Updating Kubernetes object from:\n{json.dumps(manifest, indent=2)}")
         subprocess.run(f"kubectl apply -f -",
                        input=json.dumps(manifest),
                        encoding='utf-8',

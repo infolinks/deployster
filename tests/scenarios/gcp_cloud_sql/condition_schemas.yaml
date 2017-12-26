@@ -12,6 +12,7 @@ mock:
     sql1:
       state: RUNNABLE
       region: europe-west1
+      users: []
       settings:
         locationPreference: {zone: europe-west1-a}
         tier: db-1
@@ -25,7 +26,7 @@ scenarios:
   - description: any_missing_with_missing_schemas
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA': []
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA': []
     resource:
       config:
         scripts:
@@ -37,13 +38,14 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
   - description: any_missing_with_existing_schemas
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA':
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA':
           - SCHEMA_NAME: my_schema
     resource:
       config:
@@ -56,11 +58,12 @@ scenarios:
       state:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
   - description: any_missing_with_existing_schemas
     mock:
       gcp_sql_execution_results:
-        'SELECT SCHEMA_NAME FROM SCHEMATA':
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA':
           - SCHEMA_NAME: my_schema
     resource:
       config:
@@ -73,6 +76,7 @@ scenarios:
       staleState:
         state: RUNNABLE
         region: europe-west1
+        users: []
         settings: {locationPreference: {zone: europe-west1-a}, tier: db-1, maintenanceWindow: {day: 2, hour: 18}, dataDiskSizeGb: '15', dataDiskType: PD_SSD, ipConfiguration: {requireSsl: true, authorizedNetworks: []}, storageAutoResize: true, storageAutoResizeLimit: 150}
       actions:
         - {name: execute-script, description: 'Execute ''my-script'' SQL scripts', args: [execute_scripts, my-script]}
